@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#050B18"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pengguna Tidak Diizinkan"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txtUnauthorizedClientsSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="#101820"
+        android:padding="12dp"
+        android:textColor="#FFD54F"
+        android:textSize="14sp" />
+
+    <TextView
+        android:id="@+id/txtUnauthorizedClientsHint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:background="#101820"
+        android:padding="12dp"
+        android:textColor="#E8F1F8"
+        android:textSize="14sp" />
+
+    <Button
+        android:id="@+id/btnUnauthorizedClientsOpenSettings"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="BUKA DAFTAR BLOKIR HOTSPOT" />
+
+    <Button
+        android:id="@+id/btnUnauthorizedClientsScanNow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="SCAN SEKARANG" />
+
+    <TextView
+        android:id="@+id/txtUnauthorizedClientsEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="#101820"
+        android:padding="12dp"
+        android:text="Tidak ada perangkat tidak diizinkan."
+        android:textColor="#B6C8D8"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvUnauthorizedClients"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="12dp"
+        android:layout_weight="1" />
+
+</LinearLayout>

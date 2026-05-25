@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#050B18"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/provider_settings_title"
+            android:textColor="#FFFFFF"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/provider_settings_subtitle"
+            android:textColor="#B6C8D8"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/txtSharingStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="#101820"
+            android:padding="12dp"
+            android:textColor="#9FE870"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtSharingSummary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="#101820"
+            android:padding="12dp"
+            android:textColor="#E8F1F8"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/txtHotspotClientSummary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="#101820"
+            android:padding="12dp"
+            android:textColor="#FFD54F"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/txtProviderNetworkStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="#101820"
+            android:padding="12dp"
+            android:textColor="#9FE870"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtPasswordRotationSuggestion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="#101820"
+            android:padding="12dp"
+            android:textColor="#FFD54F"
+            android:textSize="14sp" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchSharingConsent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/provider_settings_consent"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp" />
+
+        <EditText
+            android:id="@+id/edtSharingSsid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:autofillHints="username"
+            android:background="#101820"
+            android:hint="@string/provider_settings_ssid_hint"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7E97AB" />
+
+        <EditText
+            android:id="@+id/edtSharingPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:autofillHints="password"
+            android:background="#101820"
+            android:hint="@string/provider_settings_password_hint"
+            android:inputType="textPassword"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7E97AB" />
+
+        <Button
+            android:id="@+id/btnSaveSharingProfile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="@string/provider_settings_save" />
+
+        <Button
+            android:id="@+id/btnOpenHotspotSettings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/provider_settings_open_hotspot" />
+
+        <Button
+            android:id="@+id/btnOpenHotspotBlocklistAssistant"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/hotspot_blocklist_open_assistant" />
+
+        <Button
+            android:id="@+id/btnManualHotspotScan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="SCAN SEKARANG" />
+
+        <Button
+            android:id="@+id/btnOpenCommunitySessions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/provider_settings_open_sessions" />
+
+        <Button
+            android:id="@+id/btnGenerateHotspotPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/provider_settings_generate_password" />
+
+    </LinearLayout>
+</ScrollView>

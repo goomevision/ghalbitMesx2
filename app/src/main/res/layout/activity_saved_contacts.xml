@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#050B18">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/saved_contacts_title"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/saved_contacts_subtitle"
+        android:textColor="#B6C8D8"
+        android:textSize="14sp" />
+
+    <EditText
+        android:id="@+id/edtSearchSavedContacts"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:background="#0E1828"
+        android:hint="@string/saved_contacts_search_hint"
+        android:paddingLeft="12dp"
+        android:paddingTop="10dp"
+        android:paddingRight="12dp"
+        android:paddingBottom="10dp"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#8EA3B8"
+        android:singleLine="true" />
+
+    <Button
+        android:id="@+id/btnAddInternetContact"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/saved_contacts_add_internet_contact" />
+
+    <HorizontalScrollView
+        android:id="@+id/groupFilterScroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/layoutGroupFilters"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
+
+    <Button
+        android:id="@+id/btnGroupTemplate"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="@string/saved_contacts_broadcast_choose_template"
+        android:visibility="gone" />
+
+    <EditText
+        android:id="@+id/edtGroupBroadcastMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="#0E1828"
+        android:gravity="top|start"
+        android:hint="@string/saved_contacts_broadcast_hint"
+        android:inputType="textMultiLine|textCapSentences"
+        android:minLines="3"
+        android:paddingLeft="12dp"
+        android:paddingTop="10dp"
+        android:paddingRight="12dp"
+        android:paddingBottom="10dp"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#8EA3B8"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/btnGroupBroadcast"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/saved_contacts_broadcast_send_new"
+        android:visibility="gone" />
+
+    <Button
+        android:id="@+id/btnGroupBroadcastHistory"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="@string/saved_contacts_broadcast_history"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/tvSavedContactsEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:text="@string/saved_contacts_empty"
+        android:textColor="#E8F1F8"
+        android:textSize="16sp"
+        android:padding="8dp" />
+
+    <ListView
+        android:id="@+id/listSavedContacts"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginTop="8dp"
+        android:divider="#050B18"
+        android:dividerHeight="10dp" />
+
+</LinearLayout>

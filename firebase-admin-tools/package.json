@@ -1,0 +1,27 @@
+{
+  "name": "ghalbit-firebase-admin-tools",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local admin helpers for Firebase control plane setup",
+  "main": "set-policies.js",
+  "scripts": {
+    "set-policies": "node set-policies.js",
+    "seed-control-plane": "node seed-control-plane.js",
+    "check": "node check.js",
+    "show-policies": "node show-policies.js",
+    "rebuild-network-state": "node rebuild-network-state.js",
+    "show-network-state": "node show-network-state.js",
+    "bootstrap-peers": "node get-bootstrap-peers.js",
+    "set-trust-score": "node set-trust-score.js",
+    "report-abuse": "node report-abuse.js",
+    "capture-recovery": "node capture-recovery.js",
+    "top-up-wallet": "node top-up-wallet.js",
+    "show-wallet": "node show-wallet.js",
+    "set-peer-policy": "node set-peer-policy.js",
+    "block-user": "node set-peer-policy.js --tier BLOCKED",
+    "unblock-user": "node set-peer-policy.js --tier STANDARD"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}

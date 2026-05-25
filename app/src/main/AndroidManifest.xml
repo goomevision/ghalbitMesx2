@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- INTERNET -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- NETWORK -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
+
+    <!-- WIFI -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE"/>
+
+    <!-- LOCATION -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!-- ANDROID 13+ -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- FOREGROUND SERVICE -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+
+    <!-- BLUETOOTH -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30"/>
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30"/>
+
+    <!-- ANDROID 12+ -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"/>
+
+    <!-- POWER -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_ghalbitx_logo"
+        android:label="GHALBIT MESH X2"
+        android:roundIcon="@drawable/ic_ghalbitx_logo"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.GhalbitMeshX2"
+        android:usesCleartextTraffic="true">
+
+        <activity android:name=".monitor.NetworkActivity" android:exported="false" />
+        <activity android:name=".debug.DebugActivity" android:exported="false" />
+        <activity android:name=".MainActivity"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+
+                <category
+                    android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+
+        </activity>
+
+        <activity
+            android:name=".chat.ContactListActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".chat.SavedContactsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".chat.RemoteModeActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".economy.MeshEconomyActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".economy.MeshEconomyLedgerActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".economy.MeshEconomyRateTableActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".economy.PeerRankingActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".vpn.UsageHistoryActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".token.WalletActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".token.VoucherSheetActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".chat.RemoteContactInfoActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".chat.ChatActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".chat.NodeInfoActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".settings.OnboardingActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".settings.HotspotVerificationActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".settings.NotificationSettingsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".settings.ChatMediaSettingsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".settings.InternetSharingSettingsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".settings.HotspotBlocklistAssistantActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".settings.UnauthorizedClientsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".access.CommunitySessionActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".settings.SystemSettingsActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".chat.ImageViewerActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".call.CallSessionActivity"
+            android:exported="false" />
+
+        <receiver
+            android:name=".core.utils.ChatReplyReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".core.utils.ChatMarkReadReceiver"
+            android:exported="false" />
+
+        <service
+            android:name=".service.MeshForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice|dataSync" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <service
+            android:name=".service.MeshVpnService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+
+        </service>
+
+    </application>
+
+</manifest>

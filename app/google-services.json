@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "691335635787",
+    "project_id": "maritime-link-aceh",
+    "storage_bucket": "maritime-link-aceh.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:691335635787:android:205be5db92a413879e7ece",
+        "android_client_info": {
+          "package_name": "com.ghalbitnet.meshx2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDuU9__ESfANKdRxsnEo2tJqUh6zAsn3Xk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="wrap_content"
+    android:orientation="vertical" android:paddingLeft="8dp"
+    android:paddingRight="64dp" android:paddingTop="4dp" android:paddingBottom="4dp">
+    <TextView
+        android:id="@+id/tvDayHeader"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="6dp"
+        android:background="#1A2638"
+        android:paddingLeft="10dp"
+        android:paddingTop="4dp"
+        android:paddingRight="10dp"
+        android:paddingBottom="4dp"
+        android:textColor="#E8F1F8"
+        android:textSize="11sp"
+        android:visibility="gone" />
+    <TextView android:id="@+id/tvSenderName"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textColor="#075E54" android:textSize="12sp" android:textStyle="bold"
+        android:paddingLeft="8dp" android:paddingBottom="2dp"/>
+    <LinearLayout
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:background="@drawable/bg_received_message" android:orientation="vertical"
+        android:padding="8dp">
+        <TextView
+            android:id="@+id/tvMessageTag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="6dp"
+            android:background="#E8F1F8"
+            android:paddingLeft="8dp"
+            android:paddingTop="3dp"
+            android:paddingRight="8dp"
+            android:paddingBottom="3dp"
+            android:textColor="#1A3558"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+        <ImageView
+            android:id="@+id/ivMessageImage"
+            android:layout_width="220dp"
+            android:layout_height="160dp"
+            android:layout_marginBottom="6dp"
+            android:adjustViewBounds="true"
+            android:scaleType="centerCrop"
+            android:visibility="gone" />
+        <TextView android:id="@+id/tvMessageContent"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textColor="#000000" android:textSize="15sp" android:maxWidth="240dp"
+            android:lineSpacingExtra="2dp"/>
+        <TextView android:id="@+id/tvMessageTime"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:textColor="#666666" android:textSize="11sp" android:layout_marginTop="4dp"/>
+    </LinearLayout>
+</LinearLayout>

@@ -1,0 +1,18 @@
+firebase-admin-key.json
+firebase-admin-key*.json
+google-services*.backup.json
+firebase-admin-tools/node_modules/
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+
+# APK/output
+*.apk
+*.aab
+
+# Backup sementara
+*.bak*
+codex_backup_*/

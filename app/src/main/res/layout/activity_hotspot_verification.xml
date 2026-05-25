@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#050B18"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/hotspot_verification_title"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/hotspot_verification_subtitle"
+            android:textColor="#B6C8D8"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/txtHotspotVerificationSummary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/txtHotspotVerificationHint"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textColor="#F4C36A"
+            android:textSize="14sp" />
+
+        <EditText
+            android:id="@+id/edtHotspotVerificationSsid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="#101820"
+            android:hint="@string/provider_settings_ssid_hint"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7E97AB" />
+
+        <EditText
+            android:id="@+id/edtHotspotVerificationPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="#101820"
+            android:hint="@string/provider_settings_password_hint"
+            android:inputType="textPassword"
+            android:padding="12dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#7E97AB" />
+
+        <TextView
+            android:id="@+id/txtHotspotVerificationQrStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:textColor="#F4C36A"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/btnHotspotVerificationUploadQr"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/hotspot_qr_upload" />
+
+        <Button
+            android:id="@+id/btnHotspotVerificationSettings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="@string/provider_settings_open_hotspot" />
+
+        <Button
+            android:id="@+id/btnHotspotVerificationContinue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="@string/hotspot_verification_continue" />
+
+    </LinearLayout>
+</ScrollView>
