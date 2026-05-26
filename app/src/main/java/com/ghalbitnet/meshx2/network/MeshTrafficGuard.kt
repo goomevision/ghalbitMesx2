@@ -19,13 +19,16 @@ object MeshTrafficGuard {
     private const val MAX_ACK_PACKETS = 160
     private const val MAX_AUDIO_STATUS_PACKETS = 120
     private const val MAX_CALL_SIGNAL_PACKETS = 40
+    private const val MAX_ROUTE_PROBE_PACKETS = 120
     private const val MAX_FILE_CHUNKS = 45
 
     private val allowedPacketTypes =
         setOf(
             "CHAT", "ACK", "SOS", "FILE_CHUNK", "DATA",
             "AUDIO_RECEIVED", "AUDIO_PLAYED",
-            "CALL_INVITE", "CALL_ACCEPT", "CALL_REJECT", "CALL_END", "CALL_BUSY"
+            "CALL_INVITE", "CALL_ACCEPT", "CALL_REJECT", "CALL_END", "CALL_BUSY",
+            "ROUTE_CHECK", "ROUTE_ACK",
+            "VOICE_PROBE", "VOICE_ACK", "VOICE_STREAM_START", "VOICE_STREAM_END"
         )
 
     private val blockedExtensions =
@@ -122,6 +125,7 @@ object MeshTrafficGuard {
                 "ACK" -> MAX_ACK_PACKETS
                 "AUDIO_RECEIVED", "AUDIO_PLAYED" -> MAX_AUDIO_STATUS_PACKETS
                 "CALL_INVITE", "CALL_ACCEPT", "CALL_REJECT", "CALL_END", "CALL_BUSY" -> MAX_CALL_SIGNAL_PACKETS
+                "ROUTE_CHECK", "ROUTE_ACK", "VOICE_PROBE", "VOICE_ACK", "VOICE_STREAM_START", "VOICE_STREAM_END" -> MAX_ROUTE_PROBE_PACKETS
                 else -> MAX_GENERAL_PACKETS
             }
 
