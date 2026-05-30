@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.util.Log
 import com.ghalbitnet.meshx2.BuildConfig
+import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
 import com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager
 import com.ghalbitnet.meshx2.security.NodeSigningIdentityManager
 import com.ghalbitnet.meshx2.util.LogThrottle
@@ -116,6 +117,7 @@ object OnlinePresenceManager : PresenceApi {
                     lastSeen = presenceJson?.optLong("lastSeen") ?: System.currentTimeMillis()
                 )
             cachePresence(context, presence)
+            triggerPendingRetryForOnlinePeer(context, presence)
             Log.d("GHALBIT-PRESENCE-CLIENT", "peer online globalId=$targetGlobalId")
             presence
         } else {
@@ -189,9 +191,11 @@ object OnlinePresenceManager : PresenceApi {
     }
 
     fun applyRealtimePresence(context: Context, presence: OnlinePresence) {
-        cachePresence(context.applicationContext, presence)
+        val appContext = context.applicationContext
+        cachePresence(appContext, presence)
         if (presence.online) {
             Log.d("GHALBIT-PRESENCE-CLIENT", "peer online globalId=${presence.globalId}")
+            triggerPendingRetryForOnlinePeer(appContext, presence)
         } else {
             Log.d("GHALBIT-PRESENCE-CLIENT", "peer offline globalId=${presence.globalId}")
         }
@@ -215,6 +219,33 @@ object OnlinePresenceManager : PresenceApi {
         val publicKeyHash = MeshRuntimeManager.localPublicKeyHash()
         if (globalId.isBlank() || nodeId.isBlank()) return
         registerOnline(context, nodeId, globalId, publicKeyHash)
+    }
+
+    private fun triggerPendingRetryForOnlinePeer(context: Context, presence: OnlinePresence) {
+        val now = System.currentTimeMillis()
+        val targets = PendingMessageStore.all(context)
+            .filter { pending ->
+                pending.targetGlobalId == presence.globalId ||
+                    pending.targetNodeId == presence.nodeId ||
+                    pending.chatId == presence.nodeId
+            }
+            .filter { pending -> pending.expiresAt <= 0L || now <= pending.expiresAt }
+        if (targets.isEmpty()) return
+        val chatIds = targets.map { it.chatId }.distinct()
+        targets.forEach { pending ->
+            PendingMessageStore.upsert(
+                context,
+                pending.copy(
+                    nextRetryAt = now,
+                    lastFailureReason = "peerOnlineRetry"
+                )
+            )
+        }
+        Log.d(
+            "GHALBIT-DELIVERY-PENDING",
+            "peerOnlineRetry globalId=${presence.globalId} nodeId=${presence.nodeId} count=${targets.size} chats=${chatIds.joinToString(",")}" 
+        )
+        chatIds.forEach { chatId -> ChatDeliveryManager.retryPendingForChat(context, chatId) }
     }
 
     private fun configuredRoute(globalId: String): InternetRoute? {
