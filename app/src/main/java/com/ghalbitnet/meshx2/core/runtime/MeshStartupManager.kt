@@ -147,6 +147,12 @@ object MeshStartupManager {
                 MeshRuntimeState.heartbeat()
             } catch (_: Exception) {
             }
+
+            try {
+                MeshSocketServer.ensureRunning("healthCheck")
+            } catch (error: Exception) {
+                Log.e("GHALBIT-TCP-LISTENER", "healthCheck failed", error)
+            }
         }
     }
 
@@ -165,4 +171,3 @@ object MeshStartupManager {
         }
     }
 }
-
