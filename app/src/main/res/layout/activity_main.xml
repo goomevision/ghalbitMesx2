@@ -10,13 +10,17 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:overScrollMode="never">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="14dp">
+            android:paddingStart="14dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="16dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -30,14 +34,14 @@
                     android:layout_height="wrap_content"
                     android:text="GHALBITNET"
                     android:textColor="#F5FBFF"
-                    android:textSize="28sp"
+                    android:textSize="29sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:text="Komunikasi komunitas • Mesh • Relay • Aman"
+                    android:layout_marginTop="3dp"
+                    android:text="Pusat komunikasi komunitas yang tetap hidup"
                     android:textColor="#A9C7D9"
                     android:textSize="12sp" />
 
@@ -50,7 +54,7 @@
 
                     <LinearLayout
                         android:layout_width="0dp"
-                        android:layout_height="86dp"
+                        android:layout_height="88dp"
                         android:layout_marginEnd="6dp"
                         android:layout_weight="1"
                         android:background="@drawable/bg_ghalbit_card"
@@ -60,24 +64,36 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Status"
+                            android:text="STATUS"
                             android:textColor="#8EA7BD"
                             android:textSize="10sp" />
 
                         <TextView
                             android:id="@+id/txtStatus"
-                            android:layout_width="wrap_content"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="5dp"
+                            android:layout_marginTop="6dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
                             android:text="OFFLINE"
                             android:textColor="#31D07E"
                             android:textSize="18sp"
                             android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="Jaringan aktif"
+                            android:textColor="#A9C7D9"
+                            android:textSize="10sp" />
                     </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
-                        android:layout_height="86dp"
+                        android:layout_height="88dp"
                         android:layout_marginStart="6dp"
                         android:layout_weight="1"
                         android:background="@drawable/bg_ghalbit_card"
@@ -87,19 +103,31 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="Mode"
+                            android:text="MODE"
                             android:textColor="#8EA7BD"
                             android:textSize="10sp" />
 
                         <TextView
                             android:id="@+id/txtHybridStatus"
-                            android:layout_width="wrap_content"
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="5dp"
+                            android:layout_marginTop="6dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
                             android:text="Belum aktif"
                             android:textColor="#9FE870"
                             android:textSize="16sp"
                             android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:ellipsize="end"
+                            android:maxLines="1"
+                            android:text="Mesh + relay"
+                            android:textColor="#A9C7D9"
+                            android:textSize="10sp" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -111,8 +139,9 @@
                     android:background="@drawable/bg_ghalbit_card"
                     android:ellipsize="end"
                     android:maxLines="2"
+                    android:minLines="1"
                     android:padding="12dp"
-                    android:text="Jalur aktif: menunggu koneksi"
+                    android:text="Menunggu koneksi jaringan..."
                     android:textColor="#B6C8D8"
                     android:textSize="12sp" />
 
@@ -125,10 +154,19 @@
                     android:visibility="gone" />
             </LinearLayout>
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="Kondisi Sekarang"
+                android:textColor="#F5FBFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="9dp"
                 android:orientation="horizontal"
                 android:weightSum="3">
 
@@ -150,9 +188,11 @@
 
                     <TextView
                         android:id="@+id/txtConnectionScope"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="5dp"
+                        android:ellipsize="end"
+                        android:maxLines="2"
                         android:text="OFFLINE"
                         android:textColor="#7FE7FF"
                         android:textSize="14sp"
@@ -205,9 +245,11 @@
 
                     <TextView
                         android:id="@+id/txtBalance"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="5dp"
+                        android:ellipsize="end"
+                        android:maxLines="2"
                         android:text="0.00"
                         android:textColor="#FFD700"
                         android:textSize="16sp"
@@ -218,13 +260,13 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="10dp"
                 android:orientation="horizontal"
                 android:weightSum="2">
 
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="76dp"
+                    android:layout_height="72dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_ghalbit_card"
@@ -245,14 +287,14 @@
                         android:layout_marginTop="5dp"
                         android:text="--"
                         android:textColor="#FFD54F"
-                        android:textSize="21sp"
+                        android:textSize="20sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <TextView
                     android:id="@+id/txtGlobalIdentity"
                     android:layout_width="0dp"
-                    android:layout_height="76dp"
+                    android:layout_height="72dp"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_ghalbit_card"
@@ -268,11 +310,20 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:text="Aksi Jaringan"
+                android:layout_marginTop="16dp"
+                android:text="Kontrol Utama"
                 android:textColor="#F5FBFF"
-                android:textSize="16sp"
+                android:textSize="15sp"
                 android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnMesh"
+                android:layout_width="match_parent"
+                android:layout_height="54dp"
+                android:layout_marginTop="9dp"
+                android:text="Aktifkan Mesh"
+                android:textAllCaps="false"
+                android:textSize="15sp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -284,7 +335,7 @@
                 <Button
                     android:id="@+id/btnNetwork"
                     android:layout_width="0dp"
-                    android:layout_height="60dp"
+                    android:layout_height="58dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
                     android:text="Network\nJaringan"
@@ -294,22 +345,13 @@
                 <Button
                     android:id="@+id/btnMint"
                     android:layout_width="0dp"
-                    android:layout_height="60dp"
+                    android:layout_height="58dp"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
                     android:text="Wallet\nGHBT"
                     android:textAllCaps="false"
                     android:textSize="12sp" />
             </LinearLayout>
-
-            <Button
-                android:id="@+id/btnMesh"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="12dp"
-                android:text="Aktifkan Mesh"
-                android:textAllCaps="false"
-                android:textSize="15sp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -331,15 +373,24 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="Komunikasi terenkripsi untuk mesh lokal, relay internet, dan kondisi darurat."
+                    android:text="Chat, panggilan, SOS, dan kartu nama berjalan melalui mesh lokal atau relay internet."
                     android:textColor="#B6C8D8"
                     android:textSize="12sp" />
             </LinearLayout>
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Layanan Lanjutan"
+                android:textColor="#F5FBFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="9dp"
                 android:background="@drawable/bg_ghalbit_card"
                 android:orientation="vertical"
                 android:padding="10dp">
