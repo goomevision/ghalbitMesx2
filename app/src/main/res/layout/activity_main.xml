@@ -17,121 +17,369 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:padding="16dp">
-        <TextView android:text="GHALBITMES X2" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:textColor="#F5FBFF"
-            android:textSize="28sp" android:textStyle="bold"
-            android:background="@drawable/bg_ghalbit_hero"
-            android:padding="16dp"/>
-        <TextView android:text="STATUS" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:textColor="#FFFFFF" android:paddingTop="16dp"/>
-        <TextView android:id="@+id/txtStatus" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="OFFLINE"
-            android:textColor="#00FF88" android:textSize="20sp"/>
-        <ProgressBar
-            android:id="@+id/progressMain"
-            style="?android:attr/progressBarStyleSmall"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:visibility="gone" />
-        <TextView
-            android:id="@+id/txtUserMessage"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_ghalbit_card"
-            android:minLines="2"
-            android:gravity="center_vertical"
-            android:text="@string/app_ready_message"
-            android:textColor="#B6C8D8"
-            android:textSize="14sp"
-            android:padding="12dp"
-            android:layout_marginTop="8dp" />
-        <TextView android:text="KONEKSI" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:textColor="#FFFFFF" android:paddingTop="10dp"/>
-        <TextView android:id="@+id/txtConnectionScope" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="OFFLINE"
-            android:textColor="#7FE7FF" android:textSize="18sp"
-            android:background="@drawable/bg_ghalbit_card"
-            android:padding="10dp"/>
-        <TextView android:text="MODE HYBRID" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:textColor="#FFFFFF" android:paddingTop="10dp"/>
-        <TextView android:id="@+id/txtHybridStatus" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="Belum aktif"
-            android:textColor="#9FE870" android:textSize="18sp"
-            android:background="@drawable/bg_ghalbit_card"
-            android:padding="10dp"/>
-        <TextView android:text="ID GLOBAL" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:textColor="#FFFFFF" android:paddingTop="10dp"/>
-        <TextView android:id="@+id/txtGlobalIdentity" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="GX-UNKNOWN"
-            android:textColor="#FFD54F" android:textSize="16sp"
-            android:background="@drawable/bg_ghalbit_card"
-            android:padding="10dp"/>
-        <TextView android:text="CONNECTED NODES" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:textColor="#FFFFFF" android:paddingTop="10dp"/>
-        <TextView android:id="@+id/txtNodes" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="0"
-            android:textColor="#00D9FF" android:textSize="20sp"
-            android:background="@drawable/bg_ghalbit_card"
-            android:padding="10dp"/>
-        <TextView android:text="PING" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:textColor="#FFFFFF" android:paddingTop="10dp"/>
-        <TextView android:id="@+id/txtPing" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="--"
-            android:textColor="#FFD54F" android:textSize="20sp"
-            android:background="@drawable/bg_ghalbit_card"
-            android:padding="10dp"/>
-        <TextView android:text="BALANCE" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:textColor="#FFFFFF" android:paddingTop="10dp"/>
-        <TextView android:id="@+id/txtBalance" android:layout_width="wrap_content"
-            android:layout_height="wrap_content" android:text="0.00 GHBT"
-            android:textColor="#FFD700" android:textSize="20sp"
-            android:background="@drawable/bg_ghalbit_card"
-            android:padding="10dp"/>
-        <Button android:id="@+id/btnMesh" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="AKTIFKAN MESH"
-            android:layout_marginTop="20dp"/>
-        <Button android:id="@+id/btnChat" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="CHAT"
-            android:layout_marginTop="10dp"/>
-        <Button android:id="@+id/btnSavedContacts" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="@string/saved_contacts_short"
-            android:layout_marginTop="10dp"/>
-        <Button android:id="@+id/btnMyProfile" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="KARTU NAMA SAYA"
-            android:layout_marginTop="10dp"/>
-        <Button android:id="@+id/btnRemoteMode" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="@string/remote_mode_short"
-            android:layout_marginTop="10dp"/>
-        <Button android:id="@+id/btnNetwork" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="NETWORK MAP"
-            android:layout_marginTop="10dp"/>
-        <Button android:id="@+id/btnRuntimeDashboard" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="@string/runtime_dashboard_short"
-            android:layout_marginTop="10dp"/>
-        <Button android:id="@+id/btnNotifications" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="@string/notification_settings_short"
-            android:layout_marginTop="10dp"/>
-        <Button android:id="@+id/btnMediaSettings" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="@string/chat_media_settings_short"
-            android:layout_marginTop="10dp"/>
-        <Button android:id="@+id/btnSOS" android:layout_width="match_parent"
-            android:layout_height="wrap_content" android:text="SOS"
-            android:layout_marginTop="10dp"/>
-        <Button
-    android:id="@+id/btnMint"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:text="@string/service_economy_short"
-    android:layout_marginTop="10dp"/>
 
-        <Button
-            android:id="@+id/btnDebug"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="@string/debug_panel" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_ghalbit_hero"
+                android:orientation="vertical"
+                android:padding="18dp">
 
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="GHALBITNET"
+                    android:textColor="#F5FBFF"
+                    android:textSize="30sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Community Communication Network"
+                    android:textColor="#A9C7D9"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/txtStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:background="@drawable/bg_ghalbit_card"
+                    android:paddingStart="12dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="8dp"
+                    android:text="OFFLINE"
+                    android:textColor="#31D07E"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <ProgressBar
+                    android:id="@+id/progressMain"
+                    style="?android:attr/progressBarStyleSmall"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/txtUserMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_ghalbit_card"
+                    android:gravity="center_vertical"
+                    android:minLines="2"
+                    android:padding="12dp"
+                    android:text="@string/app_ready_message"
+                    android:textColor="#B6C8D8"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="horizontal"
+                android:weightSum="2">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_ghalbit_card"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Koneksi"
+                        android:textColor="#8EA7BD"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/txtConnectionScope"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="OFFLINE"
+                        android:textColor="#7FE7FF"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_ghalbit_card"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Mode"
+                        android:textColor="#8EA7BD"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/txtHybridStatus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="Belum aktif"
+                        android:textColor="#9FE870"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal"
+                android:weightSum="3">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="5dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_ghalbit_card"
+                    android:orientation="vertical"
+                    android:padding="10dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Node"
+                        android:textColor="#8EA7BD"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/txtNodes"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="0"
+                        android:textColor="#00D9FF"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="5dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_ghalbit_card"
+                    android:orientation="vertical"
+                    android:padding="10dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Ping"
+                        android:textColor="#8EA7BD"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/txtPing"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="--"
+                        android:textColor="#FFD54F"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_ghalbit_card"
+                    android:orientation="vertical"
+                    android:padding="10dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="GHBT"
+                        android:textColor="#8EA7BD"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/txtBalance"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="0.00"
+                        android:textColor="#FFD700"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:text="Identitas jaringan"
+                android:textColor="#8EA7BD"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/txtGlobalIdentity"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_ghalbit_card"
+                android:ellipsize="middle"
+                android:maxLines="1"
+                android:padding="12dp"
+                android:text="GX-UNKNOWN"
+                android:textColor="#FFD54F"
+                android:textSize="15sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="Aksi utama"
+                android:textColor="#F5FBFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal"
+                android:weightSum="2">
+
+                <Button
+                    android:id="@+id/btnChat"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:text="CHAT" />
+
+                <Button
+                    android:id="@+id/btnSOS"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:text="SOS" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal"
+                android:weightSum="2">
+
+                <Button
+                    android:id="@+id/btnNetwork"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:text="NETWORK" />
+
+                <Button
+                    android:id="@+id/btnMint"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:text="WALLET" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btnMesh"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="12dp"
+                android:text="AKTIFKAN MESH" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="Layanan"
+                android:textColor="#F5FBFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical"
+                android:background="@drawable/bg_ghalbit_card"
+                android:padding="10dp">
+
+                <Button
+                    android:id="@+id/btnSavedContacts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/saved_contacts_short" />
+
+                <Button
+                    android:id="@+id/btnMyProfile"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="KARTU NAMA SAYA" />
+
+                <Button
+                    android:id="@+id/btnRemoteMode"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/remote_mode_short" />
+
+                <Button
+                    android:id="@+id/btnRuntimeDashboard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/runtime_dashboard_short" />
+
+                <Button
+                    android:id="@+id/btnNotifications"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/notification_settings_short" />
+
+                <Button
+                    android:id="@+id/btnMediaSettings"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/chat_media_settings_short" />
+
+                <Button
+                    android:id="@+id/btnDebug"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/debug_panel" />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
@@ -148,13 +396,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="SYSTEM LOG"
-            android:textColor="#FFFFFF"
+            android:textColor="#8EA7BD"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <androidx.core.widget.NestedScrollView
             android:id="@+id/logScroll"
             android:layout_width="match_parent"
-            android:layout_height="160dp"
+            android:layout_height="112dp"
             android:layout_marginTop="8dp"
             android:background="@drawable/bg_ghalbit_log"
             android:fillViewport="true"
@@ -166,11 +415,9 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
                 android:padding="10dp"
-                android:text="GHALBITX2 READY..."
+                android:text="GHALBITNET READY..."
                 android:textColor="#00FF88"
-                android:textSize="14sp" />
-
+                android:textSize="12sp" />
         </androidx.core.widget.NestedScrollView>
     </LinearLayout>
-
 </LinearLayout>
