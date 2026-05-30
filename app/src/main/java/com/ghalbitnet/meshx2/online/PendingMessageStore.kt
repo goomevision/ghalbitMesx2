@@ -93,13 +93,14 @@ object PendingMessageStore {
     }
 
     fun cleanupExpired(context: Context): Int = blocking(context) { dao ->
-        val removed = dao.deleteExpiredMessages(System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        val expired = dao.allMessages().count { it.expiresAt > 0L && now > it.expiresAt }
         dao.cleanupOrphanMedia()
         dao.cleanupOrphanSchedules()
-        if (removed > 0) {
-            Log.d("GHALBIT-PENDING", "expired cleanup removed=$removed")
+        if (expired > 0) {
+            Log.d("GHALBIT-DELIVERY-PENDING", "expiredFailed candidates=$expired preserveForFinalState=true")
         }
-        removed
+        expired
     }
 
     private fun <T> blocking(context: Context, block: (PendingMessageDao) -> T): T {
@@ -261,11 +262,9 @@ object PendingMessageStore {
     private fun parseUploadedChunks(raw: String?): Set<Int> {
         if (raw.isNullOrBlank()) return emptySet()
         return runCatching {
-            val array = JSONArray(raw)
+            val arr = JSONArray(raw)
             buildSet {
-                for (i in 0 until array.length()) {
-                    add(array.optInt(i))
-                }
+                for (i in 0 until arr.length()) add(arr.optInt(i))
             }
         }.getOrDefault(emptySet())
     }
