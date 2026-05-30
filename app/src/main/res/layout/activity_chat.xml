@@ -6,48 +6,103 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_ghalbit_screen"
-    android:orientation="vertical"
-    android:padding="12dp">
+    android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@drawable/bg_ghalbit_hero"
-        android:orientation="vertical"
-        android:padding="14dp">
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="10dp">
 
         <TextView
-            android:id="@+id/txtChatHeader"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/chat_ready"
+            android:id="@+id/txtChatBackVisual"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:text="‹"
             android:textColor="#F5FBFF"
-            android:textSize="18sp"
+            android:textSize="34sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/txtChatStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:text="@string/chat_idle"
-            android:textColor="#BFD3E6"
-            android:textSize="13sp" />
+            android:id="@+id/txtChatAvatarVisual"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="4dp"
+            android:background="@drawable/bg_name_card_badge"
+            android:gravity="center"
+            android:text="GN"
+            android:textColor="#F5FBFF"
+            android:textSize="15sp"
+            android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/txtRouteHealthStatus"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/bg_ghalbit_card"
-            android:paddingStart="10dp"
-            android:paddingTop="6dp"
-            android:paddingEnd="10dp"
-            android:paddingBottom="6dp"
-            android:text="@string/chat_route_status_default"
-            android:textColor="#55D6A3"
-            android:textSize="12sp" />
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/txtChatHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Chat GhalbitNet"
+                android:textColor="#F5FBFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/txtChatStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Online / pending • jalur siap"
+                android:textColor="#8EE3BE"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnCall"
+            android:layout_width="54dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="6dp"
+            android:text="☎"
+            android:textSize="18sp" />
+
+        <Button
+            android:id="@+id/btnRetryFailed"
+            android:layout_width="54dp"
+            android:layout_height="42dp"
+            android:layout_marginStart="6dp"
+            android:text="↻"
+            android:textSize="18sp" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtRouteHealthStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="12dp"
+        android:background="@drawable/bg_ghalbit_card"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="8dp"
+        android:text="🔒 Pesan terenkripsi • menunggu status jalur"
+        android:textColor="#BFD3E6"
+        android:textSize="12sp" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvMessages"
@@ -55,14 +110,18 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:clipToPadding="false"
+        android:paddingStart="8dp"
         android:paddingTop="10dp"
+        android:paddingEnd="8dp"
         android:paddingBottom="10dp" />
 
     <LinearLayout
         android:id="@+id/reviewPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
         android:layout_marginTop="6dp"
+        android:layout_marginEnd="10dp"
         android:background="@drawable/bg_ghalbit_card"
         android:orientation="vertical"
         android:visibility="gone">
@@ -156,7 +215,7 @@
                     android:layout_height="46dp"
                     android:layout_marginEnd="4dp"
                     android:layout_weight="1"
-                    android:text="KIRIM" />
+                    android:text="Kirim" />
 
                 <Button
                     android:id="@+id/btnReviewCancel"
@@ -164,7 +223,7 @@
                     android:layout_height="46dp"
                     android:layout_marginStart="4dp"
                     android:layout_weight="1"
-                    android:text="BATAL" />
+                    android:text="Batal" />
             </LinearLayout>
 
             <LinearLayout
@@ -180,7 +239,7 @@
                     android:layout_height="42dp"
                     android:layout_marginEnd="4dp"
                     android:layout_weight="1"
-                    android:text="EDIT" />
+                    android:text="Edit caption" />
 
                 <Button
                     android:id="@+id/btnReviewReplace"
@@ -188,7 +247,7 @@
                     android:layout_height="42dp"
                     android:layout_marginStart="4dp"
                     android:layout_weight="1"
-                    android:text="GANTI" />
+                    android:text="Ganti file" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>
@@ -197,22 +256,50 @@
         android:id="@+id/composerContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
         android:background="@drawable/bg_ghalbit_card"
         android:orientation="vertical"
-        android:padding="10dp">
+        android:padding="8dp">
 
-        <EditText
-            android:id="@+id/edtMessage"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_ghalbit_log"
-            android:hint="@string/type_message"
-            android:inputType="textMultiLine"
-            android:maxLines="4"
-            android:minLines="1"
-            android:padding="12dp"
-            android:textColor="#F5FBFF"
-            android:textColorHint="#88A8C8" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/edtMessage"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Ketik pesan"
+                android:inputType="textMultiLine"
+                android:maxLines="3"
+                android:minLines="1"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <Button
+                android:id="@+id/btnVoice"
+                android:layout_width="52dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="6dp"
+                android:text="🎙"
+                android:textSize="17sp" />
+
+            <Button
+                android:id="@+id/btnSend"
+                android:layout_width="58dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="6dp"
+                android:text="➤"
+                android:textSize="18sp" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -225,68 +312,56 @@
             <Button
                 android:id="@+id/btnAttach"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
+                android:layout_height="44dp"
                 android:layout_marginEnd="4dp"
                 android:layout_weight="1"
-                android:ellipsize="end"
                 android:maxLines="1"
-                android:text="@string/chat_attach_file" />
+                android:text="📎 File"
+                android:textSize="12sp" />
 
             <Button
                 android:id="@+id/btnCamera"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
+                android:layout_height="44dp"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
                 android:layout_weight="1"
-                android:ellipsize="end"
                 android:maxLines="1"
-                android:text="@string/chat_camera" />
+                android:text="📷 Foto"
+                android:textSize="12sp" />
 
             <Button
-                android:id="@+id/btnVoice"
+                android:id="@+id/btnChatLocationVisual"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
+                android:layout_height="44dp"
                 android:layout_marginStart="4dp"
                 android:layout_marginEnd="4dp"
                 android:layout_weight="1"
-                android:ellipsize="end"
+                android:enabled="false"
                 android:maxLines="1"
-                android:text="@string/chat_voice_start" />
+                android:text="📍 Lokasi"
+                android:textSize="12sp" />
 
             <Button
-                android:id="@+id/btnSend"
+                android:id="@+id/btnChatMoreVisual"
                 android:layout_width="0dp"
-                android:layout_height="46dp"
+                android:layout_height="44dp"
                 android:layout_marginStart="4dp"
                 android:layout_weight="1"
-                android:ellipsize="end"
+                android:enabled="false"
                 android:maxLines="1"
-                android:text="@string/send" />
+                android:text="⋯ Lainnya"
+                android:textSize="12sp" />
         </LinearLayout>
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/txtChatActionHint"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:orientation="horizontal"
-            android:weightSum="2">
-
-            <Button
-                android:id="@+id/btnCall"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_marginEnd="4dp"
-                android:layout_weight="1"
-                android:text="@string/chat_call_start" />
-
-            <Button
-                android:id="@+id/btnRetryFailed"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_marginStart="4dp"
-                android:layout_weight="1"
-                android:text="@string/retry_failed" />
-        </LinearLayout>
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:text="☎ panggilan di kanan atas • ↻ kirim ulang pesan gagal"
+            android:textColor="#88A8C8"
+            android:textSize="11sp" />
     </LinearLayout>
 </LinearLayout>
