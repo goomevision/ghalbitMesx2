@@ -55,9 +55,7 @@ class RuntimeLoadingOverlay @JvmOverloads constructor(
         val shouldShow =
             snapshot.state in setOf(
                 RuntimeUiState.PREPARING,
-                RuntimeUiState.CONNECTING,
-                RuntimeUiState.VERIFYING,
-                RuntimeUiState.SYNCING
+                RuntimeUiState.VERIFYING
             )
         val sameState = currentState == snapshot.state
         val sameText = txtTitle.text == snapshot.title && txtDetail.text == snapshot.detail
@@ -100,7 +98,10 @@ class RuntimeLoadingOverlay @JvmOverloads constructor(
             if (visibility != GONE) {
                 clearAnimation()
                 animate().cancel()
-                animate().alpha(0f).setDuration(180L).withEndAction { visibility = GONE }.start()
+                animate().alpha(0f).setDuration(180L).withEndAction {
+                    visibility = GONE
+                    Log.d("GHALBIT-UI-OVERLAY", "dismissed state=${snapshot.state}")
+                }.start()
             }
         }
         currentState = snapshot.state

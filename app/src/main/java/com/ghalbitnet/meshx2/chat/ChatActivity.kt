@@ -2202,6 +2202,9 @@ class ChatActivity : AppCompatActivity() {
                 }
                 txtChatStatus.text = snapshot.detail
                 btnSend.isEnabled = !snapshot.actionsLocked
+                if (btnSend.visibility == View.VISIBLE && btnSend.isEnabled) {
+                    Log.d("GHALBIT-UI-SEND-BUTTON", "visible")
+                }
                 btnCall.isEnabled = !snapshot.actionsLocked
                 btnAttach.isEnabled = !snapshot.actionsLocked
                 btnCamera.isEnabled = !snapshot.actionsLocked

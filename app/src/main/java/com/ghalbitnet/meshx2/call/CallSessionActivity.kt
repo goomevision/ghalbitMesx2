@@ -692,6 +692,7 @@ class CallSessionActivity : AppCompatActivity() {
             if (result == null) {
                 postUi {
                     updateState(CallState.CALL_FAILED, getString(R.string.call_state_failed))
+                    Log.e("GHALBIT-CALL-RUNTIME", "sessionFailed callId=$callId reason=peer_missing")
                     UiFeedbackManager.showToast(this@CallSessionActivity, getString(R.string.call_peer_missing))
                 }
                 return@launch
@@ -711,10 +712,12 @@ class CallSessionActivity : AppCompatActivity() {
         val peer = peerEndpoint ?: return
         callActionInFlight = true
         waitingForRoute = false
+        Log.d("GHALBIT-CALL-RUNTIME", "acceptPressed callId=$callId")
         Log.d("GHALBIT-CALL-ACTION", "accept clicked callId=$callId")
         Log.d("GHALBIT-CALL-ACTION", "ui immediate state=CONNECTING_CALL")
         val clickAt = System.currentTimeMillis()
         CallRingtoneManager.stopIfCall(callId, "accept_clicked")
+        Log.d("GHALBIT-CALL-RUNTIME", "ringtoneStop callId=$callId")
         Log.d("GHALBIT-CALL-RING", "stop before network reason=accept_clicked")
         Log.d("GHALBIT-CALL-RING", "stop on accept")
         updateState(CallState.ACCEPT_CLICKED, "Menghubungkan...")
@@ -1359,6 +1362,12 @@ class CallSessionActivity : AppCompatActivity() {
             }
         callSession?.let { VoiceCallRegistry.updateSession(it) }
         Log.d("GHALBIT-CALL-STATE", "old=$previous new=$state reason=$message")
+        if (state == CallState.ROUTE_READY || state == CallState.VOICE_STREAM_ACTIVE || state == CallState.CONNECTED) {
+            Log.d("GHALBIT-CALL-RUNTIME", "sessionReady callId=$callId state=$state")
+        }
+        if (state == CallState.CALL_FAILED) {
+            Log.e("GHALBIT-CALL-RUNTIME", "sessionFailed callId=$callId reason=$message")
+        }
         if (state == CallState.CALL_CONNECTED_SIGNAL_ONLY) {
             Log.d("GHALBIT-CALL-STATE", "signal-only")
         }
