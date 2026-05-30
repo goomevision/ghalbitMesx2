@@ -6,26 +6,35 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 
 object MeshTrafficGuard {
-    private const val MAX_PACKET_PAYLOAD = 96 * 1024
+    private const val MAX_PACKET_PAYLOAD = 160 * 1024
     private const val MAX_CHAT_PAYLOAD = 12 * 1024
     private const val MAX_SOS_PAYLOAD = 1024
-    private const val MAX_PACKET_ID_LENGTH = 96
-    private const val MAX_PEER_ID_LENGTH = 96
+    private const val MAX_PACKET_ID_LENGTH = 160
+    private const val MAX_PEER_ID_LENGTH = 256
     private const val GENERAL_WINDOW_MS = 60_000L
     private const val FILE_WINDOW_MS = 10_000L
+    private const val VOICE_WINDOW_MS = 10_000L
     private const val MAX_GENERAL_PACKETS = 80
     private const val MAX_CHAT_PACKETS = 30
     private const val MAX_SOS_PACKETS = 6
-    private const val MAX_ACK_PACKETS = 160
-    private const val MAX_AUDIO_STATUS_PACKETS = 120
-    private const val MAX_CALL_SIGNAL_PACKETS = 40
+    private const val MAX_ACK_PACKETS = 180
+    private const val MAX_AUDIO_STATUS_PACKETS = 180
+    private const val MAX_CALL_SIGNAL_PACKETS = 80
+    private const val MAX_VOICE_CONTROL_PACKETS = 180
+    private const val MAX_VOICE_FRAME_PACKETS = 700
     private const val MAX_FILE_CHUNKS = 45
 
     private val allowedPacketTypes =
         setOf(
             "CHAT", "ACK", "SOS", "FILE_CHUNK", "DATA",
             "AUDIO_RECEIVED", "AUDIO_PLAYED",
-            "CALL_INVITE", "CALL_ACCEPT", "CALL_REJECT", "CALL_END", "CALL_BUSY"
+            "CALL_INVITE", "CALL_START", "CALL_ACCEPT", "CALL_REJECT", "CALL_END", "CALL_BUSY",
+            "CALL_AUDIO_FRAME",
+            "VOICE_PROBE", "VOICE_PROBE_ACK",
+            "VOICE_HELLO", "VOICE_HELLO_ACK",
+            "VOICE_TRANSPORT_PROBE", "VOICE_TRANSPORT_ACK",
+            "VOICE_STREAM_START", "VOICE_STREAM_ACTIVE_ACK", "VOICE_HEARTBEAT", "VOICE_STREAM_END",
+            "ROUTE_CHECK", "ROUTE_ACK"
         )
 
     private val blockedExtensions =
@@ -58,7 +67,7 @@ object MeshTrafficGuard {
         val type = packet.type.uppercase(Locale.US)
 
         if (type !in allowedPacketTypes) {
-            return GuardResult(false, "Tipe paket tidak dikenal.")
+            return GuardResult(false, "Tipe paket tidak dikenal: $type")
         }
 
         if (
@@ -113,7 +122,12 @@ object MeshTrafficGuard {
     ): Boolean {
         val now = System.currentTimeMillis()
         val isFile = type == "FILE_CHUNK"
-        val windowMs = if (isFile) FILE_WINDOW_MS else GENERAL_WINDOW_MS
+        val isVoice = type == "CALL_AUDIO_FRAME"
+        val windowMs = when {
+            isFile -> FILE_WINDOW_MS
+            isVoice -> VOICE_WINDOW_MS
+            else -> GENERAL_WINDOW_MS
+        }
         val limit =
             when (type) {
                 "FILE_CHUNK" -> MAX_FILE_CHUNKS
@@ -121,7 +135,11 @@ object MeshTrafficGuard {
                 "SOS" -> MAX_SOS_PACKETS
                 "ACK" -> MAX_ACK_PACKETS
                 "AUDIO_RECEIVED", "AUDIO_PLAYED" -> MAX_AUDIO_STATUS_PACKETS
-                "CALL_INVITE", "CALL_ACCEPT", "CALL_REJECT", "CALL_END", "CALL_BUSY" -> MAX_CALL_SIGNAL_PACKETS
+                "CALL_INVITE", "CALL_START", "CALL_ACCEPT", "CALL_REJECT", "CALL_END", "CALL_BUSY" -> MAX_CALL_SIGNAL_PACKETS
+                "VOICE_PROBE", "VOICE_PROBE_ACK", "VOICE_HELLO", "VOICE_HELLO_ACK",
+                "VOICE_TRANSPORT_PROBE", "VOICE_TRANSPORT_ACK", "VOICE_STREAM_START", "VOICE_STREAM_ACTIVE_ACK",
+                "VOICE_HEARTBEAT", "VOICE_STREAM_END", "ROUTE_CHECK", "ROUTE_ACK" -> MAX_VOICE_CONTROL_PACKETS
+                "CALL_AUDIO_FRAME" -> MAX_VOICE_FRAME_PACKETS
                 else -> MAX_GENERAL_PACKETS
             }
 
