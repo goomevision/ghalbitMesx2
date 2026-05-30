@@ -1,10 +1,12 @@
 package com.ghalbitnet.meshx2.network
 
 import android.util.Log
+import com.ghalbitnet.meshx2.chat.AdaptiveRouteManager
 import com.ghalbitnet.meshx2.economy.ServicePathRecorder
 import com.ghalbitnet.meshx2.economy.UsageSessionRecorder
 import com.ghalbitnet.meshx2.model.MeshPacket
 import com.ghalbitnet.meshx2.model.SecurePacket
+import com.ghalbitnet.meshx2.routing.IntelligentRouteMemory
 import org.json.JSONObject
 import java.io.PrintWriter
 import java.net.InetSocketAddress
@@ -26,8 +28,8 @@ object MeshSocketClient {
 
     fun sendBlocking(host: String, packet: MeshPacket): Boolean {
         var socket: Socket? = null
-
-        return try {
+        var ok = false
+        try {
             socket = Socket()
             socket.connect(InetSocketAddress(host, PORT), TIMEOUT)
 
@@ -48,12 +50,19 @@ object MeshSocketClient {
             writer.println(json.toString())
             writer.flush()
 
-            ServicePathRecorder.recordSend(packet, host)
-            UsageSessionRecorder.recordSend(packet)
-            !writer.checkError()
+            ok = !writer.checkError()
+            if (ok) {
+                ServicePathRecorder.recordSend(packet, host)
+                UsageSessionRecorder.recordSend(packet)
+            }
+            Log.d("GHALBIT-ROUTE-FEEDBACK", "sendResult type=${packet.type} dest=${packet.destination} host=$host ok=$ok")
+            recordRouteFeedback(packet, host, ok)
+            return ok
         } catch (e: Exception) {
             Log.e("GHALBIT", "send failed to $host: ${e.message}")
-            false
+            Log.d("GHALBIT-ROUTE-FEEDBACK", "sendException type=${packet.type} dest=${packet.destination} host=$host reason=${e.message}")
+            recordRouteFeedback(packet, host, success = false)
+            return false
         } finally {
             try {
                 socket?.close()
@@ -101,6 +110,14 @@ object MeshSocketClient {
             } catch (e: Exception) {
                 Log.e("GHALBIT", "sendRaw failed to $host: ${e.message}")
             } finally { try { socket?.close() } catch (_: Exception) {} }
+        }
+    }
+
+    private fun recordRouteFeedback(packet: MeshPacket, host: String, success: Boolean) {
+        val destination = packet.destination.takeIf { it.isNotBlank() && !it.equals("BROADCAST", ignoreCase = true) } ?: return
+        AdaptiveRouteManager.markRouteResult(destination, null, host, success)
+        MeshSocketServer.appContext?.let { context ->
+            IntelligentRouteMemory.markRouteResult(context, destination, host, success)
         }
     }
 }
