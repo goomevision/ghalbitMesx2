@@ -3,56 +3,105 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_ghalbit_screen"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:orientation="vertical">
 
-    <com.ghalbitnet.meshx2.profile.MyNameCardView
-        android:id="@+id/viewMyNameCard"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
-    <TextView
-        android:id="@+id/txtProfileMeta"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/bg_ghalbit_card"
-        android:padding="12dp"
-        android:textColor="#D8E8F4"
-        android:textSize="13sp" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:orientation="vertical">
-
-        <Button
-            android:id="@+id/btnEditMyProfile"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Edit Profil" />
+            android:orientation="vertical"
+            android:padding="16dp">
 
-        <Button
-            android:id="@+id/btnShareMyQr"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Bagikan QR" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_ghalbit_hero"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-        <Button
-            android:id="@+id/btnScanContactQr"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Scan QR Kontak" />
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Kartu Nama Digital"
+                    android:textColor="#F5FBFF"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btnSyncMyProfile"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Sync Profil ke Relay" />
-    </LinearLayout>
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Profil profesional yang bisa dibagikan lewat QR, relay, web publik, dan jaringan lokal."
+                    android:textColor="#A9C7D9"
+                    android:textSize="13sp" />
+            </LinearLayout>
 
+            <com.ghalbitnet.meshx2.profile.MyNameCardView
+                android:id="@+id/viewMyNameCard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp" />
+
+            <TextView
+                android:id="@+id/txtProfileMeta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_ghalbit_card"
+                android:padding="12dp"
+                android:textColor="#D8E8F4"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:padding="12dp"
+                android:text="Privasi: hanya data yang Anda izinkan sebagai publik yang akan tampil di QR, relay, web profile, atau mesh lokal. Catatan pribadi tetap tersimpan di perangkat."
+                android:textColor="#F2C464"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_ghalbit_card"
+                android:orientation="vertical"
+                android:padding="10dp">
+
+                <Button
+                    android:id="@+id/btnEditMyProfile"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:text="Edit Profil Profesional" />
+
+                <Button
+                    android:id="@+id/btnShareMyQr"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:text="Bagikan QR / Link Profil" />
+
+                <Button
+                    android:id="@+id/btnScanContactQr"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:text="Scan Kartu Nama" />
+
+                <Button
+                    android:id="@+id/btnSyncMyProfile"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:text="Simpan Profil Publik ke Relay" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
 </LinearLayout>
