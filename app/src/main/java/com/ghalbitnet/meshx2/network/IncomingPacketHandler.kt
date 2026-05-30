@@ -96,6 +96,13 @@ class IncomingPacketHandler(
                 }
                 "SOS" -> handleIncomingSos(packet, payload)
                 "CALL_INVITE" -> handleIncomingCallInvite(packet, payload)
+                "CALL_ACCEPT", "CALL_REJECT", "CALL_END", "CALL_BUSY" -> {
+                    listener.onCallInviteReceived("Call signal ${packet.type} dari ${packet.source}")
+                }
+                "ROUTE_CHECK" -> handleRouteCheck(packet, payload)
+                "ROUTE_ACK" -> handleRouteAck(packet, payload)
+                "VOICE_PROBE" -> handleVoiceProbe(packet, payload)
+                "VOICE_ACK" -> handleVoiceAck(packet, payload)
             }
         } catch (error: Exception) {
             Log.e("GHALBIT", "Packet error", error)
@@ -156,6 +163,106 @@ class IncomingPacketHandler(
         )
         openIncomingCall(intent)
         listener.onCallInviteReceived("Panggilan masuk dari ${packet.source}")
+    }
+
+    private fun handleRouteCheck(packet: MeshPacket, payload: String) {
+        val peerIp = keyStore.getPeerAddress(packet.source).orEmpty()
+        listener.onPacketStatus("ROUTE_CHECK dari ${packet.source}")
+        if (peerIp.isBlank()) {
+            Log.w("GHALBIT-ROUTE-CHECK", "missing peerIp source=${packet.source}")
+            return
+        }
+
+        scope.launch(Dispatchers.IO) {
+            val responsePayload =
+                JSONObject()
+                    .put("ackFor", packet.packetId)
+                    .put("sourceNodeId", localPeerId)
+                    .put("receivedAt", System.currentTimeMillis())
+                    .put("routePayload", payload)
+                    .toString()
+
+            ReliablePacketSender.sendWithRetry(
+                peerIp,
+                MeshPacket(
+                    packetId = "ROUTE_ACK-${packet.packetId}-${System.currentTimeMillis()}",
+                    source = localPeerId,
+                    destination = packet.source,
+                    type = "ROUTE_ACK",
+                    payload = responsePayload,
+                    encrypted = false
+                ),
+                retryCount = 1
+            )
+        }
+    }
+
+    private fun handleRouteAck(packet: MeshPacket, payload: String) {
+        val ackFor =
+            try {
+                JSONObject(payload).optString("ackFor")
+            } catch (_: Exception) {
+                ""
+            }
+        if (ackFor.isNotBlank()) {
+            AckTracker.markAckReceived(ackFor)
+        }
+        listener.onPacketStatus("ROUTE_ACK dari ${packet.source}")
+    }
+
+    private fun handleVoiceProbe(packet: MeshPacket, payload: String) {
+        val callId = extractCallId(payload)
+        val sameCall = callId.isBlank() || VoiceCallRegistry.isSameCall(callId)
+        val peerIp = keyStore.getPeerAddress(packet.source).orEmpty()
+
+        Log.d(
+            "GHALBIT-VOICE-PROBE",
+            "received source=${packet.source} callId=$callId sameCall=$sameCall peerIp=$peerIp"
+        )
+        listener.onPacketStatus("VOICE_PROBE dari ${packet.source}")
+
+        if (peerIp.isBlank()) {
+            Log.w("GHALBIT-VOICE-PROBE", "missing peerIp source=${packet.source}")
+            return
+        }
+
+        scope.launch(Dispatchers.IO) {
+            val responsePayload =
+                JSONObject()
+                    .put("ackFor", packet.packetId)
+                    .put("callId", callId)
+                    .put("sourceNodeId", localPeerId)
+                    .put("audioPath", if (sameCall) "PROBE_READY" else "PROBE_RECEIVED_NO_ACTIVE_CALL")
+                    .put("receivedAt", System.currentTimeMillis())
+                    .toString()
+
+            ReliablePacketSender.sendWithRetry(
+                peerIp,
+                MeshPacket(
+                    packetId = "VOICE_ACK-${packet.packetId}-${System.currentTimeMillis()}",
+                    source = localPeerId,
+                    destination = packet.source,
+                    type = "VOICE_ACK",
+                    payload = responsePayload,
+                    encrypted = false
+                ),
+                retryCount = 1
+            )
+        }
+    }
+
+    private fun handleVoiceAck(packet: MeshPacket, payload: String) {
+        val ackFor =
+            try {
+                JSONObject(payload).optString("ackFor")
+            } catch (_: Exception) {
+                ""
+            }
+        if (ackFor.isNotBlank()) {
+            AckTracker.markAckReceived(ackFor)
+        }
+        Log.d("GHALBIT-VOICE-PROBE", "ack source=${packet.source} payload=$payload")
+        listener.onPacketStatus("VOICE_ACK dari ${packet.source}")
     }
 
     private fun handleIncomingChatMessage(
@@ -313,6 +420,14 @@ class IncomingPacketHandler(
         }
     }
 
+    private fun extractCallId(payload: String): String {
+        return try {
+            JSONObject(payload).optString("callId")
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
     private fun sendAck(
         packet: MeshPacket
     ) {
@@ -342,4 +457,3 @@ class IncomingPacketHandler(
         }
     }
 }
-
