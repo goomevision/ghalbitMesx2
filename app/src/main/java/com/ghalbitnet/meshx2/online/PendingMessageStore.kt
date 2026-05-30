@@ -19,6 +19,8 @@ object PendingMessageStore {
 
     fun upsert(context: Context, message: PendingMessage) {
         blocking(context) { dao ->
+            val existing = dao.findMessage(message.packetId)
+            val now = System.currentTimeMillis()
             dao.upsertMessage(
                 PendingMessageEntity(
                     packetId = message.packetId,
@@ -48,6 +50,7 @@ object PendingMessageStore {
                     priority = if (message.mediaUri.isNullOrBlank()) 5 else 8
                 )
             )
+            auditPendingLifecycle(existing == null, message, now)
             if (!message.mediaUri.isNullOrBlank() || !message.remoteMediaId.isNullOrBlank() || !message.uploadSessionId.isNullOrBlank()) {
                 dao.upsertMedia(
                     PendingMediaEntity(
@@ -160,6 +163,7 @@ object PendingMessageStore {
                 priority = if (message.mediaUri.isNullOrBlank()) 5 else 8
             )
         )
+        auditPendingLifecycle(isNew = true, message = message, now = System.currentTimeMillis())
         if (!message.mediaUri.isNullOrBlank()) {
             dao.upsertMedia(
                 PendingMediaEntity(
@@ -258,6 +262,21 @@ object PendingMessageStore {
             secureMediaToken = media?.secureMediaToken,
             uploadState = media?.uploadState
         )
+
+    private fun auditPendingLifecycle(isNew: Boolean, message: PendingMessage, now: Long) {
+        if (isNew) {
+            Log.d("GHALBIT-DELIVERY-PENDING", "created messageId=${message.messageId} packetId=${message.packetId} chatId=${message.chatId} expiresAt=${message.expiresAt}")
+        }
+        if (message.lastFailureReason == "manualRetry") {
+            Log.d("GHALBIT-DELIVERY-PENDING", "manualRetry messageId=${message.messageId} packetId=${message.packetId}")
+        }
+        if (message.nextRetryAt > now) {
+            Log.d("GHALBIT-DELIVERY-PENDING", "retryScheduled messageId=${message.messageId} packetId=${message.packetId} attempt=${message.retryAttempt} nextRetryAt=${message.nextRetryAt}")
+        }
+        if (message.nextRetryAt in 1..now && message.retryAttempt > 0) {
+            Log.d("GHALBIT-DELIVERY-PENDING", "peerOnlineRetry candidate messageId=${message.messageId} packetId=${message.packetId} attempt=${message.retryAttempt}")
+        }
+    }
 
     private fun parseUploadedChunks(raw: String?): Set<Int> {
         if (raw.isNullOrBlank()) return emptySet()
