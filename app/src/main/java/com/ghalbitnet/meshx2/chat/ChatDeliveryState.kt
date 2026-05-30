@@ -40,7 +40,7 @@ enum class ChatDeliveryState(
     DELETED_REMOTE("DELETED_REMOTE", "Pesan dihapus"),
     EDIT_REQUESTED_REMOTE("EDIT_REQUESTED_REMOTE", "Mengubah pesan"),
     EDITED_REMOTE("EDITED_REMOTE", "Diedit"),
-    FAILED_RETRYING("FAILED_RETRYING", "Mencoba ulang"),
+    FAILED_RETRYING("FAILED_RETRYING", "Menunggu koneksi, akan dicoba ulang"),
     FAILED_FINAL("FAILED_FINAL", "Gagal");
 
     companion object {
