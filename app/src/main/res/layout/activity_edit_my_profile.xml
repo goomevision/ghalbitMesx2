@@ -2,7 +2,8 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_ghalbit_screen">
+    android:background="@drawable/bg_ghalbit_screen"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -10,42 +11,306 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <EditText android:id="@+id/edtDisplayName" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Nama resmi" />
-        <EditText android:id="@+id/edtNickname" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Nama panggilan" />
-        <EditText android:id="@+id/edtCommunityName" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Nama komunitas" />
-        <EditText android:id="@+id/edtRoleTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Peran / jabatan" />
-        <EditText android:id="@+id/edtBio" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Bio singkat" />
-        <EditText android:id="@+id/edtRegion" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Wilayah" />
-        <EditText android:id="@+id/edtOrganization" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Organisasi" />
-        <EditText android:id="@+id/edtSkillTags" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Skill tags, pisahkan koma" />
-        <EditText android:id="@+id/edtStatusMessage" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Status komunitas" />
-        <AutoCompleteTextView android:id="@+id/edtStatusType" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Jenis status" />
-        <AutoCompleteTextView android:id="@+id/edtThemeId" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Tema kartu" />
-
-        <Button
-            android:id="@+id/btnPickAvatar"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="Pilih Avatar" />
+            android:background="@drawable/bg_ghalbit_hero"
+            android:orientation="vertical"
+            android:padding="16dp">
 
-        <CheckBox android:id="@+id/checkPublicProfile" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Profil publik aktif" />
-        <CheckBox android:id="@+id/checkShowRegion" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tampilkan wilayah" />
-        <CheckBox android:id="@+id/checkShowStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tampilkan status" />
-        <CheckBox android:id="@+id/checkRelayDiscovery" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Izinkan ditemukan lewat relay" />
-        <CheckBox android:id="@+id/checkAvatarSync" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Izinkan avatar sync (metadata ringan)" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Buat profil secukupnya"
+                android:textColor="#F5FBFF"
+                android:textSize="23sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Cukup isi nama agar bisa langsung dipakai. Informasi lain dapat ditambahkan nanti saat Anda siap."
+                android:textColor="#A9C7D9"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_ghalbit_card"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Wajib minimum"
+                android:textColor="#F5FBFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/edtDisplayName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Nama yang ingin ditampilkan"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtNickname"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Nama panggilan (opsional)"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_ghalbit_log"
+            android:padding="12dp"
+            android:text="Informasi di bawah ini opsional. Anda bisa mengisinya sekarang atau nanti. Field kosong tidak akan tampil di kartu."
+            android:textColor="#F2C464"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_ghalbit_card"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Tentang saya"
+                android:textColor="#F5FBFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/edtRoleTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Peran / pekerjaan / panggilan"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtBio"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:gravity="top|start"
+                android:hint="Cerita singkat tentang Anda"
+                android:maxLines="5"
+                android:minLines="2"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtSkillTags"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Saya bisa membantu: internet, pertanian, relawan"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <Button
+                android:id="@+id/btnPickAvatar"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="10dp"
+                android:text="Tambah Foto Profil" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_ghalbit_card"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Komunitas dan profesi"
+                android:textColor="#F5FBFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/edtCommunityName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Komunitas (opsional)"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtOrganization"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Organisasi / usaha / lembaga (opsional)"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtRegion"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Wilayah umum, contoh: Aceh Besar"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_ghalbit_card"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Status dan tampilan"
+                android:textColor="#F5FBFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/edtStatusMessage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Status komunitas (opsional)"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <AutoCompleteTextView
+                android:id="@+id/edtStatusType"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Jenis status"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <AutoCompleteTextView
+                android:id="@+id/edtThemeId"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Tema kartu"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_ghalbit_card"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Privasi publik"
+                android:textColor="#F5FBFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Default aman: profil tidak dipublikasi kecuali Anda mengaktifkannya."
+                android:textColor="#A9C7D9"
+                android:textSize="12sp" />
+
+            <CheckBox
+                android:id="@+id/checkPublicProfile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Aktifkan profil publik" />
+
+            <CheckBox
+                android:id="@+id/checkShowRegion"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Tampilkan wilayah umum" />
+
+            <CheckBox
+                android:id="@+id/checkShowStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Tampilkan status" />
+
+            <CheckBox
+                android:id="@+id/checkRelayDiscovery"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Izinkan ditemukan lewat relay" />
+
+            <CheckBox
+                android:id="@+id/checkAvatarSync"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Izinkan avatar tampil di profil publik" />
+        </LinearLayout>
 
         <Button
             android:id="@+id/btnSaveMyProfile"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:layout_marginTop="14dp"
             android:text="Simpan Profil" />
 
         <Button
             android:id="@+id/btnCancelMyProfile"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="52dp"
             android:layout_marginTop="8dp"
             android:text="Batal" />
     </LinearLayout>
