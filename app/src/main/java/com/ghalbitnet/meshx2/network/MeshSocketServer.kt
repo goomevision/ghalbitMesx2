@@ -8,9 +8,9 @@ import com.ghalbitnet.meshx2.file.FileTransferManager
 import com.ghalbitnet.meshx2.identity.SelfIdentityProtector
 import com.ghalbitnet.meshx2.model.MeshPacket
 import com.ghalbitnet.meshx2.model.SecurePacket
+import com.ghalbitnet.meshx2.routing.IntelligentRouteMemory
 import com.ghalbitnet.meshx2.routing.RelayEngine
 import com.ghalbitnet.meshx2.routing.RouteDiscovery
-import com.ghalbitnet.meshx2.routing.IntelligentRouteMemory
 import com.ghalbitnet.meshx2.routing.RouteHint
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit
 
 object MeshSocketServer {
     private const val TAG_TCP = "GHALBIT-TCP-LISTENER"
+    private const val TAG_ROUTE = "GHALBIT-ROUTE-DEST"
     private const val PORT = 56565
     private const val RESTART_COOLDOWN_MS = 5_000L
     private const val MAX_RAW_PACKET_LENGTH = 160 * 1024
@@ -37,6 +38,7 @@ object MeshSocketServer {
     var localPeerId: String = ""
     var localPublicKeyHash: String? = null
     var localDeviceInstanceId: String? = null
+    var localGlobalId: String? = null
     private var packetHandler: ((MeshPacket) -> Unit)? = null
     private var secureHandler: ((SecurePacket) -> Unit)? = null
     @Volatile private var lastRestartAtMs = 0L
@@ -70,7 +72,8 @@ object MeshSocketServer {
                 while (running) {
                     try {
                         val client = serverSocket?.accept() ?: break
-                        Log.d(TAG_TCP, "accepted remote=${client.inetAddress?.hostAddress}:${client.port}")
+                        val remoteIp = client.inetAddress?.hostAddress.orEmpty()
+                        Log.d(TAG_TCP, "accepted remote=$remoteIp:${client.port}")
                         executor.execute {
                             try {
                                 client.soTimeout = 5000
@@ -95,8 +98,7 @@ object MeshSocketServer {
                                             timestamp = json.optLong("timestamp"),
                                             encrypted = json.optBoolean("encrypted")
                                         )
-
-                                        handleMeshPacket(p, onPacket, packetOrigin = p.source)
+                                        handleMeshPacket(p, onPacket, packetOrigin = remoteIp.ifBlank { p.source })
                                     }
                                     ENVELOPE_SECURE_PACKET -> {
                                         val s = SecurePacket(
@@ -143,7 +145,8 @@ object MeshSocketServer {
                                                     timestamp = json.optLong("timestamp"),
                                                     encrypted = false
                                                 ),
-                                                onPacket
+                                                onPacket,
+                                                packetOrigin = remoteIp
                                             )
                                         } catch (e: Exception) {
                                             Log.e("GHALBIT", "FILE_CHUNK error: ${e.message}")
@@ -176,9 +179,7 @@ object MeshSocketServer {
                 Log.w("GHALBIT", "Dropped oversized injected packet from $sourceIp")
                 return
             }
-
             val json = JSONObject(jsonStr)
-
             when (json.optString("type")) {
                 ENVELOPE_MESH_PACKET -> {
                     val packet = MeshPacket(
@@ -192,10 +193,8 @@ object MeshSocketServer {
                         timestamp = json.optLong("timestamp"),
                         encrypted = json.optBoolean("encrypted")
                     )
-
                     handleMeshPacket(packet, packetHandler, packetOrigin = sourceIp)
                 }
-
                 ENVELOPE_SECURE_PACKET -> {
                     val secure = SecurePacket(
                         sourcePublicKey = json.getString("sourcePublicKey"),
@@ -206,10 +205,8 @@ object MeshSocketServer {
                         maxHop = json.optInt("maxHop"),
                         timestamp = json.optLong("timestamp")
                     )
-
                     secureHandler?.invoke(secure)
                 }
-
                 ENVELOPE_FILE_CHUNK -> {
                     handleMeshPacket(
                         MeshPacket(
@@ -233,29 +230,8 @@ object MeshSocketServer {
         }
     }
 
-    private fun handleMeshPacket(
-        packet: MeshPacket,
-        onPacket: ((MeshPacket) -> Unit)?,
-        packetOrigin: String? = null
-    ) {
-        if (!packetOrigin.isNullOrBlank()) {
-            appContext?.let { context ->
-                if (packet.source.isNotBlank()) {
-                    RouteDiscovery.rememberDirectRoute(packet.source, packetOrigin, trustScore = 60)
-                    IntelligentRouteMemory.rememberHint(
-                        context,
-                        RouteHint(
-                            destinationId = packet.source,
-                            nextHopId = packetOrigin,
-                            latencyMs = 0L,
-                            hopCount = 1,
-                            trustScore = 60,
-                            lastSeen = System.currentTimeMillis()
-                        )
-                    )
-                }
-            }
-        }
+    private fun handleMeshPacket(packet: MeshPacket, onPacket: ((MeshPacket) -> Unit)?, packetOrigin: String? = null) {
+        rememberInboundRoute(packet, packetOrigin)
         val selfDecision = SelfIdentityProtector.evaluate(
             packet = packet,
             packetOrigin = packetOrigin,
@@ -274,56 +250,100 @@ object MeshSocketServer {
 
         val guard = MeshTrafficGuard.validatePacket(packet)
         if (!guard.allowed) {
-            Log.w(
-                "GHALBIT",
-                "Dropped packet ${packet.type} from ${packet.source}: ${guard.reason}"
-            )
+            Log.w("GHALBIT", "Dropped packet ${packet.type} from ${packet.source}: ${guard.reason}")
             return
         }
 
-        val isBroadcast =
-            packet.destination.equals("BROADCAST", ignoreCase = true)
-
+        val isBroadcast = packet.destination.equals("BROADCAST", ignoreCase = true)
         if (isForLocalNode(packet)) {
+            Log.d(TAG_ROUTE, "deliverLocal type=${packet.type} destination=${packet.destination} localPeer=$localPeerId localHash=${localPublicKeyHash ?: "-"}")
             ServicePathRecorder.recordReceive(packet)
             UsageSessionRecorder.recordReceive(packet)
             if (packet.type == ENVELOPE_FILE_CHUNK) {
                 val ctx = appContext
-                if (ctx != null) {
-                    FileTransferManager.handleFileChunk(ctx, packet)
-                } else {
-                    Log.e("GHALBIT", "No appContext for FILE_CHUNK")
-                }
+                if (ctx != null) FileTransferManager.handleFileChunk(ctx, packet) else Log.e("GHALBIT", "No appContext for FILE_CHUNK")
             } else {
                 onPacket?.invoke(packet)
             }
-
-            if (isBroadcast) {
-                RelayEngine.relayPacket(packet)
-            }
-
+            if (isBroadcast) RelayEngine.relayPacket(packet)
             return
         }
 
+        Log.d(TAG_ROUTE, "relayOnly type=${packet.type} destination=${packet.destination} localPeer=$localPeerId localHash=${localPublicKeyHash ?: "-"}")
         RelayEngine.relayPacket(packet)
+    }
+
+    private fun rememberInboundRoute(packet: MeshPacket, packetOrigin: String?) {
+        if (packetOrigin.isNullOrBlank()) return
+        appContext?.let { context ->
+            val identifiers = buildSet {
+                if (packet.source.isNotBlank()) add(packet.source)
+                extractPayloadString(packet, "sourceNodeId")?.let { add(it) }
+                extractPayloadString(packet, "sourceGlobalId")?.let { add(it) }
+                extractPayloadString(packet, "publicKeyHash")?.let { add(it) }
+                extractPayloadString(packet, "sourcePublicKeyHash")?.let { add(it) }
+            }
+            identifiers.forEach { destinationId ->
+                RouteDiscovery.rememberDirectRoute(destinationId, packetOrigin, trustScore = 70)
+                IntelligentRouteMemory.rememberHint(
+                    context,
+                    RouteHint(
+                        destinationId = destinationId,
+                        nextHopId = packetOrigin,
+                        latencyMs = 0L,
+                        hopCount = 1,
+                        trustScore = 70,
+                        lastSeen = System.currentTimeMillis()
+                    )
+                )
+            }
+            if (identifiers.isNotEmpty()) {
+                Log.d(TAG_ROUTE, "rememberInbound ids=${identifiers.joinToString(",")} via=$packetOrigin")
+            }
+        }
     }
 
     private fun extractPacketPublicKeyHash(packet: MeshPacket): String? {
         val payload = runCatching { JSONObject(packet.payload) }.getOrNull() ?: return null
         val raw = payload.optString("publicKeyHash", null)
         if (!raw.isNullOrBlank()) return raw
+        val sourceRaw = payload.optString("sourcePublicKeyHash", null)
+        if (!sourceRaw.isNullOrBlank()) return sourceRaw
         return SelfIdentityProtector.hashPublicKey(payload.optString("sourcePublicKey", null))
     }
 
-    private fun extractPacketDeviceInstanceId(packet: MeshPacket): String? {
+    private fun extractPacketDeviceInstanceId(packet: MeshPacket): String? =
+        extractPayloadString(packet, "deviceInstanceId") ?: extractPayloadString(packet, "sourceDeviceInstanceId")
+
+    private fun extractPayloadString(packet: MeshPacket, key: String): String? {
         val payload = runCatching { JSONObject(packet.payload) }.getOrNull() ?: return null
-        return payload.optString("deviceInstanceId", null)
+        return payload.optString(key).takeIf { it.isNotBlank() }
     }
 
     private fun isForLocalNode(packet: MeshPacket): Boolean {
-        return packet.destination.isBlank() ||
-            packet.destination == localPeerId ||
-            packet.destination.equals("BROADCAST", ignoreCase = true)
+        val destinations = buildSet {
+            packet.destination.takeIf { it.isNotBlank() }?.let { add(it) }
+            extractPayloadString(packet, "targetNodeId")?.let { add(it) }
+            extractPayloadString(packet, "targetGlobalId")?.let { add(it) }
+            extractPayloadString(packet, "destinationGlobalId")?.let { add(it) }
+            extractPayloadString(packet, "targetPublicKeyHash")?.let { add(it) }
+            extractPayloadString(packet, "destinationPublicKeyHash")?.let { add(it) }
+            extractPayloadString(packet, "targetDeviceInstanceId")?.let { add(it) }
+            extractPayloadString(packet, "destinationDeviceInstanceId")?.let { add(it) }
+        }
+        if (destinations.isEmpty()) return true
+        if (destinations.any { it.equals("BROADCAST", ignoreCase = true) }) return true
+        val localIds = buildSet {
+            localPeerId.takeIf { it.isNotBlank() }?.let { add(it) }
+            localGlobalId?.takeIf { it.isNotBlank() }?.let { add(it) }
+            localPublicKeyHash?.takeIf { it.isNotBlank() }?.let { add(it) }
+            localDeviceInstanceId?.takeIf { it.isNotBlank() }?.let { add(it) }
+        }
+        val matched = destinations.any { destination -> localIds.any { local -> destination == local } }
+        if (!matched) {
+            Log.d(TAG_ROUTE, "destinationMismatch destinations=${destinations.joinToString(",")} localIds=${localIds.joinToString(",")}")
+        }
+        return matched
     }
 
     fun stop() {
@@ -333,9 +353,7 @@ object MeshSocketServer {
         serverSocket = null
         executor.shutdown()
         try {
-            if (!executor.awaitTermination(2, TimeUnit.SECONDS)) {
-                executor.shutdownNow()
-            }
+            if (!executor.awaitTermination(2, TimeUnit.SECONDS)) executor.shutdownNow()
         } catch (e: InterruptedException) {
             executor.shutdownNow()
         }
