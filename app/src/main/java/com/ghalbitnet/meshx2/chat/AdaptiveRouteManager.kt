@@ -6,11 +6,14 @@ import com.ghalbitnet.meshx2.core.node.NodeStatusManager
 import com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager
 import com.ghalbitnet.meshx2.online.OnlinePresenceManager
 import com.ghalbitnet.meshx2.routing.IntelligentRouteMemory
+import com.ghalbitnet.meshx2.routing.RouteHint
 import java.util.concurrent.ConcurrentHashMap
 
 object AdaptiveRouteManager {
+    private const val FAILED_ROUTE_COOLDOWN_MS = 30_000L
     private val lastDecisions = ConcurrentHashMap<String, AdaptiveRouteDecision>()
     private val switchHistory = ConcurrentHashMap<String, ArrayDeque<String>>()
+    private val failedRouteCooldowns = ConcurrentHashMap<String, Long>()
 
     fun evaluate(
         context: Context,
@@ -20,13 +23,8 @@ object AdaptiveRouteManager {
         keepAliveState: ActiveConversationRouteState? = null
     ): AdaptiveRouteDecision {
         val appContext = context.applicationContext
-        val localHint =
-            routeHint?.takeIf { it.isNotBlank() }?.let {
-                IntelligentRouteMemory.getHint(appContext, globalId ?: chatId)?.copy(nextHopId = it)
-                    ?: IntelligentRouteMemory.getHint(appContext, chatId)?.copy(nextHopId = it)
-            }
-                ?: globalId?.let { IntelligentRouteMemory.getHint(appContext, it) }
-                ?: IntelligentRouteMemory.getHint(appContext, chatId)
+        val candidates = routeCandidates(appContext, chatId, globalId, routeHint, keepAliveState)
+        val localHint = candidates.firstOrNull()
         val internetRoute = globalId?.let { OnlinePresenceManager.getOnlineRoute(appContext, it) }
         val liveNode =
             NodeStatusManager.getOnlineNodes().firstOrNull {
@@ -56,10 +54,11 @@ object AdaptiveRouteManager {
                         routeType = AdaptiveRouteType.LOCAL_MESH_DIRECT,
                         transport = "LOCAL_MESH_DIRECT",
                         nextHop = localHint.nextHopId,
-                        reason = "directHint",
+                        reason = if (localHint.nextHopId == routeHint) "directHint" else "predictiveDirectHint",
                         routeHealth =
                             when (keepAliveState?.routeHealth) {
                                 RouteHealthStatus.WEAK -> RouteHealthStatus.WEAK
+                                RouteHealthStatus.PROBING_ROUTE -> RouteHealthStatus.PROBING_ROUTE
                                 RouteHealthStatus.RECONNECTING -> RouteHealthStatus.RECONNECTING
                                 else -> RouteHealthStatus.STABLE
                             }
@@ -73,7 +72,7 @@ object AdaptiveRouteManager {
                         routeType = AdaptiveRouteType.LOCAL_RELAY,
                         transport = "LOCAL_RELAY",
                         nextHop = localHint.nextHopId,
-                        reason = "relayHint",
+                        reason = if (localHint.nextHopId == routeHint) "relayHint" else "predictiveRelayHint",
                         routeHealth = keepAliveState?.routeHealth ?: RouteHealthStatus.WEAK
                     )
                 }
@@ -129,6 +128,18 @@ object AdaptiveRouteManager {
         return decision
     }
 
+    fun markRouteResult(chatId: String, globalId: String?, nextHop: String?, success: Boolean) {
+        if (nextHop.isNullOrBlank()) return
+        val key = failureKey(chatId, globalId, nextHop)
+        if (success) {
+            failedRouteCooldowns.remove(key)
+            Log.d("GHALBIT-PREDICTIVE-ROUTE", "success chatId=$chatId nextHop=$nextHop")
+        } else {
+            failedRouteCooldowns[key] = System.currentTimeMillis()
+            Log.d("GHALBIT-PREDICTIVE-ROUTE", "cooldown chatId=$chatId nextHop=$nextHop")
+        }
+    }
+
     fun activeRoutes(): List<AdaptiveRouteDecision> = lastDecisions.values.sortedBy { it.chatId }
 
     fun switchHistory(chatId: String? = null): List<String> {
@@ -158,6 +169,42 @@ object AdaptiveRouteManager {
         }
     }
 
+    private fun routeCandidates(
+        context: Context,
+        chatId: String,
+        globalId: String?,
+        routeHint: String?,
+        keepAliveState: ActiveConversationRouteState?
+    ): List<RouteHint> {
+        val ids = listOfNotNull(globalId, chatId).distinct()
+        val candidates = mutableListOf<RouteHint>()
+        if (!routeHint.isNullOrBlank()) {
+            candidates += RouteHint(
+                destinationId = globalId ?: chatId,
+                nextHopId = routeHint,
+                latencyMs = keepAliveState?.latencyMs?.takeIf { it > 0 } ?: 0L,
+                hopCount = 1,
+                trustScore = if (keepAliveState?.routeHealth == RouteHealthStatus.STABLE) 85 else 60,
+                lastSeen = System.currentTimeMillis()
+            )
+        }
+        ids.forEach { id -> candidates += IntelligentRouteMemory.getCandidateHints(context, id) }
+        val now = System.currentTimeMillis()
+        val filtered = candidates
+            .distinctBy { it.nextHopId }
+            .filterNot { hint ->
+                val cooled = now - (failedRouteCooldowns[failureKey(chatId, globalId, hint.nextHopId)] ?: 0L) < FAILED_ROUTE_COOLDOWN_MS
+                if (cooled) Log.d("GHALBIT-PREDICTIVE-ROUTE", "skipCooldown chatId=$chatId nextHop=${hint.nextHopId}")
+                cooled
+            }
+            .sortedByDescending { IntelligentRouteMemory.scoreHint(it).score }
+        Log.d(
+            "GHALBIT-PREDICTIVE-ROUTE",
+            "candidates chatId=$chatId count=${filtered.size} list=${filtered.joinToString { "${it.nextHopId}:${IntelligentRouteMemory.scoreHint(it).score}" }}"
+        )
+        return filtered
+    }
+
     private fun rememberSwitch(chatId: String, message: String) {
         val history = switchHistory.getOrPut(chatId) { ArrayDeque() }
         history.addLast(message)
@@ -165,4 +212,6 @@ object AdaptiveRouteManager {
             history.removeFirst()
         }
     }
+
+    private fun failureKey(chatId: String, globalId: String?, nextHop: String): String = "${globalId ?: chatId}@$nextHop"
 }
