@@ -44,7 +44,11 @@ class MyProfileActivity : AppCompatActivity() {
         Log.d("GHALBIT-PROFILE", "self opened")
 
         findViewById<Button>(R.id.btnEditMyProfile).setOnClickListener {
+            Log.d("GHALBIT-PROFILE", "edit_open")
             editLauncher.launch(Intent(this, EditMyProfileActivity::class.java))
+        }
+        findViewById<Button>(R.id.btnPreviewPublicCard).setOnClickListener {
+            openPublicCardPreview()
         }
         findViewById<Button>(R.id.btnShareMyQr).setOnClickListener {
             shareCurrentQr()
@@ -101,10 +105,51 @@ class MyProfileActivity : AppCompatActivity() {
             val bitmap = ProfileQrCodec.renderBitmap(payload, 260)
             withContext(Dispatchers.Main) {
                 cardView.render(profile, routeBadge = if (profile.isRelayDiscoveryEnabled) "RELAY" else "MESH", qrBitmap = bitmap)
-                txtProfileMeta.text =
-                    "Global ID: ${profile.globalId}\nVersi profil: ${profile.profileVersion}\nSync relay: ${if (profile.isPublicProfile) "aktif" else "mati"}"
+                txtProfileMeta.text = buildVisibleProfileSummary(profile)
+                Log.d("GHALBIT-PROFILE", "rendered")
+                Log.d("GHALBIT-NAMECARD", "rendered self=${profile.globalId}")
             }
         }
+    }
+
+    private fun buildVisibleProfileSummary(profile: CommunityProfile): String {
+        val skillText = profile.skillTags.joinToString(", ").ifBlank { "Belum diisi" }
+        val privacyText = if (profile.isPublicProfile) "Profil publik aktif" else "Profil masih lokal/pribadi"
+        val relayText = if (profile.isRelayDiscoveryEnabled) "Bisa ditemukan lewat relay" else "Hanya lokal/mesh"
+        return """
+            Nama tampilan: ${profile.displayName.ifBlank { "Belum diisi" }}
+            Nama panggilan: ${profile.nickname.ifBlank { "Belum diisi" }}
+            Peran / jabatan: ${profile.roleTitle.ifBlank { "Belum diisi" }}
+            Komunitas: ${profile.communityName.ifBlank { "Belum diisi" }}
+            Organisasi: ${profile.organization ?: "Belum diisi"}
+            Wilayah: ${profile.region.ifBlank { "Belum diisi" }}
+
+            Tentang / visi / misi:
+            ${profile.bio.ifBlank { "Belum diisi" }}
+
+            Keahlian / proyek / bantuan:
+            $skillText
+
+            Status: ${profile.statusMessage.ifBlank { profile.statusType.wireValue }}
+            Privasi: $privacyText • $relayText
+            Global ID: ${profile.globalId}
+            Versi profil: ${profile.profileVersion}
+        """.trimIndent()
+    }
+
+    private fun openPublicCardPreview() {
+        val profile = currentProfile ?: return
+        Log.d("GHALBIT-NAMECARD", "preview_open")
+        startActivity(
+            ContactNameCardActivity.createIntent(
+                context = this,
+                globalId = profile.globalId,
+                chatId = profile.globalId,
+                fallbackName = profile.primaryName,
+                publicKeyHash = profile.publicKeyHash,
+                routeHint = if (profile.isRelayDiscoveryEnabled) "relay:self" else "mesh:self"
+            )
+        )
     }
 
     private fun shareCurrentQr() {
