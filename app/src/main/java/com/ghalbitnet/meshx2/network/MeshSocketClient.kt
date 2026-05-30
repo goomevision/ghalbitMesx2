@@ -90,33 +90,17 @@ object MeshSocketClient {
 
     fun sendRaw(host: String, data: Map<String, Any>) {
         executor.execute {
-            sendRawBlocking(host, data)
-        }
-    }
-
-    fun sendRawBlocking(
-        host: String,
-        data: Map<String, Any>,
-        timeoutMs: Int = TIMEOUT
-    ): Boolean {
-        var socket: Socket? = null
-        return try {
-            socket = Socket()
-            socket.connect(InetSocketAddress(host, PORT), timeoutMs)
-            socket.soTimeout = timeoutMs
-            val writer = PrintWriter(socket.getOutputStream(), true)
-            val json = JSONObject(data)
-            writer.println(json.toString())
-            writer.flush()
-            !writer.checkError()
-        } catch (e: Exception) {
-            Log.e("GHALBIT", "sendRawBlocking failed to $host: ${e.message}")
-            false
-        } finally {
+            var socket: Socket? = null
             try {
-                socket?.close()
-            } catch (_: Exception) {
-            }
+                socket = Socket()
+                socket.connect(InetSocketAddress(host, PORT), TIMEOUT)
+                val writer = PrintWriter(socket.getOutputStream(), true)
+                val json = JSONObject(data)
+                writer.println(json.toString())
+                writer.flush()
+            } catch (e: Exception) {
+                Log.e("GHALBIT", "sendRaw failed to $host: ${e.message}")
+            } finally { try { socket?.close() } catch (_: Exception) {} }
         }
     }
 }

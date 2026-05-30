@@ -1,0 +1,15 @@
+package com.ghalbitnet.meshx2.routing
+
+enum class RouteSearchState {
+    IDLE,
+    SEARCHING_SERVER,
+    SEARCHING_INTERNET_RELAY,
+    SEARCHING_LOCAL_MESH_PRIMARY,
+    SEARCHING_LOCAL_MESH_SECONDARY,
+    SEARCHING_COPY_NODES,
+    ROUTE_PROBING,
+    ROUTE_FOUND,
+    ROUTE_SWITCHING,
+    ROUTE_LOST,
+    FAILED
+}

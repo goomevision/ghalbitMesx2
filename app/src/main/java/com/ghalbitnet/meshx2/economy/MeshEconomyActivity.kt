@@ -1,31 +1,21 @@
 package com.ghalbitnet.meshx2.economy
 
-import android.content.Intent
 import android.os.Bundle
+import android.content.Intent
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.ghalbitnet.meshx2.R
-import com.ghalbitnet.meshx2.core.log.MeshLogger
+import com.ghalbitnet.meshx2.core.network.ConnectivityStatusDetector
 import com.ghalbitnet.meshx2.core.network.GlobalMeshIdentityManager
 import com.ghalbitnet.meshx2.core.network.InternetGatewayRegistry
-import com.ghalbitnet.meshx2.core.server.FirebaseRemoteSyncManager
 import com.ghalbitnet.meshx2.discovery.DiscoveryManager
-import com.ghalbitnet.meshx2.security.KeyStoreManager
 import com.ghalbitnet.meshx2.token.TokenManager
-import com.ghalbitnet.meshx2.vpn.UsageHistoryActivity
-import com.ghalbitnet.meshx2.vpn.VpnLogManager
-import com.ghalbitnet.meshx2.vpn.VpnController
-import com.ghalbitnet.meshx2.vpn.VpnOperatingMode
-import com.ghalbitnet.meshx2.vpn.VpnStatusProvider
+import com.ghalbitnet.meshx2.security.KeyStoreManager
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -42,39 +32,11 @@ class MeshEconomyActivity : AppCompatActivity() {
     private lateinit var txtEconomyGateway: TextView
     private lateinit var txtEconomyRelay: TextView
     private lateinit var txtEconomyBuilder: TextView
-    private lateinit var txtEconomyValidator: TextView
     private lateinit var txtEconomyReserve: TextView
-    private lateinit var txtEconomyPolicy: TextView
-    private lateinit var txtEconomyAutoRole: TextView
-    private lateinit var txtEconomyAppAccess: TextView
-    private lateinit var txtEconomyBridge: TextView
-    private lateinit var txtEconomyBridgeLoad: TextView
-    private lateinit var txtDesktopTest: TextView
     private lateinit var txtEconomyRecent: TextView
+    private lateinit var btnEconomySimulate: Button
+    private lateinit var btnEconomyClear: Button
     private lateinit var btnEconomyLedger: Button
-    private lateinit var btnEconomyPeerRanking: Button
-    private lateinit var btnUsageHistory: Button
-    private lateinit var btnBridgeStart: Button
-    private lateinit var btnBridgeStop: Button
-    private lateinit var btnDesktopTestStart: Button
-    private lateinit var btnDesktopTestStop: Button
-    private var bridgeRefreshJob: Job? = null
-    @Volatile
-    private var refreshInFlight: Boolean = false
-    private val vpnPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            if (result.resultCode == RESULT_OK) {
-                startVpnSafely()
-            } else {
-                Toast.makeText(
-                    this,
-                    getString(R.string.ghalbit_vpn_permission_required),
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-            renderImmediateState()
-            refreshUi()
-        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,258 +53,257 @@ class MeshEconomyActivity : AppCompatActivity() {
         txtEconomyGateway = findViewById(R.id.txtEconomyGateway)
         txtEconomyRelay = findViewById(R.id.txtEconomyRelay)
         txtEconomyBuilder = findViewById(R.id.txtEconomyBuilder)
-        txtEconomyValidator = findViewById(R.id.txtEconomyValidator)
         txtEconomyReserve = findViewById(R.id.txtEconomyReserve)
-        txtEconomyPolicy = findViewById(R.id.txtEconomyPolicy)
-        txtEconomyAutoRole = findViewById(R.id.txtEconomyAutoRole)
-        txtEconomyAppAccess = findViewById(R.id.txtEconomyAppAccess)
-        txtEconomyBridge = findViewById(R.id.txtEconomyBridge)
-        txtEconomyBridgeLoad = findViewById(R.id.txtEconomyBridgeLoad)
-        txtDesktopTest = findViewById(R.id.txtDesktopTest)
         txtEconomyRecent = findViewById(R.id.txtEconomyRecent)
+        btnEconomySimulate = findViewById(R.id.btnEconomySimulate)
+        btnEconomyClear = findViewById(R.id.btnEconomyClear)
         btnEconomyLedger = findViewById(R.id.btnEconomyLedger)
-        btnEconomyPeerRanking = findViewById(R.id.btnEconomyPeerRanking)
-        btnUsageHistory = findViewById(R.id.btnUsageHistory)
-        btnBridgeStart = findViewById(R.id.btnBridgeStart)
-        btnBridgeStop = findViewById(R.id.btnBridgeStop)
-        btnDesktopTestStart = findViewById(R.id.btnDesktopTestStart)
-        btnDesktopTestStop = findViewById(R.id.btnDesktopTestStop)
-        renderImmediateState()
+
+        btnEconomySimulate.setOnClickListener {
+            simulateServiceSession()
+        }
+
+        btnEconomyClear.setOnClickListener {
+            MeshServiceLedger.clear(this)
+            Toast.makeText(this, getString(R.string.service_economy_reset_done), Toast.LENGTH_SHORT).show()
+            refreshUi()
+        }
 
         btnEconomyLedger.setOnClickListener {
             startActivity(Intent(this, MeshEconomyLedgerActivity::class.java))
         }
 
-        btnEconomyPeerRanking.setOnClickListener {
-            startActivity(Intent(this, PeerRankingActivity::class.java))
-        }
-
-        btnUsageHistory.setOnClickListener {
-            startActivity(Intent(this, UsageHistoryActivity::class.java))
-        }
-
-        btnBridgeStart.setOnClickListener {
-            beginBridgeStart(VpnOperatingMode.MONITORING_PASSIVE)
-        }
-
-        btnBridgeStop.setOnClickListener {
-            val bridgeState = InternetBridgeStateManager.snapshot(this)
-            if (!bridgeState.canStop) {
-                Toast.makeText(
-                    this,
-                    "Layanan internet luar belum sedang aktif.",
-                    Toast.LENGTH_SHORT
-                ).show()
-                renderImmediateState()
-                refreshUi()
-                return@setOnClickListener
-            }
-            stopVpnSafely()
-            renderImmediateState()
-            refreshUi()
-        }
-
-        btnBridgeStart.setOnLongClickListener {
-            beginBridgeStart(VpnOperatingMode.MONITORING_LIGHT)
-            true
-        }
-
-        btnDesktopTestStart.setOnClickListener {
-            lifecycleScope.launch {
-                val result = DesktopInternetTestManager.start(this@MeshEconomyActivity, globalId)
-                Toast.makeText(this@MeshEconomyActivity, result.detail, Toast.LENGTH_SHORT).show()
-                refreshUi()
-            }
-        }
-
-        btnDesktopTestStop.setOnClickListener {
-            val result =
-                DesktopInternetTestManager.stop(
-                    this,
-                    getString(R.string.desktop_test_stopped_manual)
-                )
-            Toast.makeText(this, result.detail, Toast.LENGTH_SHORT).show()
-            refreshUi()
-        }
-
-        lifecycleScope.launch {
-            delay(250L)
-            refreshUi()
-        }
+        refreshUi()
     }
 
-    override fun onResume() {
-        super.onResume()
-        renderImmediateState()
-        bridgeRefreshJob?.cancel()
-        bridgeRefreshJob = lifecycleScope.launch {
-            delay(500L)
-            refreshUi()
-            while (true) {
-                delay(4_000L)
-                refreshUi()
-            }
-        }
-    }
+    private fun simulateServiceSession() {
+        btnEconomySimulate.isEnabled = false
+        btnEconomySimulate.text = getString(R.string.service_economy_simulate_busy)
 
-    override fun onPause() {
-        bridgeRefreshJob?.cancel()
-        bridgeRefreshJob = null
-        super.onPause()
-    }
-
-    private fun refreshUi() {
-        if (refreshInFlight) return
-        refreshInFlight = true
         lifecycleScope.launch(Dispatchers.IO) {
-            runCatching {
-                FirebaseRemoteSyncManager.refreshControlData(
-                    this@MeshEconomyActivity,
-                    setOf(globalId)
-                )
+            try {
                 TokenManager.ensureWalletBootstrap(globalId)
 
-                val walletBalance =
-                    TokenManager.getLocalWalletBalance(globalId)
-                val walletRole =
-                    FirebaseRemoteSyncManager.cachedWalletOwnerClass(this@MeshEconomyActivity, globalId)
-                        ?: EconomyRoleManager.classify(globalId).name
-                val walletRoleLabel =
-                    EconomyRoleManager.displayName(this@MeshEconomyActivity, walletRole)
-
-                val builderBalance =
-                    TokenManager.getBuilderWalletBalance()
-
-                val snapshot =
-                    MeshServiceLedger.snapshot(this@MeshEconomyActivity)
-                val autoRole =
-                    AutoNodeRoleManager.currentDevice(
-                        context = this@MeshEconomyActivity,
-                        economySnapshot = snapshot,
-                        localWalletRoleName = walletRole
-                    )
                 val nodes =
                     DiscoveryManager.discoverNodes()
 
-                val policy =
-                    MeshEconomyServerPolicyManager.current(this@MeshEconomyActivity)
+                val session =
+                    buildDemoSession(nodes)
 
-                val appAccess =
-                    AppServiceAccessPolicyManager.evaluate(this@MeshEconomyActivity, nodes)
+                val settlement =
+                    MeshServiceFormula.settle(session)
 
-                val bridgePolicy =
-                    InternetBridgePolicyManager.current(this@MeshEconomyActivity)
+                applySettlement(session, settlement)
 
-                val bridgeDecision =
-                    InternetBridgePolicyManager.evaluate(this@MeshEconomyActivity, globalId)
-
-                val peerPolicySummary =
-                    InternetBridgePeerPolicyManager.summary(this@MeshEconomyActivity)
-
-                val requestSummary =
-                    InternetBridgeRequestLogManager.summary(this@MeshEconomyActivity)
-
-                val queueSummary =
-                    InternetBridgeRequestQueueManager.reevaluate(this@MeshEconomyActivity)
-
-                val bridgeSnapshot =
-                    InternetBridgeUsageMonitor.snapshot(this@MeshEconomyActivity)
-                val desktopTest =
-                    DesktopInternetTestManager.reevaluate(this@MeshEconomyActivity, globalId)
-
-                val bridgeState =
-                    InternetBridgeStateManager.snapshot(this@MeshEconomyActivity)
-
-                val gatewayCandidates =
-                    InternetGatewayRegistry.candidates(this@MeshEconomyActivity, nodes)
-
-                val routePlans =
-                    InternetRoutePlanner.plans(this@MeshEconomyActivity, nodes)
-
-                val routeLoadText =
-                    buildString {
-                    val gateways =
-                        if (gatewayCandidates.isEmpty()) {
-                            getString(R.string.internet_bridge_load_none)
-                        } else {
-                            gatewayCandidates.take(3).joinToString("\n") { gateway ->
-                                val gatewayLabel =
-                                    if (gateway.isLocal) {
-                                        getString(R.string.gateway_this_device)
-                                    } else {
-                                        gateway.name
-                                    }
-                                val presentation =
-                                    InternetGatewayHealthManager.present(
-                                        context = this@MeshEconomyActivity,
-                                        gateway = gateway,
-                                        selectedGatewayId = bridgeDecision.gatewayId
-                                    )
-                                "${presentation.signalIndicator} $gatewayLabel\n${presentation.statusLabel} - ${presentation.summaryLabel}"
-                            }
-                        }
-                    val routes =
-                        if (routePlans.isEmpty()) {
-                            getString(R.string.internet_bridge_load_none)
-                        } else {
-                            routePlans.take(3).joinToString("\n") { route ->
-                                val pathLabel =
-                                    if (route.relayPath.isEmpty()) {
-                                        getString(R.string.service_economy_path_direct)
-                                    } else {
-                                        route.relayPath.joinToString(" -> ") { it.nodeName }
-                                    }
-                                val routeLoad =
-                                    InternetRouteCooperationManager.activeLoad(
-                                        this@MeshEconomyActivity,
-                                        route.routeKey
-                                    )
-                                val routeState =
-                                    when {
-                                        route.gateway.nodeId == bridgeDecision.gatewayId ->
-                                            getString(R.string.internet_bridge_health_active_now)
-                                        routeLoad > 0 ->
-                                            getString(R.string.internet_bridge_health_busy)
-                                        else ->
-                                            getString(R.string.internet_bridge_health_backup_ready)
-                                    }
-                                "${route.gateway.name} - $routeState\n$pathLabel"
-                            }
-                        }
-                    append(
-                        getString(
-                            R.string.internet_bridge_load_value,
-                            gateways,
-                            routes
-                        )
-                    )
-                }
-
-                val recent =
-                    MeshServiceLedger.recentEntries(this@MeshEconomyActivity, 4)
-
-                val recentText =
-                    if (recent.isEmpty()) {
-                        getString(R.string.service_economy_recent_empty)
-                    } else {
-                        recent.joinToString("\n\n") { entry ->
-                            val time =
-                                SimpleDateFormat("HH:mm", Locale.getDefault())
-                                    .format(Date(entry.session.endedAt))
-
-                            "$time - ${entry.settlement.notes}\n" +
-                                getString(
-                                    R.string.service_economy_recent_line,
-                                    entry.settlement.burnAmount,
-                                    entry.settlement.gatewayReward,
-                                    entry.settlement.totalRelayReward
-                                )
-                        }
-                    }
+                MeshServiceLedger.record(
+                    this@MeshEconomyActivity,
+                    ServiceLedgerEntry(session, settlement)
+                )
 
                 runOnUiThread {
-                    txtEconomyWallet.text =
-                        getString(R.string.service_economy_wallet_role_value, walletBalance, walletRoleLabel)
+                    Toast.makeText(
+                        this@MeshEconomyActivity,
+                        getString(R.string.service_economy_session_saved),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } finally {
+                runOnUiThread {
+                    btnEconomySimulate.isEnabled = true
+                    btnEconomySimulate.text = getString(R.string.service_economy_simulate)
+                    refreshUi()
+                }
+            }
+        }
+    }
+
+    private suspend fun applySettlement(
+        session: ServiceSessionRecord,
+        settlement: ServiceSettlement
+    ) {
+        // TODO unified identity:
+        // reward attribution should migrate from nodeName/nodeAddress fallback
+        // to canonical participant identity backed by globalId.
+        TokenManager.recordWalletDebit(
+            globalId,
+            settlement.burnAmount,
+            "USAGE_BURN:${session.sessionId}"
+        )
+
+        if (session.localInternetProvider) {
+            TokenManager.recordWalletCredit(
+                globalId,
+                settlement.gatewayReward,
+                "GATEWAY_REWARD:${session.sessionId}"
+            )
+        } else if (settlement.gatewayReward > 0.0) {
+            TokenManager.recordPeerReward(
+                peerIp = session.gatewayNodeAddress.ifBlank { session.gatewayNodeId },
+                peerName = session.gatewayNodeName.ifBlank { session.gatewayNodeId },
+                amount = settlement.gatewayReward,
+                reason = "GATEWAY_REWARD:${session.sessionId}"
+            )
+        }
+
+        settlement.relayRewards.forEach { relay ->
+            if (relay.local) {
+                TokenManager.recordWalletCredit(
+                    globalId,
+                    relay.amount,
+                    "RELAY_REWARD:${session.sessionId}:${relay.nodeName}"
+                )
+            } else {
+                TokenManager.recordPeerReward(
+                    peerIp = relay.nodeAddress.ifBlank { relay.nodeId },
+                    peerName = relay.nodeName,
+                    amount = relay.amount,
+                    reason = "RELAY_REWARD:${session.sessionId}"
+                )
+            }
+        }
+
+        TokenManager.recordTreasury(
+            amount = settlement.treasuryReserve,
+            reason = "TREASURY:${session.sessionId}"
+        )
+
+        TokenManager.recordBuilderReward(
+            amount = settlement.builderReward,
+            reason = "BUILDER_REWARD:${session.sessionId}"
+        )
+    }
+
+    private fun buildDemoSession(
+        nodes: List<com.ghalbitnet.meshx2.model.MeshNode>
+    ): ServiceSessionRecord {
+        val now =
+            System.currentTimeMillis()
+
+        val localGateway =
+            ConnectivityStatusDetector.localGatewayActive(this)
+
+        val remoteGateway =
+            if (localGateway) {
+                null
+            } else {
+                InternetGatewayRegistry.select(this, nodes)
+            }
+
+        val relayNodes =
+            nodes.filter { it.online && it.relay && it.name != remoteGateway?.name }
+
+        val observedRelayPath =
+            ServicePathRecorder.recentRelayParticipants(this, 4)
+
+        val observedUsage =
+            UsageSessionRecorder.latestObservedSession(this)
+
+        val serviceFamily =
+            observedUsage?.serviceFamily ?: when {
+                observedRelayPath.isNotEmpty() || relayNodes.isNotEmpty() -> ServiceFamily.MEDIA
+                else -> ServiceFamily.CHAT
+            }
+
+        val relayPath =
+            if (observedRelayPath.isNotEmpty()) {
+                observedRelayPath
+            } else {
+                relayNodes
+                    .sortedByDescending { it.trusted }
+                    .take(3)
+                    .mapIndexed { index, node ->
+                        ServiceParticipant(
+                            nodeId = "${node.name}-$index",
+                            nodeName = node.name,
+                            nodeAddress = node.ipAddress,
+                            role = ServiceRole.RELAY,
+                            local = false,
+                            trustScore = node.trusted.coerceIn(10, 100)
+                        )
+                    }
+            }
+
+        val avgLatency =
+            if (relayPath.isEmpty()) 90 else (70 + relayPath.size * 20)
+
+        val observedTotalBytes =
+            observedUsage?.totalBytes ?: 0L
+
+        val fallbackTrafficMb =
+            when {
+                localGateway -> 36
+                remoteGateway != null -> 24
+                else -> 10
+            } + relayPath.size * 4
+
+        val totalTrafficBytes =
+            if (observedTotalBytes > 0L) {
+                observedTotalBytes
+            } else {
+                fallbackTrafficMb * 1024L * 1024L
+            }
+
+        val durationMs =
+            observedUsage?.durationMs
+                ?: (120_000L + relayPath.size * 45_000L)
+
+        return ServiceSessionRecord(
+            sessionId = "svc-${now}",
+            serviceFamily = serviceFamily,
+            userGlobalId = globalId,
+            bytesUp = totalTrafficBytes / 3L,
+            bytesDown = totalTrafficBytes,
+            durationMs = durationMs,
+            startedAt = now - durationMs,
+            endedAt = now,
+            success = localGateway || remoteGateway != null,
+            averageLatencyMs = avgLatency,
+            localInternetProvider = localGateway,
+            gatewayNodeId = if (localGateway) globalId else remoteGateway?.name.orEmpty(),
+            gatewayNodeName = if (localGateway) getString(R.string.gateway_this_device) else remoteGateway?.name.orEmpty(),
+            gatewayNodeAddress = if (localGateway) "local" else remoteGateway?.ipAddress.orEmpty(),
+            relayPath = relayPath
+        )
+    }
+
+    private fun refreshUi() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            TokenManager.ensureWalletBootstrap(globalId)
+
+            val walletBalance =
+                TokenManager.getLocalWalletBalance(globalId)
+
+            val builderBalance =
+                TokenManager.getBuilderWalletBalance()
+
+            val snapshot =
+                MeshServiceLedger.snapshot(this@MeshEconomyActivity)
+
+            val recent =
+                MeshServiceLedger.recentEntries(this@MeshEconomyActivity, 4)
+
+            val recentText =
+                if (recent.isEmpty()) {
+                    getString(R.string.service_economy_recent_empty)
+                } else {
+                    recent.joinToString("\n\n") { entry ->
+                        val time =
+                            SimpleDateFormat("HH:mm", Locale.getDefault())
+                                .format(Date(entry.session.endedAt))
+
+                        "$time - ${entry.settlement.notes}\n" +
+                            getString(
+                                R.string.service_economy_recent_line,
+                                entry.settlement.burnAmount,
+                                entry.settlement.gatewayReward,
+                                entry.settlement.totalRelayReward
+                            )
+                    }
+                }
+
+            runOnUiThread {
+                txtEconomyWallet.text =
+                    getString(R.string.service_economy_wallet_value, walletBalance)
                 txtEconomySessions.text =
                     getString(R.string.service_economy_sessions_value, snapshot.sessionCount)
                 txtEconomyTraffic.text =
@@ -362,216 +323,10 @@ class MeshEconomyActivity : AppCompatActivity() {
                         snapshot.totalBuilderReward,
                         builderBalance
                     )
-                txtEconomyValidator.text =
-                    getString(R.string.service_economy_validator_value, snapshot.totalValidatorReward)
                 txtEconomyReserve.text =
                     getString(R.string.service_economy_reserve_value, snapshot.totalTreasury)
-                txtEconomyPolicy.text =
-                    getString(
-                        R.string.service_economy_policy_role_value,
-                        policy.sourceLabel,
-                        policy.versionLabel,
-                        walletRoleLabel,
-                        policy.priceReferencePerGbhtIdr
-                    )
-                txtEconomyAutoRole.text =
-                    getString(
-                        R.string.auto_role_value,
-                        autoRole.title,
-                        autoRole.trustScore,
-                        autoRole.contributionScore,
-                        autoRole.detail
-                    )
-                txtEconomyAppAccess.text =
-                    getString(
-                        R.string.app_service_access_value,
-                        appAccess.title,
-                        appAccess.detail,
-                        appAccess.rewardLabel
-                    )
-                txtEconomyBridge.text =
-                    getString(
-                        R.string.internet_bridge_monitor_with_user_policy,
-                        bridgeState.state.name,
-                        bridgeState.detail,
-                        bridgePolicy.versionLabel,
-                        bridgePolicy.maxSessionMinutes,
-                        bridgePolicy.maxSessionMb,
-                        bridgeDecision.userTier.name,
-                        bridgeDecision.walletBalance,
-                        bridgeDecision.dailyUsedMb,
-                        bridgeDecision.dailyQuotaMb,
-                        peerPolicySummary.priorityCount,
-                        peerPolicySummary.blockedCount,
-                        requestSummary.allowed,
-                        requestSummary.denied,
-                        queueSummary.activeAlias.ifBlank { "-" },
-                        queueSummary.waitingCount,
-                        queueSummary.deniedCount,
-                        bridgeSnapshot.summary
-                    )
-                txtEconomyBridgeLoad.text = routeLoadText
-                btnBridgeStart.isEnabled = true
-                btnBridgeStop.isEnabled = true
-                btnBridgeStart.alpha = 1.0f
-                btnBridgeStop.alpha = 1.0f
-                txtDesktopTest.text =
-                    getString(
-                        R.string.desktop_test_value,
-                        desktopTest.title(this@MeshEconomyActivity),
-                        desktopTest.detail,
-                        desktopTest.walletBalance,
-                        desktopTest.minimumBalance,
-                        if (desktopTest.hotspotReady) {
-                            getString(R.string.desktop_test_hotspot_ready)
-                        } else {
-                            getString(R.string.desktop_test_hotspot_not_ready)
-                        }
-                    )
-                btnDesktopTestStart.isEnabled = !desktopTest.active
-                btnDesktopTestStop.isEnabled = desktopTest.active || desktopTest.status == DesktopInternetTestManager.Status.ALLOWED
-                    txtEconomyRecent.text = recentText
-                }
-            }.onFailure { error ->
-                MeshLogger.e("MeshEconomy", "refreshUi gagal", error)
-                runOnUiThread {
-                    txtEconomyBridge.text = "Status layanan belum bisa dimuat.\n${error.message ?: "Terjadi kesalahan tak dikenal."}"
-                    btnBridgeStart.isEnabled = false
-                    btnBridgeStop.isEnabled = false
-                    Toast.makeText(
-                        this@MeshEconomyActivity,
-                        "Layanan internet luar gagal dimuat: ${error.message ?: "unknown error"}",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-            }.also {
-                refreshInFlight = false
+                txtEconomyRecent.text = recentText
             }
-        }
-    }
-
-    private fun startVpnSafely() {
-        VpnController.start(this)
-            .onSuccess {
-                renderImmediateState()
-                Toast.makeText(
-                    this,
-                    getString(R.string.internet_bridge_monitor_started),
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-            .onFailure { error ->
-                handleVpnStartFailure(error)
-            }
-    }
-
-    private fun stopVpnSafely() {
-        VpnController.stop(this)
-            .onSuccess {
-                renderImmediateState()
-                Toast.makeText(
-                    this,
-                    getString(R.string.internet_bridge_monitor_stopping),
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-            .onFailure { error ->
-                MeshLogger.e("MeshEconomy", "stop VPN gagal", error)
-                Toast.makeText(
-                    this,
-                    "Gagal menghentikan layanan internet luar: ${error.message ?: "unknown error"}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-    }
-
-    private fun handleVpnStartFailure(error: Throwable) {
-        MeshLogger.e("MeshEconomy", "start VPN gagal", error)
-        InternetBridgeStateManager.mark(
-            this,
-            InternetBridgeStateManager.BridgeState.ERROR,
-            "Start VPN gagal: ${error.message ?: "unknown error"}"
-        )
-        Toast.makeText(
-            this,
-            "Gagal memulai layanan internet luar: ${error.message ?: "unknown error"}",
-            Toast.LENGTH_LONG
-        ).show()
-        renderImmediateState()
-    }
-
-    private fun renderImmediateState() {
-        val bridgeState = InternetBridgeStateManager.snapshot(this)
-        val vpnStatus = VpnStatusProvider.snapshot(this)
-        txtEconomyBridge.text =
-            buildString {
-                append("Status layanan: ")
-                append(bridgeState.state.name)
-                append('\n')
-                append(bridgeState.detail)
-                append("\n\nVPN runtime:\n")
-                append("Status UI: ${vpnStatus.uiStatus}\n")
-                append("Service aktif: ${vpnStatus.serviceActive}\n")
-                append("Diinginkan aktif: ${vpnStatus.desiredRunning}\n")
-                append("Mode: ${vpnStatus.mode ?: "-"}\n")
-                append("Gateway: ${vpnStatus.gatewayName ?: "-"}\n")
-                append("Paket masuk: ${vpnStatus.packetsIn ?: 0L}\n")
-                append("Paket keluar: ${vpnStatus.packetsOut ?: 0L}\n")
-                append("Keputusan terakhir: ${vpnStatus.lastDecision ?: "-"}")
-                vpnStatus.warning?.let {
-                    append("\nPeringatan: ")
-                    append(it)
-                }
-            }
-        btnBridgeStart.isEnabled = true
-        btnBridgeStop.isEnabled = true
-        btnBridgeStart.alpha = 1.0f
-        btnBridgeStop.alpha = 1.0f
-    }
-
-    private fun beginBridgeStart(mode: VpnOperatingMode) {
-        VpnOperatingMode.set(this, mode)
-        val startEvent =
-            if (mode == VpnOperatingMode.MONITORING_PASSIVE) {
-                "START_BUTTON_MONITORING_PASSIVE"
-            } else {
-                "START_BUTTON_MONITORING_LIGHT"
-            }
-        val startDetail =
-            if (mode == VpnOperatingMode.MONITORING_PASSIVE) {
-                "Start biasa menyalakan monitoring pasif tanpa TUN."
-            } else {
-                "Start debug menyalakan monitoring ringan berbasis TUN."
-            }
-        VpnLogManager.info(startEvent, startDetail)
-        btnBridgeStart.isEnabled = false
-        txtEconomyBridge.text =
-            buildString {
-                append("Menyiapkan layanan internet luar...\n")
-                append(
-                    if (mode == VpnOperatingMode.MONITORING_PASSIVE) {
-                        "Monitoring pasif dimulai tanpa izin VPN Android."
-                    } else {
-                        "Mode debug TUN dimulai. Jika perlu, izin VPN Android akan diminta."
-                    }
-                )
-            }
-        lifecycleScope.launch {
-            val prepareIntent =
-                withContext(Dispatchers.IO) {
-                    VpnController.prepareIntent(this@MeshEconomyActivity)
-                }
-            if (prepareIntent != null) {
-                runCatching {
-                    vpnPermissionLauncher.launch(prepareIntent)
-                }.onFailure { error ->
-                    handleVpnStartFailure(error)
-                }
-            } else {
-                startVpnSafely()
-            }
-            renderImmediateState()
-            refreshUi()
         }
     }
 }

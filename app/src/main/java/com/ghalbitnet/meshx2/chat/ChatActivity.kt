@@ -2,6 +2,8 @@ package com.ghalbitnet.meshx2.chat
 
 import android.Manifest
 import android.content.ContentValues
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.Bitmap
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -16,15 +18,24 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.provider.OpenableColumns
+import android.util.Log
 import android.webkit.MimeTypeMap
 import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
+import androidx.core.widget.NestedScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -32,27 +43,52 @@ import com.ghalbitnet.meshx2.MainActivity
 import com.ghalbitnet.meshx2.R
 import com.ghalbitnet.meshx2.call.CallSessionActivity
 import com.ghalbitnet.meshx2.call.VoiceCallRegistry
+import com.ghalbitnet.meshx2.identity.CentralIdentityResolver
+import com.ghalbitnet.meshx2.identity.IdentityBridge
+import com.ghalbitnet.meshx2.identity.IdentityDisplayFormatter
+import com.ghalbitnet.meshx2.identity.IdentityRegistry
 import com.ghalbitnet.meshx2.core.log.MeshLogger
 import com.ghalbitnet.meshx2.core.utils.AppNotificationManager
+import com.ghalbitnet.meshx2.core.utils.GhalbitDeepLinkRouter
 import com.ghalbitnet.meshx2.file.FileTransferManager
-import com.ghalbitnet.meshx2.model.MeshPacket
-import com.ghalbitnet.meshx2.network.ReliablePacketSender
 import androidx.lifecycle.lifecycleScope
-import android.util.Base64
 import androidx.activity.result.contract.ActivityResultContracts
 import com.ghalbitnet.meshx2.settings.ChatMediaSettingsManager
+import com.ghalbitnet.meshx2.online.OnlineFallbackTransport
+import com.ghalbitnet.meshx2.online.OnlinePresenceManager
+import com.ghalbitnet.meshx2.online.PendingMessageStore
+import com.ghalbitnet.meshx2.online.PreparedRouteManager
+import com.ghalbitnet.meshx2.ui.ActionDebounceManager
+import com.ghalbitnet.meshx2.ui.GhalbitTheme
+import com.ghalbitnet.meshx2.ui.RuntimeLoadingOverlay
+import com.ghalbitnet.meshx2.ui.RuntimeSoftBannerManager
+import com.ghalbitnet.meshx2.ui.RuntimeUiState
+import com.ghalbitnet.meshx2.ui.RuntimeUiSnapshot
+import com.ghalbitnet.meshx2.ui.RuntimeUiStateManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.ghalbitnet.meshx2.routing.PacketTtlManager
-import com.ghalbitnet.meshx2.security.CryptoEngine
 import com.ghalbitnet.meshx2.security.KeyStoreManager
 import com.ghalbitnet.meshx2.core.utils.UiFeedbackManager
+import com.ghalbitnet.meshx2.profile.ContactNameCardActivity
+import com.ghalbitnet.meshx2.profile.ProfileRepository
+import com.ghalbitnet.meshx2.profile.ProfileSyncManager
+import com.ghalbitnet.meshx2.routing.CallRouteDiscoveryManager
+import com.ghalbitnet.meshx2.routing.RouteSearchState
+import com.ghalbitnet.meshx2.routing.RouteStateReconciler
 import java.io.File
+import com.ghalbitnet.meshx2.routing.TriplePathRoutePolicy
+import com.ghalbitnet.meshx2.ui.CallSearchingToneManager
+import com.ghalbitnet.meshx2.ui.RouteSearchingAnimator
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 
 class ChatActivity : AppCompatActivity() {
@@ -72,6 +108,20 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var rvMessages: RecyclerView
     private lateinit var chatAdapter: ChatAdapter
     private lateinit var txtChatStatus: TextView
+    private lateinit var txtRouteHealthStatus: TextView
+    private lateinit var chatRoot: LinearLayout
+    private lateinit var reviewPanel: LinearLayout
+    private lateinit var reviewContentScroll: NestedScrollView
+    private lateinit var txtReviewInlineStatus: TextView
+    private lateinit var txtReviewTitle: TextView
+    private lateinit var txtReviewMeta: TextView
+    private lateinit var imgReviewPreview: ImageView
+    private lateinit var edtReviewCaption: EditText
+    private lateinit var btnReviewEdit: Button
+    private lateinit var btnReviewReplace: Button
+    private lateinit var btnReviewCancel: Button
+    private lateinit var btnReviewConfirm: Button
+    private lateinit var composerContainer: LinearLayout
     private lateinit var edtMessage: EditText
     private lateinit var btnSend: Button
     private lateinit var btnCall: Button
@@ -79,10 +129,18 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var btnCamera: Button
     private lateinit var btnVoice: Button
     private lateinit var btnRetryFailed: Button
+    private lateinit var runtimeLoadingOverlay: RuntimeLoadingOverlay
+    private lateinit var runtimeSoftBanner: RuntimeSoftBannerManager
 
     private var peerIp: String = ""
     private var peerName: String = ""
+    private var peerGlobalId: String? = null
+    private var peerPublicKey: String? = null
+    private var peerWalletAddress: String? = null
+    private var peerDisplayName: String? = null
+    private var activeConversationHint: ConversationOwnershipHint? = null
     private lateinit var chatDb: ChatDatabase
+    private lateinit var draftDb: DraftDatabase
     private lateinit var keyStore: KeyStoreManager
     private var mediaRecorder: MediaRecorder? = null
     private var mediaPlayer: MediaPlayer? = null
@@ -91,13 +149,20 @@ class ChatActivity : AppCompatActivity() {
     private var recordStartAt = 0L
     private var pendingVoiceStart = false
     private var recordingStatusJob: Job? = null
+    private var routeHealthJob: Job? = null
+    private var currentDraftId: String? = null
+    private var currentReviewState: ReviewSendState = ReviewSendState.IDLE
+    private var lastRuntimeSnapshot: RuntimeUiSnapshot = RuntimeUiStateManager.current()
+    private var lastRouteStatusText: String = ""
+    private var lastPreparedRouteLabel: String = ""
+    private var routeStatusDefaultColor: Int = 0
 
     private val filePickerLauncher =
         registerForActivityResult(
             ActivityResultContracts.GetContent()
         ) { uri ->
             if (uri != null) {
-                sendAttachment(
+                createAttachmentDraft(
                     fileUri = uri,
                     contentType = resolveAttachmentContentType(uri),
                     displayName = readDisplayName(uri)
@@ -110,7 +175,7 @@ class ChatActivity : AppCompatActivity() {
             ActivityResultContracts.TakePicturePreview()
         ) { bitmap ->
             if (bitmap != null) {
-                sendCapturedPhoto(bitmap)
+                createCapturedPhotoDraft(bitmap)
             } else {
                 txtChatStatus.text = getString(R.string.chat_camera_cancelled)
             }
@@ -161,16 +226,45 @@ class ChatActivity : AppCompatActivity() {
                     return
                 }
 
+                if (type == "PING" || type == "PONG" || type == "ROUTE_CHECK") {
+                    return
+                }
+
                 if (payload.isNotEmpty()) {
-                    if (type == "ACK") {
+                    if (type == "ACK" || type == "CHAT_ACK" || type == "CHAT_DELIVERED") {
                         lifecycleScope.launch {
                             if (payload.isNotBlank()) {
                                 withContext(Dispatchers.IO) {
-                                    chatDb.chatDao().updateStatus(payload, "RECEIVED")
+                                    ChatDeliveryManager.handleAck(this@ChatActivity, payload)
                                 }
                             }
 
+                            runtimeSoftBanner.showMessage(
+                                key = "chat:ack:$payload",
+                                title = "Terkirim",
+                                detail = "Pesan diterima oleh $source",
+                                priority = 3,
+                                durationMs = 1500L,
+                                miniStatus = "Terhubung lokal"
+                            )
                             renderHistory("Pesan diterima oleh $source")
+                        }
+                    } else if (type == "CHAT_READ") {
+                        lifecycleScope.launch {
+                            if (payload.isNotBlank()) {
+                                withContext(Dispatchers.IO) {
+                                    ChatDeliveryManager.handleRead(this@ChatActivity, payload)
+                                }
+                            }
+
+                            runtimeSoftBanner.showMessage(
+                                key = "chat:read:$payload",
+                                title = "Dibaca",
+                                detail = "Pesan dibuka oleh $source",
+                                priority = 3,
+                                durationMs = 1500L
+                            )
+                            renderHistory("Pesan dibaca oleh $source")
                         }
                     } else if (type == "AUDIO_RECEIVED") {
                         lifecycleScope.launch {
@@ -196,6 +290,14 @@ class ChatActivity : AppCompatActivity() {
                         }
                     } else {
                         lifecycleScope.launch {
+                            refreshConversationOwnershipHint(
+                                ipHint = peerIp.ifBlank { null },
+                                globalIdHint = activeConversationHint?.globalId,
+                                publicKeyHint = activeConversationHint?.publicKey,
+                                walletAddressHint = activeConversationHint?.walletAddress,
+                                displayNameHint = source
+                            )
+
                             withContext(Dispatchers.IO) {
                                 val packetId =
                                     intent?.getStringExtra("packetId")
@@ -203,21 +305,35 @@ class ChatActivity : AppCompatActivity() {
                                         ?: "IN-$source-${System.currentTimeMillis()}"
 
                                 if (chatDb.chatDao().countByPacketId(packetId) == 0) {
-                                    chatDb.chatDao().insertMessage(
-                                        ChatMessage(
+                                    val internalEvent =
+                                        InternalEventRouter.toChatMessage(
+                                            context = this@ChatActivity,
                                             packetId = packetId,
                                             chatId = peerName,
                                             senderName = source,
-                                            content = if (type == "SOS") {
-                                                "SOS ALERT: $payload"
-                                            } else {
-                                                payload
-                                            },
-                                            contentType = if (type == "SOS") "SOS" else "TEXT",
+                                            type = type,
+                                            payload = payload,
                                             isSent = false,
-                                            status = "RECEIVED"
+                                            status = "DELIVERED",
+                                            senderGlobalId = activeConversationHint?.globalId ?: peerGlobalId,
+                                            publicDisplayName = peerDisplayName ?: source
                                         )
-                                    )
+                                    val nextMessage =
+                                        internalEvent
+                                            ?: ChatMessage(
+                                                packetId = packetId,
+                                                chatId = peerName,
+                                                senderName = source,
+                                                content = if (type == "SOS") {
+                                                    "SOS ALERT: $payload"
+                                                } else {
+                                                    payload
+                                                },
+                                                contentType = if (type == "SOS") "SOS" else "TEXT",
+                                                isSent = false,
+                                                status = "DELIVERED"
+                                            )
+                                    chatDb.chatDao().insertMessage(nextMessage)
                                 }
                             }
 
@@ -238,13 +354,21 @@ class ChatActivity : AppCompatActivity() {
                     intent?.getStringExtra(FileTransferManager.EXTRA_ATTACHMENT_SOURCE)
                         ?: return
 
-                if (source != peerName) {
-                    return
-                }
+            if (source != peerName) {
+                return
+            }
 
-                lifecycleScope.launch {
-                    val label =
-                        intent.getStringExtra(FileTransferManager.EXTRA_ATTACHMENT_LABEL)
+            lifecycleScope.launch {
+                refreshConversationOwnershipHint(
+                    ipHint = peerIp.ifBlank { null },
+                    globalIdHint = activeConversationHint?.globalId,
+                    publicKeyHint = activeConversationHint?.publicKey,
+                    walletAddressHint = activeConversationHint?.walletAddress,
+                    displayNameHint = source
+                )
+
+                val label =
+                    intent.getStringExtra(FileTransferManager.EXTRA_ATTACHMENT_LABEL)
 
                     if (label.isNullOrBlank()) {
                         renderHistory()
@@ -261,15 +385,46 @@ class ChatActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         setContentView(R.layout.activity_chat)
+        GhalbitTheme.applyWindow(this, "ChatActivity")
 
         peerIp =
             intent.getStringExtra("peerIp") ?: ""
 
         peerName =
-            intent.getStringExtra("peerName") ?: "UNKNOWN"
+            intent.getStringExtra("peerName")
+                ?: intent.getStringExtra(GhalbitDeepLinkRouter.EXTRA_CONVERSATION_ID)
+                ?: "UNKNOWN"
+        peerGlobalId =
+            intent.getStringExtra("peerGlobalId")
+        peerPublicKey =
+            intent.getStringExtra("peerPublicKey")
+        peerWalletAddress =
+            intent.getStringExtra("peerWalletAddress")
+        peerDisplayName =
+            intent.getStringExtra("peerDisplayName")
 
+        val persistedConversationIdentity =
+            ConversationIdentityStore.get(
+                context = this,
+                chatId = peerName
+            )
+
+        peerGlobalId =
+            peerGlobalId ?: persistedConversationIdentity?.globalId
+        peerPublicKey =
+            peerPublicKey ?: persistedConversationIdentity?.publicKey
+        peerWalletAddress =
+            peerWalletAddress ?: persistedConversationIdentity?.walletAddress
+        peerDisplayName =
+            peerDisplayName ?: persistedConversationIdentity?.canonicalDisplayName
+
+        // TODO unified identity:
+        // chat session should be anchored by globalId, with peerName/IP kept
+        // only as UI label and transport fallback during migration.
         chatDb =
             ChatDatabase.getInstance(this)
+        draftDb =
+            DraftDatabase.getInstance(this)
 
         keyStore =
             KeyStoreManager(this)
@@ -278,18 +433,106 @@ class ChatActivity : AppCompatActivity() {
             peerIp = keyStore.getPeerAddress(peerName).orEmpty()
         }
 
+        val bridgedIdentity =
+            IdentityRegistry.findByLegacy(
+                peerName = peerName,
+                ipAddress = peerIp,
+                publicKey = peerPublicKey
+            )
+                ?: IdentityRegistry.upsert(
+                    IdentityBridge.fromChatPeer(
+                        peerName = peerName,
+                        peerIp = peerIp,
+                        publicKey = peerPublicKey,
+                        walletAddress = peerWalletAddress,
+                        globalId = peerGlobalId,
+                        displayName = peerDisplayName
+                    )
+                )
+
+        peerGlobalId = bridgedIdentity.globalId
+        peerPublicKey = bridgedIdentity.publicKey
+        peerWalletAddress = bridgedIdentity.walletAddress
+        peerDisplayName = bridgedIdentity.displayName
+
+        refreshConversationOwnershipHint(
+            ipHint = peerIp,
+            globalIdHint = bridgedIdentity.globalId,
+            publicKeyHint = bridgedIdentity.publicKey,
+            walletAddressHint = bridgedIdentity.walletAddress,
+            displayNameHint = bridgedIdentity.displayName
+        )
+
+        MeshLogger.i(
+            "CHAT_IDENTITY",
+            IdentityDisplayFormatter.secondaryLabel(
+                primaryLabel = IdentityDisplayFormatter.primaryLabel(
+                    canonicalDisplayName = peerDisplayName,
+                    walletAddress = peerWalletAddress,
+                    globalId = peerGlobalId,
+                    publicKey = peerPublicKey,
+                    legacyName = peerName,
+                    ipAddress = peerIp
+                ),
+                legacyName = peerName,
+                walletAddress = peerWalletAddress,
+                globalId = peerGlobalId,
+                publicKey = peerPublicKey,
+                ipAddress = peerIp
+            ) ?: "Unknown peer"
+        )
+
         txtChat =
             findViewById(R.id.txtChatHeader)
+        txtChat.setOnClickListener {
+            startActivity(
+                ContactNameCardActivity.createIntent(
+                    context = this,
+                    globalId = activeConversationHint?.globalId ?: peerGlobalId,
+                    chatId = peerName,
+                    fallbackName = peerDisplayName ?: peerName,
+                    publicKeyHash = activeConversationHint?.publicKey?.let { com.ghalbitnet.meshx2.call.CallManager.publicKeyHash(it) },
+                    routeHint = activeConversationHint?.lastKnownIp ?: peerIp
+                )
+            )
+            Log.d("GHALBIT-CARD", "opened from chat")
+        }
 
         txtChatStatus =
             findViewById(R.id.txtChatStatus)
+        txtRouteHealthStatus =
+            findViewById(R.id.txtRouteHealthStatus)
+        chatRoot =
+            findViewById(R.id.chatRoot)
+        reviewPanel =
+            findViewById(R.id.reviewPanel)
+        reviewContentScroll =
+            findViewById(R.id.reviewContentScroll)
+        txtReviewInlineStatus =
+            findViewById(R.id.txtReviewInlineStatus)
+        txtReviewTitle =
+            findViewById(R.id.txtReviewTitle)
+        txtReviewMeta =
+            findViewById(R.id.txtReviewMeta)
+        imgReviewPreview =
+            findViewById(R.id.imgReviewPreview)
+        edtReviewCaption =
+            findViewById(R.id.edtReviewCaption)
+        btnReviewEdit =
+            findViewById(R.id.btnReviewEdit)
+        btnReviewReplace =
+            findViewById(R.id.btnReviewReplace)
+        btnReviewCancel =
+            findViewById(R.id.btnReviewCancel)
+        btnReviewConfirm =
+            findViewById(R.id.btnReviewConfirm)
+        GhalbitTheme.logCardRendered("chat-header")
 
         rvMessages =
             findViewById(R.id.rvMessages)
 
         chatAdapter =
             ChatAdapter(
-                mutableListOf(),
                 onMessageClick = { message ->
                     handleMessageClick(message)
                 },
@@ -308,6 +551,8 @@ class ChatActivity : AppCompatActivity() {
 
         edtMessage =
             findViewById(R.id.edtMessage)
+        composerContainer =
+            findViewById(R.id.composerContainer)
 
         btnSend =
             findViewById(R.id.btnSend)
@@ -326,29 +571,99 @@ class ChatActivity : AppCompatActivity() {
 
         btnRetryFailed =
             findViewById(R.id.btnRetryFailed)
+        routeStatusDefaultColor = txtRouteHealthStatus.currentTextColor
+        lastRouteStatusText = txtRouteHealthStatus.text?.toString().orEmpty()
 
+        val headerName =
+            IdentityDisplayFormatter.primaryLabel(
+                canonicalDisplayName = peerDisplayName,
+                walletAddress = peerWalletAddress,
+                globalId = peerGlobalId,
+                publicKey = peerPublicKey,
+                legacyName = peerName,
+                ipAddress = peerIp
+            )
+        val headerHint =
+            IdentityDisplayFormatter.secondaryLabel(
+                primaryLabel = headerName,
+                legacyName = peerName,
+                walletAddress = peerWalletAddress,
+                globalId = peerGlobalId,
+                publicKey = peerPublicKey,
+                ipAddress = peerIp
+            )
         txtChat.text =
-            buildChatHeader()
+            buildString {
+                append("Chat with ")
+                append(headerName)
+                headerHint?.let {
+                    append("\n")
+                    append(it)
+                }
+            }
 
         lifecycleScope.launch {
             renderHistory()
+            restoreDraftIfNeeded()
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            peerGlobalId?.takeIf { it.isNotBlank() }?.let {
+                ProfileSyncManager.fetchProfile(this@ChatActivity, it)
+            }
+        }
+        lifecycleScope.launch {
+            peerGlobalId?.takeIf { it.isNotBlank() }?.let { globalId ->
+                val candidate = PreparedRouteManager.requestSecondaryRoute(this@ChatActivity, "chat-$peerName", globalId, "LOCAL_MESH_DIRECT")
+                val validated = PreparedRouteManager.validateSecondaryRoute(this@ChatActivity, candidate)
+                lastPreparedRouteLabel = PreparedRouteManager.statusLabel(validated)
+                updateConversationRouteStatus()
+            } ?: run {
+                lastPreparedRouteLabel = PreparedRouteManager.statusLabel(null)
+                if (!OnlineFallbackTransport.isConfigured()) {
+                    Log.d("GHALBIT-ROUTE-UI", "relay missing shown")
+                }
+            }
+        }
+
+        if (intent.getStringExtra(GhalbitDeepLinkRouter.EXTRA_OPEN_MODE) == GhalbitDeepLinkRouter.MODE_CHAT_MESSAGE) {
+            GhalbitDeepLinkRouter.logChatOpen(peerName)
+            Log.d("GHALBIT-NOTIFY", "message clicked id=${intent.getStringExtra(GhalbitDeepLinkRouter.EXTRA_MESSAGE_ID).orEmpty()}")
         }
 
         txtChatStatus.text = getString(R.string.chat_voice_hold_hint)
+        updateConversationRouteStatus()
+        RuntimeUiStateManager.bind(applicationContext)
+        runtimeLoadingOverlay = RuntimeLoadingOverlay.attach(this)
+        runtimeSoftBanner = RuntimeSoftBannerManager.attach(this)
+        setupReviewInsets()
+        setReviewMode(false)
+        observeRuntimeUiState()
 
         btnSend.setOnClickListener {
-            sendMessage()
+            if (!ActionDebounceManager.allow("chat:send:$peerName", RuntimeUiStateManager.current().actionsLocked, cooldownMs = 600L)) {
+                return@setOnClickListener
+            }
+            openTextReview()
         }
 
         btnCall.setOnClickListener {
+            if (!ActionDebounceManager.allow("chat:call:$peerName", RuntimeUiStateManager.current().actionsLocked, cooldownMs = 1400L)) {
+                return@setOnClickListener
+            }
             startCallSession()
         }
 
         btnAttach.setOnClickListener {
+            if (!ActionDebounceManager.allow("chat:attach:$peerName", RuntimeUiStateManager.current().actionsLocked, cooldownMs = 700L)) {
+                return@setOnClickListener
+            }
             filePickerLauncher.launch("*/*")
         }
 
         btnCamera.setOnClickListener {
+            if (!ActionDebounceManager.allow("chat:camera:$peerName", RuntimeUiStateManager.current().actionsLocked, cooldownMs = 700L)) {
+                return@setOnClickListener
+            }
             cameraPreviewLauncher.launch(null)
         }
 
@@ -374,20 +689,94 @@ class ChatActivity : AppCompatActivity() {
         }
 
         btnRetryFailed.setOnClickListener {
+            if (!ActionDebounceManager.allow("chat:retry:$peerName", RuntimeUiStateManager.current().actionsLocked, cooldownMs = 900L)) {
+                return@setOnClickListener
+            }
             retryLastFailedMessage()
         }
 
-        txtChat.setOnLongClickListener {
-            showSaveContactDialog()
-            true
+        btnReviewEdit.setOnClickListener {
+            editCurrentDraft()
+        }
+        btnReviewReplace.setOnClickListener {
+            replaceCurrentDraftAttachment()
+        }
+        btnReviewCancel.setOnClickListener {
+            cancelCurrentDraft()
+        }
+        btnReviewConfirm.setOnClickListener {
+            confirmCurrentDraft()
         }
     }
 
     override fun onResume() {
         super.onResume()
+        runtimeLoadingOverlay.onHostResume()
+        runtimeSoftBanner.onHostResume()
         activePeerName = peerName
-        ChatReadStateManager.markChatViewed(this, peerName)
+        OnlinePresenceManager.bind(this)
+        RuntimeUiStateManager.setTransientState(
+            source = "chat:$peerName",
+            state = RuntimeUiState.CONNECTING,
+            title = "Mencari jalur terbaik...",
+            detail = "Sistem sedang memilih jalur komunikasi."
+        )
         AppNotificationManager.clearChatNotifications(this, peerName)
+        Log.d("GHALBIT-READ", "local conversation opened chatId=$peerName")
+        ChatDeliveryManager.markChatReadRemotely(this, peerName, peerGlobalId)
+        ConversationKeepAliveManager.startConversation(
+            context = this,
+            chatId = peerName,
+            globalId = peerGlobalId,
+            routeHint = peerIp
+        )
+        routeHealthJob?.cancel()
+        routeHealthJob =
+            lifecycleScope.launch {
+                while (true) {
+                    updateConversationRouteStatus()
+                    val routeSnapshot = ConversationKeepAliveManager.snapshot(peerName)
+                    if (routeSnapshot != null) {
+                        RuntimeUiStateManager.onRouteHealth(
+                            routeSnapshot.routeHealth,
+                            "Jalur aktif: ${routeSnapshot.transport} | loss=${routeSnapshot.packetLossEstimate}%"
+                        )
+                    } else if (RouteStateReconciler.shouldSuppressPending(peerName, peerGlobalId)) {
+                        val active = RouteStateReconciler.current(peerName, peerGlobalId)
+                        if (active != null) {
+                            RuntimeUiStateManager.setTransientState(
+                                source = "chat:$peerName",
+                                state = RouteStateReconciler.runtimeState(active),
+                                title =
+                                    when (active.state) {
+                                        RouteSearchState.ROUTE_PROBING -> "Menguji jalur"
+                                        RouteSearchState.ROUTE_SWITCHING -> "Mencoba jalur lain"
+                                        else -> "Mencari jalur"
+                                    },
+                                detail = active.label,
+                                actionsLocked = false
+                            )
+                        }
+                    } else if (OnlinePresenceManager.getOnlineRoute(this@ChatActivity, peerGlobalId.orEmpty()) != null) {
+                        RuntimeUiStateManager.setTransientState(
+                            source = "chat:$peerName",
+                            state = RuntimeUiState.INTERNET_FALLBACK,
+                            title = "Menggunakan jalur internet",
+                            detail = "Komunikasi dipertahankan lewat relay internet.",
+                            actionsLocked = false
+                        )
+                    } else if (PendingMessageStore.countForChat(this@ChatActivity, peerName) > 0) {
+                        RuntimeUiStateManager.setTransientState(
+                            source = "chat:$peerName",
+                            state = RuntimeUiState.OFFLINE_PENDING,
+                            title = "Menunggu koneksi tersedia",
+                            detail = "Pesan disimpan sementara sampai jalur kembali siap.",
+                            actionsLocked = false
+                        )
+                    }
+                    delay(1500L)
+                }
+            }
 
         LocalBroadcastManager
             .getInstance(this)
@@ -409,10 +798,17 @@ class ChatActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        runtimeLoadingOverlay.onHostPause()
+        runtimeSoftBanner.onHostPause()
         super.onPause()
         if (activePeerName == peerName) {
             activePeerName = null
         }
+        RuntimeUiStateManager.clearTransientState("chat:$peerName")
+
+        ConversationKeepAliveManager.stopConversation(peerName)
+        routeHealthJob?.cancel()
+        routeHealthJob = null
 
         stopVoiceRecording(cancelOnly = true)
         recordingStatusJob?.cancel()
@@ -430,6 +826,12 @@ class ChatActivity : AppCompatActivity() {
             .unregisterReceiver(
                 attachmentReceiver
             )
+    }
+
+    override fun onDestroy() {
+        runtimeLoadingOverlay.onHostDestroy()
+        runtimeSoftBanner.onHostDestroy()
+        super.onDestroy()
     }
 
     private fun beginPushToTalk() {
@@ -570,6 +972,8 @@ class ChatActivity : AppCompatActivity() {
             "AUDIO-" + System.currentTimeMillis()
         val voiceLabel =
             buildVoiceLabel(durationMs)
+        val ownershipHint =
+            refreshConversationOwnershipHint()
 
         lifecycleScope.launch {
             btnSend.isEnabled = false
@@ -616,6 +1020,14 @@ class ChatActivity : AppCompatActivity() {
 
                         override fun onComplete(message: String) {
                             lifecycleScope.launch {
+                                refreshConversationOwnershipHint(
+                                    ipHint = peerIp.ifBlank { null },
+                                    globalIdHint = ownershipHint.globalId,
+                                    publicKeyHint = ownershipHint.publicKey,
+                                    walletAddressHint = ownershipHint.walletAddress,
+                                    displayNameHint = ownershipHint.canonicalDisplayName
+                                )
+
                                 withContext(Dispatchers.IO) {
                                     chatDb.chatDao().updateStatus(
                                         packetId,
@@ -632,6 +1044,14 @@ class ChatActivity : AppCompatActivity() {
 
                         override fun onError(message: String) {
                             lifecycleScope.launch {
+                                refreshConversationOwnershipHint(
+                                    ipHint = peerIp.ifBlank { null },
+                                    globalIdHint = ownershipHint.globalId,
+                                    publicKeyHint = ownershipHint.publicKey,
+                                    walletAddressHint = ownershipHint.walletAddress,
+                                    displayNameHint = ownershipHint.canonicalDisplayName
+                                )
+
                                 withContext(Dispatchers.IO) {
                                     chatDb.chatDao().updateStatus(
                                         packetId,
@@ -787,11 +1207,6 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun startCallSession() {
-        if (peerIp.isBlank()) {
-            txtChatStatus.text = getString(R.string.peer_ip_empty)
-            return
-        }
-
         if (VoiceCallRegistry.isBusy()) {
             txtChatStatus.text = getString(R.string.call_busy_local)
             UiFeedbackManager.showToast(
@@ -801,21 +1216,122 @@ class ChatActivity : AppCompatActivity() {
             return
         }
 
-        val callId =
-            UUID.randomUUID().toString()
-
-        startActivity(
-            CallSessionActivity.createIntent(
+        val endpoint =
+            com.ghalbitnet.meshx2.call.CallManager.resolvePeer(
                 context = this,
                 peerName = peerName,
-                peerIp = peerIp,
-                callId = callId,
-                incoming = false
+                ipHint = peerIp,
+                globalIdHint = activeConversationHint?.globalId ?: peerGlobalId,
+                publicKeyHint = activeConversationHint?.publicKey ?: peerPublicKey,
+                walletAddressHint = activeConversationHint?.walletAddress ?: peerWalletAddress,
+                displayNameHint = activeConversationHint?.canonicalDisplayName ?: peerDisplayName
             )
+        val localGlobalId =
+            com.ghalbitnet.meshx2.core.network.GlobalMeshIdentityManager.buildGlobalId(keyStore.publicKeyBase64)
+        val localPublicKeyHash =
+            com.ghalbitnet.meshx2.call.CallManager.localPublicKeyHash(this)
+        if (
+            com.ghalbitnet.meshx2.call.CallManager.isSelfCall(
+                localNodeId = MainActivity.myGlobalPeerId,
+                localGlobalId = localGlobalId,
+                localPublicKeyHash = localPublicKeyHash,
+                peer = endpoint
+            )
+        ) {
+            txtChatStatus.text = getString(R.string.call_self_ignored)
+            UiFeedbackManager.showToast(this, getString(R.string.call_self_ignored))
+            return
+        }
+        val callId = UUID.randomUUID().toString()
+        val toneManager = CallSearchingToneManager()
+        val animator = RouteSearchingAnimator(lifecycleScope) { text -> txtChatStatus.text = text }
+        btnCall.isEnabled = false
+        animator.start("Mencari jalur ke kontak")
+        toneManager.start()
+        runtimeSoftBanner.showMessage(
+            key = "call:search:$callId",
+            title = "Mencari jalur ke kontak",
+            detail = "Sistem sedang memilih jalur terbaik untuk panggilan.",
+            priority = 3,
+            durationMs = 2200L,
+            miniStatus = "Mencari..."
         )
+        lifecycleScope.launch {
+            try {
+                val discovery =
+                    CallRouteDiscoveryManager.discoverForCall(
+                        context = this@ChatActivity,
+                        peerName = peerName,
+                        ipHint = peerIp,
+                        globalIdHint = endpoint.globalId,
+                        publicKeyHint = endpoint.publicKey,
+                        walletAddressHint = endpoint.walletAddress,
+                        displayNameHint = endpoint.displayName
+                    ) { _, label ->
+                        animator.update(label)
+                    }
+                val resolvedEndpoint = discovery.endpoint
+                if (resolvedEndpoint == null) {
+                    animator.stop(discovery.humanStatus)
+                    runtimeSoftBanner.showMessage(
+                        key = "call:search:failed:$callId",
+                        title = "Belum menemukan jalur",
+                        detail = "Belum menemukan jalur. Pencarian tetap berjalan.",
+                        priority = 4,
+                        durationMs = 2600L,
+                        miniStatus = "Mencari..."
+                    )
+                    UiFeedbackManager.showToast(this@ChatActivity, "Belum menemukan jalur. Pencarian tetap berjalan.")
+                    return@launch
+                }
+                val targetIp = resolvedEndpoint.routeHint ?: resolvedEndpoint.transportIp
+                if (targetIp.isNullOrBlank()) {
+                    animator.stop(getString(R.string.call_peer_missing))
+                    UiFeedbackManager.showToast(this@ChatActivity, getString(R.string.call_peer_missing))
+                    return@launch
+                }
+                animator.stop("Jalur ditemukan")
+                runtimeSoftBanner.showMessage(
+                    key = "call:search:ok:$callId",
+                    title = "Jalur ditemukan",
+                    detail = routeTypeLabel(discovery.selectedRouteType),
+                    priority = 2,
+                    durationMs = 1600L,
+                    miniStatus = routeTypeLabel(discovery.selectedRouteType)
+                )
+                startActivity(
+                    CallSessionActivity.createIntent(
+                        context = this@ChatActivity,
+                        peerName = peerName,
+                        peerIp = targetIp,
+                        callId = callId,
+                        incoming = false,
+                        peerGlobalId = resolvedEndpoint.globalId,
+                        peerPublicKey = resolvedEndpoint.publicKey,
+                        peerWalletAddress = resolvedEndpoint.walletAddress,
+                        peerDisplayName = resolvedEndpoint.displayName
+                    )
+                )
+            } finally {
+                toneManager.stopAndRelease()
+                btnCall.isEnabled = true
+            }
+        }
     }
 
-    private fun sendCapturedPhoto(bitmap: Bitmap) {
+    private fun routeTypeLabel(routeType: String?): String {
+        return when (routeType) {
+            TriplePathRoutePolicy.SERVER_DIRECT_INTERNET -> "Server induk siap"
+            TriplePathRoutePolicy.INTERNET_RELAY -> "Relay internet aktif"
+            TriplePathRoutePolicy.LOCAL_MESH_PRIMARY -> "Node lokal terdekat"
+            TriplePathRoutePolicy.LOCAL_MESH_SECONDARY -> "Jalur mesh cadangan"
+            TriplePathRoutePolicy.IDENTITY_COPY_TRACE -> "Jejak copy identitas"
+            TriplePathRoutePolicy.STORE_FORWARD -> "Fallback simpan-kirim"
+            else -> "Menghubungkan panggilan"
+        }
+    }
+
+    private fun createCapturedPhotoDraft(bitmap: Bitmap) {
         val photoDir =
             if (ChatMediaSettingsManager.shouldKeepCapturedPhotos(this)) {
                 File(filesDir, "sent_media/camera_shots")
@@ -838,7 +1354,7 @@ class ChatActivity : AppCompatActivity() {
                 )
             }
 
-            sendAttachment(
+            createAttachmentDraft(
                 fileUri = Uri.fromFile(imageFile),
                 contentType = "IMAGE",
                 displayName = imageFile.name
@@ -853,24 +1369,13 @@ class ChatActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendAttachment(
+    private fun createAttachmentDraft(
         fileUri: Uri,
         contentType: String,
         displayName: String
     ) {
-        if (peerIp.isBlank()) {
-            txtChatStatus.text = getString(R.string.peer_ip_empty)
-            UiFeedbackManager.showToast(
-                this,
-                getString(R.string.peer_ip_empty)
-            )
-            return
-        }
-
-        val packetId =
-            "FILE-" + System.currentTimeMillis()
         val localAttachment =
-            cacheLocalAttachment(fileUri, displayName)
+            DraftAttachmentStore.copyToDraft(this, fileUri, displayName)
 
         if (localAttachment == null) {
             txtChatStatus.text = getString(R.string.chat_file_prepare_failed)
@@ -881,79 +1386,193 @@ class ChatActivity : AppCompatActivity() {
             return
         }
 
-        val label =
-            when (contentType) {
-                "IMAGE" -> getString(R.string.chat_image_label_simple)
-                else -> getString(R.string.chat_file_label, displayName)
+        lifecycleScope.launch {
+            val metadata =
+                FileMetadataReader.fromFile(
+                    context = this@ChatActivity,
+                    file = localAttachment,
+                    fallbackMimeType = contentResolver.getType(fileUri).orEmpty(),
+                    contentType = contentType
+                )
+            val draftId = "DRAFT-${System.currentTimeMillis()}"
+            withContext(Dispatchers.IO) {
+                draftDb.draftMessageDao().findLatestDraft(peerName)
+                    ?.let { existing -> draftDb.draftMessageDao().findAttachment(existing.draftId) }
+                    ?.let { DraftAttachmentStore.remove(it.filePath) }
+                draftDb.draftMessageDao().replaceDraft(
+                    DraftMessageEntity(
+                        draftId = draftId,
+                        chatId = peerName,
+                        draftType = if (contentType == "IMAGE") ChatDeliveryState.DRAFT_MEDIA.dbValue else ChatDeliveryState.DRAFT_FILE.dbValue,
+                        content = edtMessage.text.toString().trim(),
+                        status = ChatDeliveryState.REVIEW_READY.dbValue,
+                        createdAt = System.currentTimeMillis(),
+                        updatedAt = System.currentTimeMillis()
+                    ),
+                    DraftAttachmentEntity(
+                        draftId = draftId,
+                        chatId = peerName,
+                        contentType = contentType,
+                        filePath = localAttachment.absolutePath,
+                        displayName = metadata.displayName,
+                        mimeType = metadata.mimeType,
+                        fileSize = metadata.fileSize,
+                        warning = metadata.warning
+                    )
+                )
             }
+            currentDraftId = draftId
+            currentReviewState = ReviewSendState.REVIEW_READY
+            Log.d("GHALBIT-DRAFT", "created type=${if (contentType == "IMAGE") "IMAGE" else "FILE"}")
+            Log.d("GHALBIT-SAFE-SEND", "draft created")
+            Log.d("GHALBIT-REVIEW", "open type=$contentType")
+            renderDraftReview()
+        }
+    }
+
+    private fun confirmAttachmentDraftSend(draft: DraftMessage, attachment: DraftAttachment) {
+        val packetId = "FILE-" + System.currentTimeMillis()
+        val messageId = "MSG-" + System.currentTimeMillis()
+        val label =
+            when (attachment.contentType) {
+                "IMAGE" -> if (draft.content.isBlank()) getString(R.string.chat_image_label_simple) else draft.content
+                else -> if (draft.content.isBlank()) getString(R.string.chat_file_label, attachment.displayName) else draft.content
+            }
+        val ownershipHint = refreshConversationOwnershipHint()
 
         lifecycleScope.launch {
             disableChatButtons()
-            txtChatStatus.text =
-                if (contentType == "IMAGE") {
-                    getString(R.string.chat_image_sending)
-                } else {
-                    getString(R.string.chat_file_sending)
-                }
+            txtChatStatus.text = if (attachment.contentType == "IMAGE") getString(R.string.chat_image_sending) else getString(R.string.chat_file_sending)
 
             withContext(Dispatchers.IO) {
-                        chatDb.chatDao().insertMessage(
-                            ChatMessage(
-                                packetId = packetId,
-                                chatId = peerName,
-                                senderName = "ME",
-                                content = label,
-                                contentType = contentType,
-                                filePath = localAttachment.absolutePath,
-                                isSent = true,
-                                status = "SENDING"
-                            )
-                        )
-                    }
+                chatDb.chatDao().insertMessage(
+                    ChatMessage(
+                        packetId = packetId,
+                        chatId = peerName,
+                        senderName = "ME",
+                        content = label,
+                        contentType = attachment.contentType,
+                        filePath = attachment.filePath,
+                        isSent = true,
+                        status = ChatDeliveryState.QUEUED_LOCAL.dbValue
+                    )
+                )
+            }
 
             renderHistory()
 
-            FileTransferManager.sendFile(
-                context = this@ChatActivity,
-                fileUri = Uri.fromFile(localAttachment),
-                destinationPeerId = peerName,
-                keyStore = keyStore,
-                myPeerId = MainActivity.myGlobalPeerId,
-                listener =
-                    object : FileTransferManager.TransferStatusListener {
-                        override fun onProgress(message: String, busy: Boolean) {
-                            runOnUiThread {
-                                txtChatStatus.text = message
-                            }
-                        }
+            val routeHealth = ConversationKeepAliveManager.snapshot(peerName)?.routeHealth
+            val waitingForPeer =
+                peerIp.isBlank() ||
+                    routeHealth == RouteHealthStatus.OFFLINE_PENDING ||
+                    routeHealth == RouteHealthStatus.RECONNECTING
 
-                        override fun onComplete(message: String) {
-                            lifecycleScope.launch {
-                                withContext(Dispatchers.IO) {
-                                    chatDb.chatDao().updateStatus(packetId, "SENT")
-                                }
-                                txtChatStatus.text = message
-                                renderHistory()
-                                restoreChatButtons()
-                            }
-                        }
+            withContext(Dispatchers.IO) {
+                ChatDeliveryManager.queueMediaPending(
+                    context = this@ChatActivity,
+                    packetId = packetId,
+                    messageId = messageId,
+                    chatId = peerName,
+                    label = label,
+                    filePath = attachment.filePath,
+                    mediaType = attachment.contentType,
+                    mimeType = attachment.mimeType,
+                    fileSize = attachment.fileSize,
+                    routeHint = peerIp.ifBlank { null },
+                    peerGlobalId = ownershipHint.globalId,
+                    peerPublicKey = ownershipHint.publicKey,
+                    peerWalletAddress = ownershipHint.walletAddress,
+                    peerDisplayName = ownershipHint.canonicalDisplayName,
+                    waitingForPeer = waitingForPeer,
+                    lastErrorReason = if (waitingForPeer) "peerOffline" else null
+                )
+            }
 
-                        override fun onError(message: String) {
-                            lifecycleScope.launch {
-                                withContext(Dispatchers.IO) {
-                                    chatDb.chatDao().updateStatus(packetId, "FAILED")
+            if (!waitingForPeer) {
+                FileTransferManager.sendFile(
+                    context = this@ChatActivity,
+                    fileUri = Uri.fromFile(File(attachment.filePath)),
+                    destinationPeerId = peerName,
+                    keyStore = keyStore,
+                    myPeerId = MainActivity.myGlobalPeerId,
+                    listener =
+                        object : FileTransferManager.TransferStatusListener {
+                            override fun onProgress(message: String, busy: Boolean) {
+                                runOnUiThread { txtChatStatus.text = message }
+                            }
+
+                            override fun onComplete(message: String) {
+                                lifecycleScope.launch {
+                                    withContext(Dispatchers.IO) {
+                                        chatDb.chatDao().updateStatus(packetId, ChatDeliveryState.SENT_LOCAL.dbValue)
+                                        PendingMessageStore.remove(this@ChatActivity, packetId)
+                                    }
+                                    txtChatStatus.text = message
+                                    runtimeSoftBanner.showMessage(
+                                        key = "media:sent:$packetId",
+                                        title = "Terkirim",
+                                        detail = message,
+                                        priority = 3,
+                                        durationMs = 1500L
+                                    )
+                                    renderHistory()
+                                    restoreChatButtons()
                                 }
-                                txtChatStatus.text = message
-                                UiFeedbackManager.showToast(
-                                    this@ChatActivity,
-                                    message
-                                )
-                                renderHistory()
-                                restoreChatButtons()
+                            }
+
+                            override fun onError(message: String) {
+                                lifecycleScope.launch {
+                                    withContext(Dispatchers.IO) {
+                                        ChatDeliveryManager.queueMediaPending(
+                                            context = this@ChatActivity,
+                                            packetId = packetId,
+                                            messageId = messageId,
+                                            chatId = peerName,
+                                            label = label,
+                                            filePath = attachment.filePath,
+                                            mediaType = attachment.contentType,
+                                            mimeType = attachment.mimeType,
+                                            fileSize = attachment.fileSize,
+                                            routeHint = peerIp.ifBlank { null },
+                                            peerGlobalId = ownershipHint.globalId,
+                                            peerPublicKey = ownershipHint.publicKey,
+                                            peerWalletAddress = ownershipHint.walletAddress,
+                                            peerDisplayName = ownershipHint.canonicalDisplayName,
+                                            waitingForPeer = message.contains("alamat", ignoreCase = true) || message.contains("belum tersedia", ignoreCase = true),
+                                            lastErrorReason = message
+                                        )
+                                    }
+                                    txtChatStatus.text = "Menunggu koneksi"
+                                    runtimeSoftBanner.showMessage(
+                                        key = "media:retry:$packetId",
+                                        title = "Akan dikirim otomatis",
+                                        detail = "Media disimpan dulu sampai penerima atau jalur tersedia.",
+                                        priority = 4,
+                                        durationMs = 2400L,
+                                        miniStatus = "Menunggu koneksi"
+                                    )
+                                    renderHistory()
+                                    restoreChatButtons()
+                                }
                             }
                         }
-                    }
-            )
+                )
+            } else {
+                txtChatStatus.text = "Menunggu penerima online"
+                txtRouteHealthStatus.text = "Menunggu koneksi"
+                runtimeSoftBanner.showMessage(
+                    key = "media:pending:$packetId",
+                    title = "Menunggu penerima online",
+                    detail = "Media akan dikirim otomatis saat jalur tersedia.",
+                    priority = 4,
+                    durationMs = 2200L,
+                    miniStatus = "Menunggu koneksi"
+                )
+                restoreChatButtons()
+            }
+
+            cancelCurrentDraft(cleanOnly = true, keepAttachment = true)
+            edtMessage.setText("")
         }
     }
 
@@ -1015,6 +1634,114 @@ class ChatActivity : AppCompatActivity() {
         btnVoice.text = getString(R.string.chat_voice_start)
     }
 
+    private fun setupReviewInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(chatRoot) { _, insets ->
+            val navInsets = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            val baseBottom = maxOf(navInsets.bottom, dp(8))
+            composerContainer.updatePadding(bottom = baseBottom)
+            reviewPanel.updatePadding(bottom = baseBottom)
+            if (reviewPanel.visibility == View.VISIBLE) {
+                applyReviewResponsiveLayout(insets)
+                Log.d("GHALBIT-REVIEW-LAYOUT", "nav inset applied")
+            }
+            insets
+        }
+    }
+
+    private fun setReviewMode(enabled: Boolean) {
+        composerContainer.visibility = if (enabled) View.GONE else View.VISIBLE
+        runtimeSoftBanner.visibility = if (enabled) View.GONE else View.VISIBLE
+        if (enabled) {
+            Log.d("GHALBIT-REVIEW-LAYOUT", "main composer hidden")
+            applyCompactRouteStatus()
+            updateReviewInlineStatus(lastRuntimeSnapshot)
+        } else {
+            composerContainer.visibility = View.VISIBLE
+            txtReviewInlineStatus.visibility = View.GONE
+            updateConversationRouteStatus()
+            Log.d("GHALBIT-REVIEW-LAYOUT", "main composer restored")
+        }
+        ViewCompat.requestApplyInsets(chatRoot)
+    }
+
+    private fun applyCompactRouteStatus() {
+        val compactText =
+            when {
+                !OnlineFallbackTransport.isConfigured() -> "RELAY belum siap"
+                lastRuntimeSnapshot.state == RuntimeUiState.OFFLINE_PENDING -> "PENDING"
+                lastRuntimeSnapshot.state == RuntimeUiState.WEAK_SIGNAL -> "MESH lemah"
+                OnlinePresenceManager.getOnlineRoute(this, peerGlobalId.orEmpty()) != null -> "RELAY siap"
+                peerIp.isNotBlank() -> "MESH aktif"
+                else -> "Menunggu jalur"
+            }
+        txtRouteHealthStatus.text = appendPreparedRouteLabel(compactText)
+        Log.d("GHALBIT-REVIEW-LAYOUT", "route compact mode")
+    }
+
+    private fun updateReviewInlineStatus(snapshot: RuntimeUiSnapshot) {
+        if (reviewPanel.visibility != View.VISIBLE) {
+            txtReviewInlineStatus.visibility = View.GONE
+            return
+        }
+        val inlineText =
+            when {
+                !OnlineFallbackTransport.isConfigured() -> "Relay belum dikonfigurasi"
+                snapshot.state == RuntimeUiState.OFFLINE_PENDING -> "Menunggu koneksi"
+                snapshot.state == RuntimeUiState.INTERNET_FALLBACK -> "Relay internet aktif"
+                snapshot.state == RuntimeUiState.WEAK_SIGNAL -> "Jalur mesh sedang lemah"
+                OnlinePresenceManager.getOnlineRoute(this, peerGlobalId.orEmpty()) != null -> "Penerima siap via relay"
+                peerIp.isNotBlank() -> "Jalur mesh tersedia"
+                else -> "Menunggu penerima online"
+            }
+        txtReviewInlineStatus.text = inlineText
+        txtReviewInlineStatus.visibility = View.VISIBLE
+        Log.d("GHALBIT-REVIEW-LAYOUT", "inline network status shown")
+    }
+
+    private fun applyReviewResponsiveLayout(insets: WindowInsetsCompat? = ViewCompat.getRootWindowInsets(chatRoot)) {
+        val screenHeight = resources.displayMetrics.heightPixels
+        val imeVisible = insets?.isVisible(WindowInsetsCompat.Type.ime()) == true
+        val imeInsets = insets?.getInsets(WindowInsetsCompat.Type.ime())?.bottom ?: 0
+        val navInsets = insets?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
+        val previewHeight =
+            if (imeVisible) {
+                (screenHeight * 0.28f).toInt()
+            } else {
+                (screenHeight * 0.38f).toInt()
+            }.coerceIn(dp(120), dp(280))
+        imgReviewPreview.layoutParams =
+            imgReviewPreview.layoutParams.apply {
+                height = previewHeight
+            }
+        edtReviewCaption.maxLines = if (imeVisible) 2 else 4
+        edtReviewCaption.minLines = if (imeVisible) 1 else 2
+        reviewContentScroll.layoutParams =
+            reviewContentScroll.layoutParams.apply {
+                height =
+                    if (imeVisible) {
+                        (screenHeight * 0.42f).toInt().coerceAtLeast(dp(180))
+                    } else {
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    }
+            }
+        reviewContentScroll.requestLayout()
+        reviewPanel.updatePadding(bottom = maxOf(navInsets, dp(8)))
+        if (imeVisible) {
+            Log.d("GHALBIT-REVIEW-LAYOUT", "ime inset applied")
+            Log.d("GHALBIT-REVIEW-LAYOUT", "compact mode active")
+        }
+        Log.d("GHALBIT-REVIEW-LAYOUT", "preview resized")
+        Log.d("GHALBIT-REVIEW-LAYOUT", "sticky action bar ok")
+        Log.d("GHALBIT-REVIEW-LAYOUT", "action bar visible")
+        Log.d("GHALBIT-REVIEW-LAYOUT", "send button visible")
+        Log.d("GHALBIT-REVIEW-LAYOUT", "compact buttons enabled")
+        Log.d("GHALBIT-UI-PERF", "delivery indicator lightweight")
+        Log.d("GHALBIT-UI-PERF", "skipped relayout")
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
+
     private fun disableChatButtons() {
         btnSend.isEnabled = false
         btnAttach.isEnabled = false
@@ -1039,6 +1766,16 @@ class ChatActivity : AppCompatActivity() {
             }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val conversationId = intent.getStringExtra(GhalbitDeepLinkRouter.EXTRA_CONVERSATION_ID).orEmpty()
+        if (conversationId.isNotBlank()) {
+            GhalbitDeepLinkRouter.logChatOpen(conversationId)
+            Log.d("GHALBIT-NOTIFY", "message clicked id=${intent.getStringExtra(GhalbitDeepLinkRouter.EXTRA_MESSAGE_ID).orEmpty()}")
+        }
+    }
+
     private fun buildVoiceLabel(durationMs: Long): String {
         return "${getString(R.string.chat_voice_label)} (${formatDuration(durationMs)})"
     }
@@ -1056,9 +1793,8 @@ class ChatActivity : AppCompatActivity() {
         return "%02d:%02d".format(minutes, seconds)
     }
 
-    private fun sendMessage() {
-        val message =
-            edtMessage.text.toString().trim()
+    private fun openTextReview() {
+        val message = edtMessage.text.toString().trim()
 
         if (message.isEmpty()) {
             UiFeedbackManager.showToast(
@@ -1077,117 +1813,292 @@ class ChatActivity : AppCompatActivity() {
             return
         }
 
-        if (peerIp.isEmpty()) {
-            txtChatStatus.text = getString(R.string.peer_ip_empty)
-            UiFeedbackManager.showToast(
-                this,
-                getString(R.string.peer_ip_empty)
-            )
+        lifecycleScope.launch {
+            val draftId = "DRAFT-${System.currentTimeMillis()}"
+            withContext(Dispatchers.IO) {
+                draftDb.draftMessageDao().findLatestDraft(peerName)
+                    ?.let { existing -> draftDb.draftMessageDao().findAttachment(existing.draftId) }
+                    ?.let { DraftAttachmentStore.remove(it.filePath) }
+                draftDb.draftMessageDao().replaceDraft(
+                    DraftMessageEntity(
+                        draftId = draftId,
+                        chatId = peerName,
+                        draftType = ChatDeliveryState.DRAFT_TEXT.dbValue,
+                        content = message,
+                        status = ChatDeliveryState.REVIEW_READY.dbValue,
+                        createdAt = System.currentTimeMillis(),
+                        updatedAt = System.currentTimeMillis()
+                    ),
+                    attachment = null
+                )
+            }
+            currentDraftId = draftId
+            currentReviewState = ReviewSendState.REVIEW_READY
+            Log.d("GHALBIT-DRAFT", "created type=TEXT")
+            Log.d("GHALBIT-SAFE-SEND", "draft created")
+            Log.d("GHALBIT-SAFE-SEND", "review required")
+            Log.d("GHALBIT-REVIEW", "open type=TEXT")
+            renderDraftReview()
+        }
+    }
+
+    private fun confirmCurrentDraft() {
+        lifecycleScope.launch {
+            val draft = withContext(Dispatchers.IO) { loadCurrentDraft() } ?: return@launch
+            currentReviewState = ReviewSendState.SEND_CONFIRMED
+            Log.d("GHALBIT-REVIEW", "confirmed id=${draft.draftId}")
+            Log.d("GHALBIT-SAFE-SEND", "confirmed")
+            when (draft.draftType) {
+                ChatDeliveryState.DRAFT_TEXT.dbValue -> sendConfirmedText(edtReviewCaption.text.toString().trim())
+                ChatDeliveryState.DRAFT_MEDIA.dbValue,
+                ChatDeliveryState.DRAFT_FILE.dbValue -> {
+                    val attachment = draft.attachment ?: return@launch
+                    val updatedDraft = draft.copy(content = edtReviewCaption.text.toString().trim())
+                    confirmAttachmentDraftSend(updatedDraft, attachment)
+                }
+            }
+        }
+    }
+
+    private suspend fun loadCurrentDraft(): DraftMessage? {
+        val entity = draftDb.draftMessageDao().findLatestDraft(peerName) ?: return null
+        val attachmentEntity = draftDb.draftMessageDao().findAttachment(entity.draftId)
+        return DraftMessage(
+            draftId = entity.draftId,
+            chatId = entity.chatId,
+            draftType = entity.draftType,
+            content = entity.content,
+            status = entity.status,
+            createdAt = entity.createdAt,
+            updatedAt = entity.updatedAt,
+            attachment = attachmentEntity?.let {
+                DraftAttachment(
+                    draftId = it.draftId,
+                    contentType = it.contentType,
+                    filePath = it.filePath,
+                    displayName = it.displayName,
+                    mimeType = it.mimeType,
+                    fileSize = it.fileSize,
+                    warning = it.warning
+                )
+            }
+        )
+    }
+
+    private fun renderDraftReview() {
+        lifecycleScope.launch {
+            val draft = withContext(Dispatchers.IO) { loadCurrentDraft() } ?: run {
+                reviewPanel.visibility = View.GONE
+                setReviewMode(false)
+                return@launch
+            }
+            currentDraftId = draft.draftId
+            reviewPanel.visibility = View.VISIBLE
+            setReviewMode(true)
+            txtReviewTitle.text =
+                when (draft.draftType) {
+                    ChatDeliveryState.DRAFT_TEXT.dbValue -> "Tinjau pesan"
+                    ChatDeliveryState.DRAFT_MEDIA.dbValue -> "Tinjau gambar"
+                    else -> "Tinjau file"
+                }
+            edtReviewCaption.setText(draft.content)
+            val routeHint =
+                when {
+                    OnlinePresenceManager.getOnlineRoute(this@ChatActivity, peerGlobalId.orEmpty()) != null -> "Relay"
+                    peerIp.isNotBlank() -> "Mesh"
+                    else -> "Pending"
+                }
+            val attachment = draft.attachment
+            txtReviewMeta.text =
+                if (attachment == null) {
+                    "Target: $peerName"
+                } else {
+                    buildString {
+                        append(attachment.displayName)
+                        append(" • ")
+                        append(formatFileSize(attachment.fileSize))
+                        append(" • ")
+                        append(attachment.mimeType.ifBlank { attachment.contentType })
+                        append(" • ")
+                        append(routeHint)
+                        attachment.warning?.let {
+                            append("\n")
+                            append(it)
+                        }
+                    }
+                }
+            btnReviewReplace.visibility = if (attachment == null) View.GONE else View.VISIBLE
+            if (attachment?.contentType == "IMAGE") {
+                imgReviewPreview.visibility = View.VISIBLE
+                val bitmap = withContext(Dispatchers.IO) { MediaPreviewLoader.loadImageThumbnail(attachment.filePath) }
+                imgReviewPreview.setImageBitmap(bitmap)
+                Log.d("GHALBIT-REVIEW", "thumbnail ready")
+            } else {
+                imgReviewPreview.setImageDrawable(null)
+                imgReviewPreview.visibility = View.GONE
+            }
+            updateReviewInlineStatus(lastRuntimeSnapshot)
+            applyReviewResponsiveLayout()
+        }
+    }
+
+    private fun editCurrentDraft() {
+        lifecycleScope.launch {
+            val draft = withContext(Dispatchers.IO) { loadCurrentDraft() } ?: return@launch
+            currentReviewState = ReviewSendState.EDITING_DRAFT
+            if (draft.attachment != null) {
+                edtReviewCaption.requestFocus()
+                applyReviewResponsiveLayout()
+            } else {
+                edtMessage.setText(edtReviewCaption.text.toString())
+                edtMessage.requestFocus()
+                reviewPanel.visibility = View.GONE
+                setReviewMode(false)
+            }
+            txtChatStatus.text = "Draft siap diedit"
+            Log.d("GHALBIT-REVIEW", "edited messageId=${draft.draftId}")
+        }
+    }
+
+    private fun replaceCurrentDraftAttachment() {
+        val draftId = currentDraftId ?: return
+        lifecycleScope.launch {
+            val draft = withContext(Dispatchers.IO) { loadCurrentDraft() } ?: return@launch
+            if (draft.attachment == null) return@launch
+            edtMessage.setText(edtReviewCaption.text.toString())
+            withContext(Dispatchers.IO) {
+                DraftAttachmentStore.remove(draft.attachment.filePath)
+                draftDb.draftMessageDao().deleteDraft(draftId)
+            }
+            Log.d("GHALBIT-REVIEW", "file replaced id=$draftId")
+            Log.d("GHALBIT-FILE-DRAFT", "replaced")
+            filePickerLauncher.launch("*/*")
+        }
+    }
+
+    private fun cancelCurrentDraft(cleanOnly: Boolean = false, keepAttachment: Boolean = false) {
+        val draftId = currentDraftId ?: return
+        lifecycleScope.launch {
+            val draft = withContext(Dispatchers.IO) { loadCurrentDraft() }
+            withContext(Dispatchers.IO) {
+                if (!keepAttachment) {
+                    draft?.attachment?.let { DraftAttachmentStore.remove(it.filePath) }
+                }
+                draftDb.draftMessageDao().deleteDraft(draftId)
+            }
+            currentDraftId = null
+            currentReviewState = ReviewSendState.SEND_CANCELLED
+            reviewPanel.visibility = View.GONE
+            setReviewMode(false)
+            if (!cleanOnly) {
+                txtChatStatus.text = "Pesan dibatalkan"
+                runtimeSoftBanner.showMessage(
+                    key = "draft:cancel:$draftId",
+                    title = "Pesan dibatalkan",
+                    detail = "Draft dihapus sebelum masuk jalur kirim.",
+                    priority = 2,
+                    durationMs = 1500L
+                )
+                Log.d("GHALBIT-DRAFT", "cancelled id=$draftId")
+                Log.d("GHALBIT-SAFE-SEND", "cancelled before delivery")
+                Log.d("GHALBIT-REVIEW", "cancelled id=$draftId")
+            } else {
+                Log.d("GHALBIT-DRAFT", "cleaned id=$draftId")
+            }
+        }
+    }
+
+    private suspend fun restoreDraftIfNeeded() {
+        val draft = withContext(Dispatchers.IO) { loadCurrentDraft() } ?: return
+        currentDraftId = draft.draftId
+        Log.d("GHALBIT-DRAFT", "restored id=${draft.draftId}")
+        renderDraftReview()
+    }
+
+    private fun sendConfirmedText(message: String) {
+        if (message.isBlank()) {
+            UiFeedbackManager.showToast(this, getString(R.string.message_empty))
             return
         }
 
-        try {
-            val packetId =
-                "CHAT-" + System.currentTimeMillis()
+        if (peerIp.isEmpty() && peerGlobalId.isNullOrBlank()) {
+            txtChatStatus.text = getString(R.string.peer_ip_empty)
+            UiFeedbackManager.showToast(this, getString(R.string.peer_ip_empty))
+            return
+        }
 
-            lifecycleScope.launch {
-                btnSend.isEnabled = false
-                btnAttach.isEnabled = false
-                btnCamera.isEnabled = false
-                btnVoice.isEnabled = false
-                btnRetryFailed.isEnabled = false
-                btnSend.text = "SENDING..."
-                txtChatStatus.text = getString(R.string.chat_sending)
+        lifecycleScope.launch {
+            btnSend.isEnabled = false
+            btnAttach.isEnabled = false
+            btnCamera.isEnabled = false
+            btnVoice.isEnabled = false
+            btnRetryFailed.isEnabled = false
+            btnSend.text = "SENDING..."
+            txtChatStatus.text = "Mengirim..."
+            runtimeSoftBanner.showMessage(
+                key = "chat:send:$peerName",
+                title = "Mengirim...",
+                detail = "Pesan sedang keluar ke jalur terbaik.",
+                priority = 3,
+                durationMs = 1500L,
+                miniStatus = "Mencari jalur terbaik..."
+            )
 
-                try {
-                    withContext(Dispatchers.IO) {
-                        chatDb.chatDao().insertMessage(
-                            ChatMessage(
-                                packetId = packetId,
-                                chatId = peerName,
-                                senderName = "ME",
-                                content = message,
-                                isSent = true,
-                                status = "SENDING"
-                            )
-                        )
-                    }
-
-                    renderHistory()
-
-                    val ok =
-                        withContext(Dispatchers.IO) {
-                            val securePayload =
-                                buildChatPayload(message)
-
-                            val packet =
-                                MeshPacket(
-                                    packetId = packetId,
-                                    source = MainActivity.myGlobalPeerId,
-                                    destination = peerName,
-                                    type = "CHAT",
-                                    payload = securePayload.payload,
-                                    encrypted = securePayload.encrypted
-                                )
-
-                            ReliablePacketSender.sendWithRetry(
-                                peerIp,
-                                packet
-                            )
-                        }
-
-                    withContext(Dispatchers.IO) {
-                        chatDb.chatDao().updateStatus(
-                            packetId,
-                            if (ok) "SENT" else "FAILED"
-                        )
-                    }
-
-                    if (!ok) {
-                        txtChatStatus.text = getString(R.string.send_failed)
-                        UiFeedbackManager.showToast(
-                            this@ChatActivity,
-                            getString(R.string.send_failed)
-                        )
-                    } else {
-                        txtChatStatus.text = getString(R.string.chat_sent)
-                    }
-
-                    renderHistory()
-                } catch (e: Exception) {
-                    MeshLogger.e("CHAT", "Send failed", e)
-                    txtChatStatus.text = getString(R.string.send_failed)
-                    UiFeedbackManager.showToast(
-                        this@ChatActivity,
-                        getString(R.string.send_failed)
+            try {
+                val ownershipHint = withContext(Dispatchers.IO) { refreshConversationOwnershipHint() }
+                val request =
+                    ChatDeliveryManager.createRequest(
+                        context = this@ChatActivity,
+                        keyStore = keyStore,
+                        chatId = peerName,
+                        peerIp = peerIp,
+                        message = message,
+                        peerGlobalId = ownershipHint.globalId,
+                        peerPublicKey = ownershipHint.publicKey,
+                        peerWalletAddress = ownershipHint.walletAddress,
+                        peerDisplayName = ownershipHint.canonicalDisplayName
                     )
-                } finally {
-                    restoreChatButtons()
-                    btnSend.text = getString(R.string.send)
+
+                ChatRetryMetadataRegistry.put(
+                    request.packetId,
+                    ChatRetryMetadata(
+                        peerGlobalId = request.peerGlobalId,
+                        peerPublicKey = request.peerPublicKey,
+                        peerWalletAddress = request.peerWalletAddress,
+                        peerDisplayName = request.peerDisplayName
+                    )
+                )
+
+                withContext(Dispatchers.IO) {
+                    ChatDeliveryManager.sendTextMessage(
+                        context = this@ChatActivity,
+                        keyStore = keyStore,
+                        request = request
+                    )
                 }
+                txtChatStatus.text = "Mengirim..."
+                txtRouteHealthStatus.text = "Menyambungkan ulang"
+                renderHistory()
+                edtMessage.setText("")
+                cancelCurrentDraft(cleanOnly = true)
+                Log.d("GHALBIT-SAFE-SEND", "delivery started")
+                Log.d("GHALBIT-CHAT-UI", "queued packetId=${request.packetId} messageId=${request.messageId}")
+            } catch (e: Exception) {
+                MeshLogger.e("CHAT", "Send failed", e)
+                txtChatStatus.text = getString(R.string.send_failed)
+                UiFeedbackManager.showToast(this@ChatActivity, getString(R.string.send_failed))
+            } finally {
+                restoreChatButtons()
+                btnSend.text = getString(R.string.send)
             }
+        }
+    }
 
-            edtMessage.setText("")
-
-            MeshLogger.i(
-                "CHAT",
-                "Message sent to $peerName"
-            )
-
-        } catch (e: Exception) {
-            restoreChatButtons()
-            btnSend.text = getString(R.string.send)
-            txtChatStatus.text = getString(R.string.send_failed)
-            MeshLogger.e(
-                "CHAT",
-                "Send failed",
-                e
-            )
-
-            UiFeedbackManager.showToast(
-                this,
-                getString(R.string.send_failed)
-            )
+    private fun formatFileSize(size: Long): String {
+        return when {
+            size >= 1024L * 1024L -> String.format(Locale.US, "%.1f MB", size / (1024f * 1024f))
+            size >= 1024L -> String.format(Locale.US, "%.1f KB", size / 1024f)
+            else -> "$size B"
         }
     }
 
@@ -1226,52 +2137,18 @@ class ChatActivity : AppCompatActivity() {
                 }
 
                 withContext(Dispatchers.IO) {
-                    chatDb.chatDao().updateStatus(
-                        failedMessage.packetId,
-                        "SENDING"
-                    )
+                    ChatDeliveryManager.retryMessage(this@ChatActivity, failedMessage.packetId.ifBlank { failedMessage.id.toString() })
+                    ChatDeliveryManager.retryPendingForChat(this@ChatActivity, peerName)
                 }
-
-                renderHistory()
-
-                val ok =
-                    withContext(Dispatchers.IO) {
-                        val securePayload =
-                            buildChatPayload(failedMessage.content)
-
-                        val packet =
-                            MeshPacket(
-                                packetId = failedMessage.packetId,
-                                source = MainActivity.myGlobalPeerId,
-                                destination = peerName,
-                                type = "CHAT",
-                                payload = securePayload.payload,
-                                encrypted = securePayload.encrypted
-                            )
-
-                        ReliablePacketSender.sendWithRetry(
-                            peerIp,
-                            packet
-                        )
-                    }
-
-                withContext(Dispatchers.IO) {
-                    chatDb.chatDao().updateStatus(
-                        failedMessage.packetId,
-                        if (ok) "SENT" else "FAILED"
-                    )
-                }
-
-                if (!ok) {
-                    txtChatStatus.text = getString(R.string.send_failed)
-                    UiFeedbackManager.showToast(
-                        this@ChatActivity,
-                        getString(R.string.send_failed)
-                    )
-                } else {
-                    txtChatStatus.text = getString(R.string.chat_sent)
-                }
-
+                txtChatStatus.text = "Mencoba ulang"
+                runtimeSoftBanner.showMessage(
+                    key = "chat:retry:$peerName",
+                    title = "Mencoba ulang",
+                    detail = "Pesan akan dikirim lagi saat jalur siap.",
+                    priority = 4,
+                    durationMs = 2000L,
+                    miniStatus = "Menunggu koneksi"
+                )
                 renderHistory()
             } catch (e: Exception) {
                 MeshLogger.e("CHAT", "Retry failed", e)
@@ -1283,6 +2160,57 @@ class ChatActivity : AppCompatActivity() {
             } finally {
                 restoreChatButtons()
                 btnRetryFailed.text = getString(R.string.retry_failed)
+            }
+        }
+    }
+
+    private fun updateConversationRouteStatus() {
+        val keepAliveState = ConversationKeepAliveManager.snapshot(peerName)
+        val statusText =
+            when {
+                keepAliveState != null -> {
+                    val latencyText =
+                        if (keepAliveState.latencyMs >= 0L) " • ${keepAliveState.latencyMs}ms" else ""
+                    "${keepAliveState.routeHealth.label}$latencyText"
+                }
+                OnlinePresenceManager.getOnlineRoute(this, peerGlobalId.orEmpty()) != null -> "Online internet"
+                PendingMessageStore.countForChat(this, peerName) > 0 -> "Offline / pending"
+                else -> "Reconnecting"
+            }
+        lastRouteStatusText = statusText
+        if (reviewPanel.visibility == View.VISIBLE) {
+            applyCompactRouteStatus()
+        } else {
+            txtRouteHealthStatus.text = appendPreparedRouteLabel(statusText)
+        }
+    }
+
+    private fun appendPreparedRouteLabel(base: String): String {
+        return if (lastPreparedRouteLabel.isBlank()) base else "$base | $lastPreparedRouteLabel"
+    }
+
+    private fun observeRuntimeUiState() {
+        lifecycleScope.launch {
+            RuntimeUiStateManager.stateFlow.collectLatest { snapshot ->
+                lastRuntimeSnapshot = snapshot
+                runtimeLoadingOverlay.render(snapshot)
+                if (reviewPanel.visibility == View.VISIBLE) {
+                    Log.d("GHALBIT-REVIEW-LAYOUT", "banner suppressed during review")
+                    updateReviewInlineStatus(snapshot)
+                } else {
+                    runtimeSoftBanner.render(snapshot)
+                }
+                txtChatStatus.text = snapshot.detail
+                btnSend.isEnabled = !snapshot.actionsLocked
+                btnCall.isEnabled = !snapshot.actionsLocked
+                btnAttach.isEnabled = !snapshot.actionsLocked
+                btnCamera.isEnabled = !snapshot.actionsLocked
+                btnRetryFailed.isEnabled = !snapshot.actionsLocked
+                btnReviewEdit.isEnabled = !snapshot.actionsLocked
+                btnReviewReplace.isEnabled = !snapshot.actionsLocked
+                btnReviewCancel.isEnabled = !snapshot.actionsLocked
+                btnReviewConfirm.isEnabled = !snapshot.actionsLocked
+                Log.d("GHALBIT-UX", "chat state=${snapshot.state} peer=$peerName")
             }
         }
     }
@@ -1310,29 +2238,156 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun showMessageActions(message: ChatMessage) {
+        val state = ChatDeliveryState.fromDb(message.status)
         val items =
             buildList {
-                add(getString(R.string.chat_action_share))
-                if (message.contentType == "AUDIO" ||
-                    message.contentType == "IMAGE" ||
-                    message.contentType == "FILE"
-                ) {
+                if (message.isSent && !message.status.uppercase(Locale.ROOT).contains("DELETED")) {
+                    add("Edit")
+                }
+                add("Hapus untuk saya")
+                if (message.isSent && !message.status.uppercase(Locale.ROOT).contains("DELETED")) {
+                    add("Hapus untuk semua")
+                }
+                add("Info pengiriman")
+                if (state == ChatDeliveryState.FAILED_FINAL) {
+                    add("Kirim ulang")
+                }
+                if (message.contentType == "TEXT" || message.contentType == "SOS") {
+                    add("Salin teks")
+                }
+                if (message.contentType == "AUDIO" || message.contentType == "IMAGE" || message.contentType == "FILE") {
+                    add("Buka file")
                     add(getString(R.string.chat_action_save))
                 }
+                add(getString(R.string.chat_action_share))
             }
+
+        Log.d("GHALBIT-MESSAGE-MENU", "open id=${message.packetId}")
 
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.chat_action_title))
             .setItems(items.toTypedArray()) { _, which ->
-                when (items[which]) {
-                    getString(R.string.chat_action_share) ->
-                        shareMessage(message)
-
-                    getString(R.string.chat_action_save) ->
-                        saveMessageToDevice(message)
+                val action = items[which]
+                Log.d("GHALBIT-MESSAGE-MENU", "action=$action")
+                when (action) {
+                    "Edit" -> startEditMessage(message)
+                    "Hapus untuk saya" -> deleteMessageForMe(message)
+                    "Hapus untuk semua" -> deleteMessageForEveryone(message)
+                    "Info pengiriman" -> showDeliveryInfo(message)
+                    "Kirim ulang" -> retryMessageFromMenu(message)
+                    "Salin teks" -> copyMessageText(message)
+                    "Buka file" -> handleMessageClick(message)
+                    getString(R.string.chat_action_save) -> saveMessageToDevice(message)
+                    getString(R.string.chat_action_share) -> shareMessage(message)
                 }
             }
             .show()
+    }
+
+    private fun startEditMessage(message: ChatMessage) {
+        if (!message.isSent || message.status.uppercase(Locale.ROOT).contains("DELETED")) {
+            return
+        }
+        edtMessage.setText(if (message.status.uppercase(Locale.ROOT).contains("DELETED")) "" else message.content)
+        edtMessage.requestFocus()
+        AlertDialog.Builder(this)
+            .setTitle("Edit pesan")
+            .setPositiveButton("Simpan") { _, _ ->
+                val newContent = edtMessage.text.toString().trim()
+                if (newContent.isNotBlank()) {
+                    ChatDeliveryManager.editMessage(this, message.packetId, peerName, newContent, peerGlobalId)
+                    runtimeSoftBanner.showMessage(
+                        key = "message:edited:${message.packetId}",
+                        title = "Pesan diedit",
+                        detail = "Perubahan disimpan pada percakapan.",
+                        priority = 2,
+                        durationMs = 1500L
+                    )
+                    lifecycleScope.launch {
+                        delay(180L)
+                        renderHistory()
+                    }
+                }
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun deleteMessageForMe(message: ChatMessage) {
+        ChatDeliveryManager.deleteMessageForMe(this, message.packetId)
+        runtimeSoftBanner.showMessage(
+            key = "message:delete:me:${message.packetId}",
+            title = "Pesan dihapus",
+            detail = "Hanya hilang dari perangkat ini.",
+            priority = 2,
+            durationMs = 1500L
+        )
+        lifecycleScope.launch {
+            delay(180L)
+            renderHistory()
+        }
+    }
+
+    private fun deleteMessageForEveryone(message: ChatMessage) {
+        ChatDeliveryManager.deleteMessageForEveryone(this, message.packetId, peerName, peerGlobalId)
+        runtimeSoftBanner.showMessage(
+            key = "message:delete:all:${message.packetId}",
+            title = "Menghapus pesan",
+            detail = "Permintaan hapus sedang dikirim.",
+            priority = 3,
+            durationMs = 1500L
+        )
+        lifecycleScope.launch {
+            delay(180L)
+            renderHistory()
+        }
+    }
+
+    private fun showDeliveryInfo(message: ChatMessage) {
+        AlertDialog.Builder(this)
+            .setTitle("Info pengiriman")
+            .setMessage(
+                buildString {
+                    append("Status: ")
+                    append(ChatDeliveryState.fromDb(message.status).userLabel)
+                    append("\n")
+                    append("Packet: ")
+                    append(message.packetId)
+                    append("\n")
+                    append("Waktu: ")
+                    append(SimpleDateFormat("dd MMM yyyy HH:mm", Locale("id", "ID")).format(Date(message.timestamp)))
+                }
+            )
+            .setPositiveButton("Tutup", null)
+            .show()
+    }
+
+    private fun retryMessageFromMenu(message: ChatMessage) {
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                ChatDeliveryManager.retryMessage(this@ChatActivity, message.packetId)
+            }
+            runtimeSoftBanner.showMessage(
+                key = "message:retry:${message.packetId}",
+                title = "Mencoba ulang",
+                detail = "Pesan akan dicoba lagi saat jalur siap.",
+                priority = 3,
+                durationMs = 1500L
+            )
+            renderHistory()
+        }
+    }
+
+    private fun copyMessageText(message: ChatMessage) {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("chat", message.content))
+        runtimeSoftBanner.showMessage(
+            key = "message:copy:${message.packetId}",
+            title = "Teks disalin",
+            detail = "Isi pesan siap dipakai.",
+            priority = 1,
+            durationMs = 1200L
+        )
     }
 
     private fun shareMessage(message: ChatMessage) {
@@ -1503,141 +2558,132 @@ class ChatActivity : AppCompatActivity() {
         }
     }
 
-    private fun buildChatPayload(
-        message: String
-    ): ChatPayload {
-        val plainPayload =
-            PacketTtlManager.attachTtl(message)
-
-        val peerPublicKey =
-            keyStore.getPeerKey(peerName)
-
-        if (peerPublicKey.isNullOrBlank()) {
-            return ChatPayload(
-                payload = plainPayload,
-                encrypted = false
-            )
-        }
-
-        return try {
-            val sharedSecret =
-                CryptoEngine.deriveSharedSecret(
-                    keyStore.privateKey,
-                    CryptoEngine.base64ToPublicKey(peerPublicKey)
-                )
-
-            val encryptedBytes =
-                CryptoEngine.encrypt(
-                    plainPayload.toByteArray(),
-                    sharedSecret
-                )
-
-            ChatPayload(
-                payload = Base64.encodeToString(
-                    encryptedBytes,
-                    Base64.NO_WRAP
-                ),
-                encrypted = true
-            )
-        } catch (e: Exception) {
-            MeshLogger.e(
-                "CHAT",
-                "Encryption failed; sending plaintext fallback",
-                e
-            )
-
-            ChatPayload(
-                payload = plainPayload,
-                encrypted = false
-            )
-        }
-    }
-
     private suspend fun renderHistory(
         systemLine: String? = null
     ) {
-        val messages =
+        val shouldAutoScroll = shouldAutoScrollMessages()
+        val historyBundle =
             withContext(Dispatchers.IO) {
-                chatDb.chatDao().getMessages(peerName)
+                val messages = chatDb.chatDao().getMessages(peerName)
+                val resolvedProfile =
+                    ProfileRepository.getResolvedContact(
+                        context = this@ChatActivity,
+                        globalId = activeConversationHint?.globalId ?: peerGlobalId,
+                        chatId = peerName,
+                        fallbackDisplayName = activeConversationHint?.canonicalDisplayName ?: peerDisplayName ?: peerName,
+                        publicKeyHash = activeConversationHint?.publicKey?.let { com.ghalbitnet.meshx2.call.CallManager.publicKeyHash(it) },
+                        routeHint = activeConversationHint?.lastKnownIp ?: peerIp
+                    )
+                Pair(messages, resolvedProfile)
             }
-        ChatReadStateManager.markChatViewed(
-            this@ChatActivity,
-            peerName,
-            messages.lastOrNull()?.timestamp ?: System.currentTimeMillis()
-        )
+        val messages = ChatTimelineOptimizer.optimize(this, historyBundle.first)
+        val resolvedProfile = historyBundle.second
+        val displayName = resolvedProfile.primaryName
+        val publicName = resolvedProfile.displayName
+        peerDisplayName = publicName
+
+        val headerName =
+            IdentityDisplayFormatter.primaryLabel(
+                canonicalDisplayName = displayName,
+                walletAddress = activeConversationHint?.walletAddress ?: peerWalletAddress,
+                globalId = activeConversationHint?.globalId ?: peerGlobalId,
+                publicKey = activeConversationHint?.publicKey ?: peerPublicKey,
+                legacyName = peerName,
+                ipAddress = peerIp
+            )
+        val headerHint =
+            IdentityDisplayFormatter.secondaryLabel(
+                primaryLabel = headerName,
+                legacyName = peerName,
+                walletAddress = activeConversationHint?.walletAddress ?: peerWalletAddress,
+                globalId = activeConversationHint?.globalId ?: peerGlobalId,
+                publicKey = activeConversationHint?.publicKey ?: peerPublicKey,
+                ipAddress = peerIp
+            )
 
         txtChat.text =
-            buildChatHeader(systemLine)
+            if (systemLine == null) {
+                buildString {
+                    append("Chat with ")
+                    append(headerName)
+                    if (displayName != publicName && publicName.isNotBlank()) {
+                        append("\nPublik: ")
+                        append(publicName)
+                    }
+                    headerHint?.let {
+                        append("\n")
+                        append(it)
+                    }
+                }
+            } else {
+                buildString {
+                    append("Chat with ")
+                    append(headerName)
+                    if (displayName != publicName && publicName.isNotBlank()) {
+                        append("\nPublik: ")
+                        append(publicName)
+                    }
+                    headerHint?.let {
+                        append("\n")
+                        append(it)
+                    }
+                    append("\n")
+                    append(systemLine)
+                }
+            }
 
         chatAdapter.submitMessages(messages)
 
-        if (messages.isNotEmpty()) {
+        if (messages.isNotEmpty() && shouldAutoScroll) {
             rvMessages.scrollToPosition(messages.lastIndex)
         }
     }
 
-    private data class ChatPayload(
-        val payload: String,
-        val encrypted: Boolean
-    )
-
-    private fun buildChatHeader(
-        systemLine: String? = null
-    ): String {
-        val displayName =
-            ContactAliasManager.getDisplayName(this, peerName)
-
-        return buildString {
-            append("Chat with ")
-            append(displayName)
-            if (displayName != peerName) {
-                append("\nNode: ")
-                append(peerName)
-            }
-            append("\nIP: ")
-            append(peerIp.ifBlank { "-" })
-            if (!systemLine.isNullOrBlank()) {
-                append("\n")
-                append(systemLine)
-            }
-        }
+    private fun shouldAutoScrollMessages(): Boolean {
+        val layoutManager = rvMessages.layoutManager as? LinearLayoutManager ?: return true
+        val lastVisible = layoutManager.findLastVisibleItemPosition()
+        val count = chatAdapter.itemCount
+        return count <= 2 || lastVisible >= count - 3
     }
 
-    private fun showSaveContactDialog() {
-        val input =
-            EditText(this).apply {
-                setText(ContactAliasManager.getAlias(this@ChatActivity, peerName).orEmpty())
-                hint = getString(R.string.contact_alias_hint)
-                setSelection(text.length)
-            }
+    private fun refreshConversationOwnershipHint(
+        ipHint: String? = peerIp,
+        globalIdHint: String? = peerGlobalId,
+        publicKeyHint: String? = peerPublicKey,
+        walletAddressHint: String? = peerWalletAddress,
+        displayNameHint: String? = peerDisplayName
+    ): ConversationOwnershipHint {
+        val resolved =
+            CentralIdentityResolver.resolve(
+                context = this,
+                legacyChatId = peerName,
+                peerName = peerName,
+                peerIp = ipHint,
+                globalIdHint = globalIdHint,
+                publicKeyHint = publicKeyHint,
+                walletAddressHint = walletAddressHint,
+                displayNameHint = displayNameHint
+            )
 
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.contact_save_dialog_title))
-            .setView(input)
-            .setPositiveButton(R.string.contact_save_button) { _, _ ->
-                ContactAliasManager.saveAlias(
-                    this,
-                    peerName,
-                    input.text?.toString().orEmpty()
-                )
-                txtChat.text = buildChatHeader()
-                UiFeedbackManager.showToast(
-                    this,
-                    getString(
-                        R.string.contact_saved_message,
-                        ContactAliasManager.getDisplayName(this, peerName)
-                    )
-                )
-            }
-            .setNeutralButton(R.string.contact_remove_button) { _, _ ->
-                ContactAliasManager.removeAlias(this, peerName)
-                txtChat.text = buildChatHeader()
-                UiFeedbackManager.showToast(
-                    this,
-                    getString(R.string.contact_removed_message, peerName)
-                )
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        val hint =
+            ConversationOwnershipHint(
+                legacyChatId = peerName,
+                globalId = resolved.globalId,
+                publicKey = resolved.publicKey,
+                walletAddress = resolved.walletAddress,
+                canonicalDisplayName = resolved.displayName,
+                lastKnownIp = resolved.peerIp.ifBlank { null },
+                updatedAt = resolved.resolvedAt
+            )
+
+        activeConversationHint = hint
+        peerGlobalId = hint.globalId
+        peerPublicKey = hint.publicKey
+        peerWalletAddress = hint.walletAddress
+        peerDisplayName = hint.canonicalDisplayName ?: peerDisplayName
+        peerIp = hint.lastKnownIp?.takeIf { it.isNotBlank() } ?: peerIp
+
+        return hint
     }
+
 }

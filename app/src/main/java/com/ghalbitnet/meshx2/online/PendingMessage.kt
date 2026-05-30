@@ -1,0 +1,32 @@
+package com.ghalbitnet.meshx2.online
+
+data class PendingMessage(
+    val packetId: String,
+    val messageId: String = packetId,
+    val chatId: String,
+    val targetNodeId: String,
+    val targetGlobalId: String? = null,
+    val content: String,
+    val createdAt: Long = System.currentTimeMillis(),
+    val expiresAt: Long = 0L,
+    val deliveryStatus: DeliveryStatus = DeliveryStatus.PENDING_SYNC,
+    val retryAttempt: Int = 0,
+    val lastAttemptAt: Long = 0L,
+    val nextRetryAt: Long = 0L,
+    val routeHint: String? = null,
+    val peerPublicKey: String? = null,
+    val peerWalletAddress: String? = null,
+    val peerDisplayName: String? = null,
+    val lastFailureReason: String? = null,
+    val mediaUri: String? = null,
+    val mediaType: String? = null,
+    val mimeType: String? = null,
+    val fileSize: Long = 0L,
+    val mediaChecksum: String? = null,
+    val chunkCount: Int = 0,
+    val uploadedChunks: Set<Int> = emptySet(),
+    val uploadSessionId: String? = null,
+    val remoteMediaId: String? = null,
+    val secureMediaToken: String? = null,
+    val uploadState: String? = null
+)

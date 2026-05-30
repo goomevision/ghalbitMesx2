@@ -1,5 +1,4 @@
 package com.ghalbitnet.meshx2.discovery
-import com.ghalbitnet.meshx2.core.network.TransportPreference
 import com.ghalbitnet.meshx2.model.MeshNode
 object DiscoveryManager {
     private val nodes = mutableMapOf<String, MeshNode>()
@@ -21,13 +20,11 @@ object DiscoveryManager {
             System.currentTimeMillis()
 
         return synchronized(nodes) {
-            TransportPreference.sortNodes(
-                nodes.values.map { node ->
-                    node.copy(
-                        online = now - node.lastSeen < 30000
-                    )
-                }
-            )
+            nodes.values.map { node ->
+                node.copy(
+                    online = now - node.lastSeen < 30000
+                )
+            }
         }
     }
 

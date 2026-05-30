@@ -4,24 +4,24 @@ import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.media.AudioAttributes
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
+import android.util.Log
 import androidx.core.app.Person
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
-import com.ghalbitnet.meshx2.MainActivity
 import com.ghalbitnet.meshx2.R
+import com.ghalbitnet.meshx2.call.CallNotificationActionReceiver
 import com.ghalbitnet.meshx2.call.CallSessionActivity
-import com.ghalbitnet.meshx2.chat.ChatActivity
-import com.ghalbitnet.meshx2.chat.ContactAliasManager
-import com.ghalbitnet.meshx2.chat.SavedContactsActivity
-import com.ghalbitnet.meshx2.token.WalletActivity
+import com.ghalbitnet.meshx2.core.log.MeshLogger
+import com.ghalbitnet.meshx2.identity.CentralIdentityResolver
+import com.ghalbitnet.meshx2.identity.IdentityDiagnosticsFormatter
+import com.ghalbitnet.meshx2.identity.IdentityDisplayFormatter
+import com.ghalbitnet.meshx2.sos.SosInboxActivity
 import java.util.concurrent.ConcurrentHashMap
 
 object AppNotificationManager {
@@ -29,16 +29,18 @@ object AppNotificationManager {
     private const val ALERT_CHANNEL_ID = "GHALBIT_ALERT_CHANNEL"
     private const val CALL_CHANNEL_ID = "GHALBIT_CALL_CHANNEL"
     private const val CHAT_GROUP_KEY = "ghalbit_chat_group"
-    private const val LOW_BALANCE_NOTIFICATION_ID = 64226
     const val KEY_TEXT_REPLY = "key_text_reply"
     const val EXTRA_PEER_NAME = "extra_peer_name"
+    const val EXTRA_PEER_GLOBAL_ID = "extra_peer_global_id"
+    const val EXTRA_PEER_PUBLIC_KEY = "extra_peer_public_key"
+    const val EXTRA_PEER_WALLET_ADDRESS = "extra_peer_wallet_address"
+    const val EXTRA_PEER_DISPLAY_NAME = "extra_peer_display_name"
     private const val PREFS_NAME = "ghalbit_notification_prefs"
     private const val PREF_CHAT_ENABLED = "chat_enabled"
     private const val PREF_MEDIA_ENABLED = "media_enabled"
     private const val PREF_SOS_ENABLED = "sos_enabled"
     private const val PREF_CALL_ENABLED = "call_enabled"
     private const val PREF_CHAT_QUIET = "chat_quiet"
-    private const val PREF_LOW_BALANCE_LAST_AT = "low_balance_last_at"
 
     private val recentChatLines =
         ConcurrentHashMap<String, MutableList<String>>()
@@ -47,18 +49,50 @@ object AppNotificationManager {
         context: Context,
         peerName: String,
         message: String,
-        isSilent: Boolean = false
+        isSilent: Boolean = false,
+        peerGlobalId: String? = null,
+        peerPublicKey: String? = null,
+        peerWalletAddress: String? = null,
+        peerDisplayName: String? = null,
+        messageId: String? = null
     ) {
         ensureChannels(context)
         if (!canNotify(context) || !isChatEnabled(context)) return
-        val displayName =
-            ContactAliasManager.getDisplayName(context, peerName)
+
+        val resolvedIdentity =
+            CentralIdentityResolver.resolve(
+                context = context,
+                legacyChatId = peerName,
+                peerName = peerName,
+                globalIdHint = peerGlobalId,
+                publicKeyHint = peerPublicKey,
+                walletAddressHint = peerWalletAddress,
+                displayNameHint = peerDisplayName,
+                useKeyStore = false
+            )
+        val resolvedGlobalId = resolvedIdentity.globalId
+        val resolvedPublicKey = resolvedIdentity.publicKey
+        val resolvedWalletAddress = resolvedIdentity.walletAddress
+        val resolvedDisplayName = resolvedIdentity.primaryLabel
+
+        MeshLogger.i(
+            "NOTIFICATION_CHAT_IDENTITY",
+            IdentityDiagnosticsFormatter.formatResolved(resolvedIdentity)
+        )
 
         val pendingIntent =
             PendingIntent.getActivity(
                 context,
                 peerName.hashCode(),
-                chatIntent(context, peerName).apply {
+                GhalbitDeepLinkRouter.chatIntent(
+                    context = context,
+                    conversationId = peerName,
+                    senderGlobalId = resolvedGlobalId,
+                    senderPublicKey = resolvedPublicKey,
+                    senderWalletAddress = resolvedWalletAddress,
+                    senderDisplayName = resolvedDisplayName,
+                    messageId = messageId
+                ).apply {
                     putExtra("peerName", peerName)
                     putExtra("peerIp", "")
                 },
@@ -74,12 +108,12 @@ object AppNotificationManager {
 
         val person =
             Person.Builder()
-                .setName(displayName)
+                .setName(resolvedDisplayName)
                 .build()
 
         val style =
             NotificationCompat.MessagingStyle(person)
-                .setConversationTitle(displayName)
+                .setConversationTitle(resolvedDisplayName)
         history.forEach {
             style.addMessage(it, System.currentTimeMillis(), person)
         }
@@ -87,6 +121,10 @@ object AppNotificationManager {
         val replyIntent =
             Intent(context, ChatReplyReceiver::class.java).apply {
                 putExtra(EXTRA_PEER_NAME, peerName)
+                putExtra(EXTRA_PEER_GLOBAL_ID, resolvedGlobalId)
+                putExtra(EXTRA_PEER_PUBLIC_KEY, resolvedPublicKey)
+                putExtra(EXTRA_PEER_WALLET_ADDRESS, resolvedWalletAddress)
+                putExtra(EXTRA_PEER_DISPLAY_NAME, resolvedDisplayName)
             }
 
         val replyPendingIntent =
@@ -94,7 +132,7 @@ object AppNotificationManager {
                 context,
                 ("REPLY:$peerName").hashCode(),
                 replyIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
 
         val remoteInput =
@@ -105,6 +143,7 @@ object AppNotificationManager {
         val markReadIntent =
             Intent(context, ChatMarkReadReceiver::class.java).apply {
                 putExtra(EXTRA_PEER_NAME, peerName)
+                putExtra(EXTRA_PEER_GLOBAL_ID, resolvedGlobalId)
             }
 
         val markReadPendingIntent =
@@ -118,7 +157,7 @@ object AppNotificationManager {
         val builder =
             NotificationCompat.Builder(context, MESSAGE_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setContentTitle(displayName)
+                .setContentTitle(resolvedDisplayName)
                 .setContentText(message)
                 .setStyle(style)
                 .setContentIntent(pendingIntent)
@@ -148,6 +187,7 @@ object AppNotificationManager {
                     if (isSilent) NotificationCompat.PRIORITY_DEFAULT
                     else NotificationCompat.PRIORITY_HIGH
                 )
+                .setOnlyAlertOnce(true)
 
         if (isSilent || isChatQuiet(context)) {
             builder.setSilent(true)
@@ -156,23 +196,39 @@ object AppNotificationManager {
         val manager = NotificationManagerCompat.from(context)
         manager.notify(("CHAT:$peerName").hashCode(), builder.build())
         manager.notify(CHAT_GROUP_KEY.hashCode(), buildChatSummaryNotification(context))
+        Log.d("GHALBIT-NOTIFY", "message shown id=${messageId ?: peerName}")
     }
 
     fun notifySos(
         context: Context,
         peerName: String,
-        payload: String
+        payload: String,
+        peerGlobalId: String? = null,
+        peerPublicKey: String? = null,
+        peerWalletAddress: String? = null,
+        peerDisplayName: String? = null
     ) {
         ensureChannels(context)
         if (!canNotify(context) || !isSosEnabled(context)) return
-        val displayName =
-            ContactAliasManager.getDisplayName(context, peerName)
+
+        val resolvedIdentity =
+            CentralIdentityResolver.resolve(
+                context = context,
+                legacyChatId = peerName,
+                peerName = peerName,
+                globalIdHint = peerGlobalId,
+                publicKeyHint = peerPublicKey,
+                walletAddressHint = peerWalletAddress,
+                displayNameHint = peerDisplayName,
+                useKeyStore = false
+            )
+        val resolvedDisplayName = resolvedIdentity.primaryLabel
 
         val pendingIntent =
             PendingIntent.getActivity(
                 context,
                 ("SOS:$peerName").hashCode(),
-                Intent(context, MainActivity::class.java).apply {
+                Intent(context, SosInboxActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 },
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
@@ -182,7 +238,7 @@ object AppNotificationManager {
             ("SOS:$peerName").hashCode(),
             NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setContentTitle(context.getString(R.string.notification_sos_title, displayName))
+                .setContentTitle(context.getString(R.string.notification_sos_title, resolvedDisplayName))
                 .setContentText(payload)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(payload))
                 .setContentIntent(pendingIntent)
@@ -202,26 +258,79 @@ object AppNotificationManager {
         context: Context,
         peerName: String,
         peerIp: String,
-        callId: String
+        callId: String,
+        peerGlobalId: String? = null,
+        peerPublicKey: String? = null,
+        peerWalletAddress: String? = null,
+        peerDisplayName: String? = null
     ) {
         ensureChannels(context)
         if (!canNotify(context) || !isCallEnabled(context)) return
-        val displayName =
-            ContactAliasManager.getDisplayName(context, peerName)
 
+        val resolvedIdentity =
+            CentralIdentityResolver.resolve(
+                context = context,
+                legacyChatId = peerName,
+                peerName = peerName,
+                peerIp = peerIp,
+                globalIdHint = peerGlobalId,
+                publicKeyHint = peerPublicKey,
+                walletAddressHint = peerWalletAddress,
+                displayNameHint = peerDisplayName,
+                useKeyStore = false
+            )
+        val resolvedDisplayName = resolvedIdentity.primaryLabel
+
+        val openIntent =
+            Intent(context, CallNotificationActionReceiver::class.java).apply {
+                action = GhalbitDeepLinkRouter.ACTION_OPEN_CALL
+                putExtra(CallSessionActivity.EXTRA_PEER_NAME, peerName)
+                putExtra(CallSessionActivity.EXTRA_PEER_IP, peerIp)
+                putExtra(CallSessionActivity.EXTRA_CALL_ID, callId)
+                putExtra(CallSessionActivity.EXTRA_PEER_GLOBAL_ID, resolvedIdentity.globalId ?: peerGlobalId)
+                putExtra(CallSessionActivity.EXTRA_PEER_PUBLIC_KEY, resolvedIdentity.publicKey ?: peerPublicKey)
+                putExtra(CallSessionActivity.EXTRA_PEER_WALLET_ADDRESS, resolvedIdentity.walletAddress ?: peerWalletAddress)
+                putExtra(CallSessionActivity.EXTRA_PEER_DISPLAY_NAME, resolvedDisplayName)
+            }
+        val acceptIntent =
+            Intent(context, CallNotificationActionReceiver::class.java).apply {
+                action = GhalbitDeepLinkRouter.ACTION_ACCEPT_CALL
+                putExtras(openIntent.extras ?: android.os.Bundle())
+            }
+        val rejectIntent =
+            Intent(context, CallNotificationActionReceiver::class.java).apply {
+                action = GhalbitDeepLinkRouter.ACTION_REJECT_CALL
+                putExtras(openIntent.extras ?: android.os.Bundle())
+            }
         val pendingIntent =
             PendingIntent.getActivity(
                 context,
                 ("CALL:$callId").hashCode(),
-                CallSessionActivity.createIntent(
+                GhalbitDeepLinkRouter.callIntent(
                     context = context,
                     peerName = peerName,
                     peerIp = peerIp,
                     callId = callId,
-                    incoming = true
-                ).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                },
+                    peerGlobalId = resolvedIdentity.globalId ?: peerGlobalId,
+                    peerPublicKey = resolvedIdentity.publicKey ?: peerPublicKey,
+                    peerWalletAddress = resolvedIdentity.walletAddress ?: peerWalletAddress,
+                    peerDisplayName = resolvedDisplayName,
+                    action = GhalbitDeepLinkRouter.ACTION_OPEN_CALL
+                ),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        val acceptPendingIntent =
+            PendingIntent.getBroadcast(
+                context,
+                ("CALL_ACCEPT:$callId").hashCode(),
+                acceptIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        val rejectPendingIntent =
+            PendingIntent.getBroadcast(
+                context,
+                ("CALL_REJECT:$callId").hashCode(),
+                rejectIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
@@ -229,40 +338,66 @@ object AppNotificationManager {
             ("CALL:$callId").hashCode(),
             NotificationCompat.Builder(context, CALL_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setContentTitle(context.getString(R.string.notification_call_title, displayName))
+                .setContentTitle(context.getString(R.string.notification_call_title, resolvedDisplayName))
                 .setContentText(context.getString(R.string.notification_call_text))
                 .setContentIntent(pendingIntent)
+                .setFullScreenIntent(pendingIntent, true)
                 .addAction(
                     0,
                     context.getString(R.string.notification_action_answer),
-                    pendingIntent
+                    acceptPendingIntent
+                )
+                .addAction(
+                    0,
+                    context.getString(R.string.call_reject),
+                    rejectPendingIntent
                 )
                 .setAutoCancel(true)
                 .setCategory(NotificationCompat.CATEGORY_CALL)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setOnlyAlertOnce(true)
                 .build()
         )
+        Log.d("GHALBIT-CALL", "notification shown callId=$callId")
     }
 
     fun notifyMissedCall(
         context: Context,
-        peerName: String
+        peerName: String,
+        peerGlobalId: String? = null,
+        peerPublicKey: String? = null,
+        peerWalletAddress: String? = null,
+        peerDisplayName: String? = null
     ) {
         ensureChannels(context)
         if (!canNotify(context) || !isCallEnabled(context)) return
-        val displayName =
-            ContactAliasManager.getDisplayName(context, peerName)
+
+        val resolvedIdentity =
+            CentralIdentityResolver.resolve(
+                context = context,
+                legacyChatId = peerName,
+                peerName = peerName,
+                globalIdHint = peerGlobalId,
+                publicKeyHint = peerPublicKey,
+                walletAddressHint = peerWalletAddress,
+                displayNameHint = peerDisplayName,
+                useKeyStore = false
+            )
+        val resolvedDisplayName = resolvedIdentity.primaryLabel
 
         val pendingIntent =
             PendingIntent.getActivity(
                 context,
                 ("MISSED:$peerName").hashCode(),
-                Intent(context, ChatActivity::class.java).apply {
-                    putExtra("peerName", peerName)
-                    putExtra("peerIp", "")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                },
+                GhalbitDeepLinkRouter.chatIntent(
+                    context = context,
+                    conversationId = peerName,
+                    senderGlobalId = resolvedIdentity.globalId ?: peerGlobalId,
+                    senderPublicKey = resolvedIdentity.publicKey ?: peerPublicKey,
+                    senderWalletAddress = resolvedIdentity.walletAddress ?: peerWalletAddress,
+                    senderDisplayName = resolvedDisplayName
+                ),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
 
@@ -270,7 +405,7 @@ object AppNotificationManager {
             ("MISSED:$peerName").hashCode(),
             NotificationCompat.Builder(context, CALL_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setContentTitle(context.getString(R.string.notification_missed_call_title, displayName))
+                .setContentTitle(context.getString(R.string.notification_missed_call_title, resolvedDisplayName))
                 .setContentText(context.getString(R.string.notification_missed_call_text))
                 .setContentIntent(pendingIntent)
                 .addAction(
@@ -283,94 +418,6 @@ object AppNotificationManager {
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .build()
         )
-    }
-
-    fun notifyLowWalletBalance(
-        context: Context,
-        balance: Double,
-        minimumRequired: Double
-    ) {
-        ensureChannels(context)
-        if (!canNotify(context)) return
-
-        val now = System.currentTimeMillis()
-        val lastAt = prefs(context).getLong(PREF_LOW_BALANCE_LAST_AT, 0L)
-        if (now - lastAt < 10 * 60 * 1000L) {
-            return
-        }
-        prefs(context).edit().putLong(PREF_LOW_BALANCE_LAST_AT, now).apply()
-
-        val pendingIntent =
-            PendingIntent.getActivity(
-                context,
-                LOW_BALANCE_NOTIFICATION_ID,
-                Intent(context, WalletActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-        val walletPendingIntent =
-            PendingIntent.getActivity(
-                context,
-                LOW_BALANCE_NOTIFICATION_ID + 1,
-                Intent(context, WalletActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-        val contactsPendingIntent =
-            PendingIntent.getActivity(
-                context,
-                LOW_BALANCE_NOTIFICATION_ID + 2,
-                Intent(context, SavedContactsActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                },
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-        NotificationManagerCompat.from(context).notify(
-            LOW_BALANCE_NOTIFICATION_ID,
-            NotificationCompat.Builder(context, ALERT_CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
-                .setContentTitle(context.getString(R.string.notification_wallet_low_title))
-                .setContentText(
-                    context.getString(
-                        R.string.notification_wallet_low_text,
-                        balance,
-                        minimumRequired
-                    )
-                )
-                .setStyle(
-                    NotificationCompat.BigTextStyle().bigText(
-                        context.getString(
-                            R.string.notification_wallet_low_text,
-                            balance,
-                            minimumRequired
-                        )
-                    )
-                )
-                .setContentIntent(pendingIntent)
-                .addAction(
-                    0,
-                    context.getString(R.string.notification_action_open_wallet),
-                    walletPendingIntent
-                )
-                .addAction(
-                    0,
-                    context.getString(R.string.notification_action_open_contacts),
-                    contactsPendingIntent
-                )
-                .setAutoCancel(true)
-                .setCategory(NotificationCompat.CATEGORY_STATUS)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .build()
-        )
-    }
-
-    fun clearLowWalletBalanceNotification(context: Context) {
-        NotificationManagerCompat.from(context).cancel(LOW_BALANCE_NOTIFICATION_ID)
     }
 
     fun clearChatNotifications(
@@ -402,9 +449,14 @@ object AppNotificationManager {
         recentChatLines.forEach { (peer, lines) ->
             val latest =
                 lines.lastOrNull().orEmpty()
-            val displayName =
-                ContactAliasManager.getDisplayName(context, peer)
-            inboxStyle.addLine("$displayName: $latest")
+            val resolvedIdentity =
+                CentralIdentityResolver.resolve(
+                    context = context,
+                    legacyChatId = peer,
+                    peerName = peer,
+                    useKeyStore = false
+                )
+            inboxStyle.addLine("${resolvedIdentity.primaryLabel}: $latest")
         }
 
         return NotificationCompat.Builder(context, MESSAGE_CHANNEL_ID)
@@ -421,17 +473,6 @@ object AppNotificationManager {
             .setGroupSummary(true)
             .setAutoCancel(true)
             .build()
-    }
-
-    private fun chatIntent(
-        context: Context,
-        peerName: String
-    ): Intent {
-        return Intent(context, ChatActivity::class.java).apply {
-            putExtra("peerName", peerName)
-            putExtra("peerIp", "")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
     }
 
     private fun ensureChannels(context: Context) {
@@ -471,19 +512,13 @@ object AppNotificationManager {
                     description = "Notifikasi panggilan masuk dan tak terjawab"
                     enableVibration(true)
                     vibrationPattern = longArrayOf(0, 400, 250, 400, 250, 400)
-                    val ringtoneUri: Uri? =
-                        android.media.RingtoneManager.getDefaultUri(
-                            android.media.RingtoneManager.TYPE_RINGTONE
-                        )
-                    val attributes =
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                            .build()
-                    setSound(ringtoneUri, attributes)
+                    setSound(null, null)
+                    Log.d("GHALBIT-CALL-NOTIFY", "channel sound disabled manual ringtone")
                 }
             )
 
         channels.forEach(manager::createNotificationChannel)
+        Log.d("GHALBIT-CALL-NOTIFY", "onlyAlertOnce enabled")
     }
 
     private fun canNotify(context: Context): Boolean {

@@ -1,0 +1,10 @@
+package com.ghalbitnet.meshx2.reliability
+
+enum class ReliabilityPolicyState {
+    DORMANT,
+    FUTURE_LOW_BANDWIDTH_DEFER,
+    FUTURE_BATTERY_AWARE_DEFER,
+    FUTURE_EMERGENCY_PRIORITY,
+    FUTURE_RELAY_CONGESTION_REDUCTION,
+    FUTURE_SYNC_COOLDOWN
+}

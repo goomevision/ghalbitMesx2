@@ -18,6 +18,13 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0.1"
+        def relayUrl = (project.findProperty("GHALBIT_RELAY_URL") ?: "").toString()
+        def presenceUrl = (project.findProperty("GHALBIT_PRESENCE_URL") ?: relayUrl).toString()
+        def routeMode = (project.findProperty("GHALBIT_ROUTE_MODE") ?: "AUTO_HYBRID").toString()
+        buildConfigField "String", "BASE_RELAY_URL", "\"${relayUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        buildConfigField "String", "BASE_PRESENCE_URL", "\"${presenceUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        buildConfigField "boolean", "INTERNET_RELAY_CONFIGURED", relayUrl.isBlank() ? "false" : "true"
+        buildConfigField "String", "GHALBIT_ROUTE_MODE", "\"${routeMode.replace("\\", "\\\\").replace("\"", "\\\"")}\""
     }
 
     buildTypes {
@@ -33,6 +40,10 @@ android {
 
     kotlinOptions {
         jvmTarget = '17'
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 }
 
@@ -60,4 +71,5 @@ dependencies {
     implementation 'com.google.firebase:firebase-database'
     implementation 'com.google.firebase:firebase-firestore'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3'
+    implementation "androidx.work:work-runtime-ktx:2.9.1"
 }

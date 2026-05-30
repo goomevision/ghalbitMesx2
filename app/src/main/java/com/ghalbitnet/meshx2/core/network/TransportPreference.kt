@@ -8,95 +8,74 @@ object TransportPreference {
         val label: String,
         val priority: Int
     ) {
-        LAN_HOTSPOT("LAN / Hotspot", 0),
-        DIRECT_IP("Jaringan Langsung", 1),
-        NEARBY("Nearby", 2),
-        UNKNOWN("Lainnya", 3)
+        LAN_HOTSPOT(
+            label = "Terhubung via LAN / Hotspot.",
+            priority = 0
+        ),
+        DIRECT_IP(
+            label = "Terhubung via jaringan langsung.",
+            priority = 1
+        ),
+        NEARBY(
+            label = "LAN / Hotspot belum tersedia. Menggunakan Nearby sebagai cadangan.",
+            priority = 2
+        ),
+        UNKNOWN(
+            label = "Menggunakan jalur cadangan lain.",
+            priority = 3
+        )
     }
 
     fun modeForAddress(address: String): Mode {
-        val host =
-            address.trim().lowercase()
+        val normalized = address.trim().lowercase()
 
-        if (host.isBlank()) {
+        if (normalized.isBlank()) {
             return Mode.UNKNOWN
         }
 
-        if (host.startsWith("nearby:")) {
-            return Mode.NEARBY
-        }
-
-        if (isPrivateIpv4(host)) {
+        if (normalized == "local") {
             return Mode.LAN_HOTSPOT
         }
 
-        if (isIpv4(host)) {
-            return Mode.DIRECT_IP
-        }
+        return when {
+            normalized.startsWith("192.168.") ||
+                normalized.startsWith("10.") ||
+                normalized.startsWith("172.16.") ||
+                normalized.startsWith("172.17.") ||
+                normalized.startsWith("172.18.") ||
+                normalized.startsWith("172.19.") ||
+                normalized.startsWith("172.20.") ||
+                normalized.startsWith("172.21.") ||
+                normalized.startsWith("172.22.") ||
+                normalized.startsWith("172.23.") ||
+                normalized.startsWith("172.24.") ||
+                normalized.startsWith("172.25.") ||
+                normalized.startsWith("172.26.") ||
+                normalized.startsWith("172.27.") ||
+                normalized.startsWith("172.28.") ||
+                normalized.startsWith("172.29.") ||
+                normalized.startsWith("172.30.") ||
+                normalized.startsWith("172.31.") -> Mode.LAN_HOTSPOT
 
-        return Mode.UNKNOWN
+            normalized.contains("nearby") ||
+                normalized.contains("ble") ||
+                normalized.contains("p2p") -> Mode.NEARBY
+
+            Regex("""^\d{1,3}(\.\d{1,3}){3}$""").matches(normalized) -> Mode.DIRECT_IP
+            else -> Mode.UNKNOWN
+        }
     }
 
     fun sortNodes(nodes: List<MeshNode>): List<MeshNode> {
         return nodes.sortedWith(
-            compareBy<MeshNode> { modeForAddress(it.ipAddress).priority }
-                .thenByDescending { it.online }
+            compareByDescending<MeshNode> { it.online }
+                .thenBy { modeForAddress(it.ipAddress).priority }
+                .thenByDescending { it.gateway }
+                .thenByDescending { it.relay }
+                .thenByDescending { it.trusted }
                 .thenByDescending { it.signal }
-                .thenBy { latencyRank(it.latency) }
-                .thenBy { it.name }
+                .thenBy { if (it.latency >= 0) it.latency else Int.MAX_VALUE }
+                .thenBy { it.name.ifBlank { it.ipAddress } }
         )
-    }
-
-    fun shouldPreferAddress(
-        currentAddress: String?,
-        candidateAddress: String
-    ): Boolean {
-        if (candidateAddress.isBlank()) {
-            return false
-        }
-
-        if (currentAddress.isNullOrBlank()) {
-            return true
-        }
-
-        val currentMode =
-            modeForAddress(currentAddress)
-
-        val candidateMode =
-            modeForAddress(candidateAddress)
-
-        if (candidateMode.priority != currentMode.priority) {
-            return candidateMode.priority < currentMode.priority
-        }
-
-        return candidateAddress != currentAddress
-    }
-
-    private fun latencyRank(latency: Int): Int {
-        return if (latency >= 0) latency else Int.MAX_VALUE
-    }
-
-    private fun isIpv4(host: String): Boolean {
-        val parts = host.split(".")
-        if (parts.size != 4) {
-            return false
-        }
-
-        return parts.all { part ->
-            val value = part.toIntOrNull() ?: return@all false
-            value in 0..255
-        }
-    }
-
-    private fun isPrivateIpv4(host: String): Boolean {
-        if (!isIpv4(host)) {
-            return false
-        }
-
-        val parts = host.split(".").map { it.toInt() }
-
-        return parts[0] == 10 ||
-            (parts[0] == 172 && parts[1] in 16..31) ||
-            (parts[0] == 192 && parts[1] == 168)
     }
 }

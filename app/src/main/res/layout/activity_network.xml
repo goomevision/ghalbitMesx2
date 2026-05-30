@@ -4,7 +4,6 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#050B18"
     android:orientation="vertical"
     android:padding="24dp">
 
@@ -13,7 +12,6 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/network_monitor"
-        android:textColor="#F6FBFF"
         android:textSize="22sp"
         android:textStyle="bold" />
 
@@ -33,7 +31,6 @@
         android:fontFamily="monospace"
         android:minLines="4"
         android:padding="12dp"
-        android:textColor="#EAF4FF"
         android:textSize="15sp" />
 
     <androidx.core.widget.NestedScrollView
@@ -52,7 +49,6 @@
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
             android:padding="12dp"
-            android:textColor="#F5F7FA"
             android:textSize="13sp" />
 
     </androidx.core.widget.NestedScrollView>

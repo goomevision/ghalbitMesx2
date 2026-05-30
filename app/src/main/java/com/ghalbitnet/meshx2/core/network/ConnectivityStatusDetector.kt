@@ -114,7 +114,7 @@ object ConnectivityStatusDetector {
     }
 
     fun localGatewayActive(context: Context): Boolean {
-        return InternetProviderReadinessManager.shouldAdvertiseGateway(context)
+        return snapshot(context, emptyList()).hasInternet
     }
 
     private fun hasPrivateIpv4Address(): Boolean {

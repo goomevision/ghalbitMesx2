@@ -59,12 +59,45 @@
                 android:text="@string/call_reject" />
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnMuteCall"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:text="@string/call_mute" />
+
+            <Button
+                android:id="@+id/btnSpeakerCall"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="@string/call_speaker_on" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/btnVideoCall"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="@string/call_video_start"
+            android:visibility="gone" />
+
         <Button
             android:id="@+id/btnTalkCall"
             android:layout_width="match_parent"
             android:layout_height="76dp"
-            android:layout_marginTop="22dp"
-            android:text="@string/call_hold_to_talk" />
+            android:layout_marginTop="16dp"
+            android:text="@string/call_hold_to_talk"
+            android:visibility="gone" />
 
         <Button
             android:id="@+id/btnEndCall"

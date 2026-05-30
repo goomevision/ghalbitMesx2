@@ -1,0 +1,81 @@
+package com.ghalbitnet.meshx2.profile
+
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.net.Uri
+import android.util.Log
+import android.view.View
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.core.content.ContextCompat
+import com.ghalbitnet.meshx2.R
+
+object ContactCardRenderer {
+    fun bind(root: View, profile: CommunityProfile, routeBadge: String, qrBitmap: Bitmap?) {
+        root.background = ContextCompat.getDrawable(root.context, profile.cardTheme.cardBackgroundRes)
+        root.findViewById<TextView>(R.id.txtVerifiedBadge)?.text =
+            if (profile.signature.isNotBlank()) "VERIFIED" else "LOCAL"
+        root.findViewById<TextView>(R.id.txtRouteBadge)?.text = routeBadge
+        root.findViewById<TextView>(R.id.txtCardName)?.text = profile.primaryName
+        root.findViewById<TextView>(R.id.txtCardNickname)?.text = profile.publicSubtitle
+        root.findViewById<TextView>(R.id.txtCardRole)?.text =
+            listOfNotNull(
+                profile.communityLabel?.takeIf { it.isNotBlank() },
+                profile.roleTitle.takeIf { it.isNotBlank() }
+            ).joinToString(" • ").ifBlank { "Anggota GhalbitNet" }
+        root.findViewById<TextView>(R.id.txtCardStatus)?.text =
+            profile.statusMessage.ifBlank { defaultStatus(profile.statusType) }
+        root.findViewById<TextView>(R.id.txtCardLocation)?.text =
+            profile.region.takeIf { it.isNotBlank() } ?: "Wilayah belum diisi"
+        root.findViewById<TextView>(R.id.txtCardSkills)?.text =
+            profile.skillTags.takeIf { it.isNotEmpty() }?.joinToString("  •  ") ?: "Belum ada tag keahlian"
+        root.findViewById<TextView>(R.id.txtCardTrust)?.text =
+            "ID ${profile.globalId} • ${profile.publicKeyHash.take(12)}"
+        root.findViewById<TextView>(R.id.txtCardCommunity)?.text =
+            profile.communityName.takeIf { it.isNotBlank() }
+                ?: profile.communityLabel?.takeIf { it.isNotBlank() }
+                ?: "Komunitas lokal"
+        root.findViewById<TextView>(R.id.txtCardNote)?.apply {
+            val note = profile.localNote?.takeIf { it.isNotBlank() }
+            visibility = if (note != null) View.VISIBLE else View.GONE
+            text = note ?: ""
+        }
+        root.findViewById<TextView>(R.id.txtCardGlobalId)?.text = profile.globalId
+        root.findViewById<TextView>(R.id.txtCardPublicKeyHash)?.text = profile.publicKeyHash
+        root.findViewById<ImageView>(R.id.imgCardQr)?.setImageBitmap(qrBitmap)
+
+        root.findViewById<ImageView>(R.id.imgCardAvatar)?.apply {
+            val avatar = profile.avatarUri?.takeIf { it.isNotBlank() }
+            if (avatar != null) {
+                runCatching { setImageURI(Uri.parse(avatar)) }.onFailure { setImageDrawable(null) }
+            } else {
+                setImageDrawable(null)
+            }
+        }
+        root.findViewById<TextView>(R.id.txtCardInitials)?.text = initials(profile.primaryName)
+        root.findViewById<View>(R.id.viewCardAccent)?.setBackgroundColor(
+            runCatching { Color.parseColor(profile.bannerColor) }.getOrDefault(Color.parseColor(profile.cardTheme.accentColor))
+        )
+        Log.d("GHALBIT-CARD", "rendered id=${profile.globalId}")
+        Log.d("GHALBIT-CARD", "lightweight theme applied")
+    }
+
+    private fun initials(name: String): String {
+        return name.split(" ")
+            .mapNotNull { it.trim().takeIf(String::isNotBlank)?.firstOrNull()?.uppercaseChar() }
+            .take(2)
+            .joinToString("")
+            .ifBlank { "GN" }
+    }
+
+    private fun defaultStatus(type: CommunityStatusType): String {
+        return when (type) {
+            CommunityStatusType.AVAILABLE -> "Tersedia untuk membantu"
+            CommunityStatusType.BUSY -> "Sedang sibuk"
+            CommunityStatusType.EMERGENCY_HELPER -> "Relawan darurat aktif"
+            CommunityStatusType.RELAY_OPERATOR -> "Operator relay komunitas"
+            CommunityStatusType.OFFLINE -> "Sedang offline"
+            CommunityStatusType.CUSTOM -> "Status komunitas"
+        }
+    }
+}

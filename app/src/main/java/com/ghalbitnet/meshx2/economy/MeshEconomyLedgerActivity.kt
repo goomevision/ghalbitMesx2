@@ -52,47 +52,14 @@ class MeshEconomyLedgerActivity : AppCompatActivity() {
                     relay.nodeName
                 }
             }
-        val routeSegments =
-            if (entry.session.routeSegments.isEmpty()) {
-                ""
-            } else {
-                entry.session.routeSegments.joinToString(" | ") { segment ->
-                    val gatewayName =
-                        if (segment.localGateway) {
-                            getString(R.string.gateway_this_device)
-                        } else {
-                            segment.gatewayNodeName.ifBlank {
-                                getString(R.string.gateway_active_none)
-                            }
-                        }
-                    "$gatewayName ${segment.durationMs / 1000L}d"
-                }
-            }
-        val gatewaySplit =
-            if (entry.settlement.gatewayRewards.isEmpty()) {
-                ""
-            } else {
-                entry.settlement.gatewayRewards.joinToString(" | ") { reward ->
-                    "${reward.nodeName}: ${String.format(Locale.US, "%.2f", reward.amount)}"
-                }
-            }
 
         return buildString {
             append(time)
             append('\n')
             append("Session: ")
             append(entry.session.sessionId)
-            append(" | Mode: ")
-            append(entry.session.usageMode.name)
             append(" | Family: ")
             append(entry.session.serviceFamily.name)
-            append(" x")
-            append(String.format(Locale.US, "%.2f", entry.settlement.familyMultiplier))
-            append('\n')
-            append("Harga: ")
-            append(entry.settlement.pricingLabel)
-            append(" | User charge: ")
-            append(if (entry.settlement.userCharged) "YA" else "TIDAK")
             append('\n')
             append("User: ")
             append(entry.session.userGlobalId)
@@ -114,17 +81,9 @@ class MeshEconomyLedgerActivity : AppCompatActivity() {
                 }
             )
             append('\n')
-            append("Berhenti: ")
-            append(entry.session.stopReason)
-            append('\n')
             append("Relay path: ")
             append(relayPath)
             append('\n')
-            if (routeSegments.isNotBlank()) {
-                append("Segmen jalur: ")
-                append(routeSegments)
-                append('\n')
-            }
             append(
                 getString(
                     R.string.service_economy_ledger_rewards,
@@ -132,33 +91,15 @@ class MeshEconomyLedgerActivity : AppCompatActivity() {
                     entry.settlement.gatewayReward,
                     entry.settlement.totalRelayReward,
                     entry.settlement.builderReward,
-                    entry.settlement.validatorReward,
                     entry.settlement.treasuryReserve
                 )
             )
             append('\n')
             append("Validasi: ")
             append(entry.settlement.validationScore)
-            append(" | Proof total: ")
-            append(entry.settlement.proofScore.overallProof)
             append(" | Latency: ")
             append(entry.session.averageLatencyMs)
             append(" ms")
-            append('\n')
-            if (gatewaySplit.isNotBlank()) {
-                append("Bagi gateway: ")
-                append(gatewaySplit)
-                append('\n')
-            }
-            append(
-                getString(
-                    R.string.service_economy_ledger_proof,
-                    entry.settlement.proofScore.gatewayProof,
-                    entry.settlement.proofScore.relayProof,
-                    entry.settlement.proofScore.validatorProof,
-                    entry.settlement.proofScore.meshLocalProof
-                )
-            )
             append('\n')
             append(entry.settlement.notes)
         }

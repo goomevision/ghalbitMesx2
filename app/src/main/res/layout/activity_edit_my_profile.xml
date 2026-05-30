@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_ghalbit_screen">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <EditText android:id="@+id/edtDisplayName" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Nama resmi" />
+        <EditText android:id="@+id/edtNickname" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Nama panggilan" />
+        <EditText android:id="@+id/edtCommunityName" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Nama komunitas" />
+        <EditText android:id="@+id/edtRoleTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Peran / jabatan" />
+        <EditText android:id="@+id/edtBio" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Bio singkat" />
+        <EditText android:id="@+id/edtRegion" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Wilayah" />
+        <EditText android:id="@+id/edtOrganization" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Organisasi" />
+        <EditText android:id="@+id/edtSkillTags" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Skill tags, pisahkan koma" />
+        <EditText android:id="@+id/edtStatusMessage" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Status komunitas" />
+        <AutoCompleteTextView android:id="@+id/edtStatusType" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Jenis status" />
+        <AutoCompleteTextView android:id="@+id/edtThemeId" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="Tema kartu" />
+
+        <Button
+            android:id="@+id/btnPickAvatar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Pilih Avatar" />
+
+        <CheckBox android:id="@+id/checkPublicProfile" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Profil publik aktif" />
+        <CheckBox android:id="@+id/checkShowRegion" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tampilkan wilayah" />
+        <CheckBox android:id="@+id/checkShowStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Tampilkan status" />
+        <CheckBox android:id="@+id/checkRelayDiscovery" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Izinkan ditemukan lewat relay" />
+        <CheckBox android:id="@+id/checkAvatarSync" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Izinkan avatar sync (metadata ringan)" />
+
+        <Button
+            android:id="@+id/btnSaveMyProfile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="Simpan Profil" />
+
+        <Button
+            android:id="@+id/btnCancelMyProfile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Batal" />
+    </LinearLayout>
+</ScrollView>

@@ -1,4 +1,4 @@
-﻿package com.ghalbitnet.meshx2.routing
+package com.ghalbitnet.meshx2.routing
 
 import java.util.concurrent.ConcurrentHashMap
 
@@ -41,17 +41,18 @@ object RouteTable {
 
     fun clearExpired(
         maxAgeMs: Long = 120000L
-    ) {
+    ): Int {
         val now =
             System.currentTimeMillis()
+
+        val before =
+            routes.size
 
         routes.entries.removeIf {
             now - it.value.updatedAt > maxAgeMs
         }
-    }
 
-    fun clearAll() {
-        routes.clear()
+        return before - routes.size
     }
 
     fun report(): String {

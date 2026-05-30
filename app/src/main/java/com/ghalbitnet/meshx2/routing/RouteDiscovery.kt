@@ -2,7 +2,6 @@ package com.ghalbitnet.meshx2.routing
 
 import android.content.Context
 import android.util.Log
-import com.ghalbitnet.meshx2.core.network.TransportPreference
 import com.ghalbitnet.meshx2.network.MeshSocketClient
 import kotlinx.coroutines.*
 import java.util.UUID
@@ -13,21 +12,45 @@ object RouteDiscovery {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val pendingRequests = ConcurrentHashMap<String, Long>()
     private val routeCache = ConcurrentHashMap<String, RoutingTableEntry>()
+    private var appContext: Context? = null
     private var localIp: String = ""
     private var onRouteFoundCallback: ((String, RoutingTableEntry?) -> Unit)? = null
 
+    fun pendingRequestCount(): Int {
+        return pendingRequests.size
+    }
+
     fun init(context: Context, myIp: String) {
         db = RoutingDatabase.getInstance(context)
+        appContext = context.applicationContext
         localIp = myIp
     }
 
     suspend fun getBestRoute(destinationIp: String): RoutingTableEntry? {
+        // TODO unified identity:
+        // route lookup should target canonical globalId and keep destinationIp
+        // as transport-level next-hop data only.
         routeCache[destinationIp]?.let { if (System.currentTimeMillis() - it.lastUpdated < 30000) return it }
 
+        val context = appContext
+        if (context != null) {
+            IntelligentRouteMemory.getHint(context, destinationIp)?.let { hint ->
+                val hintedRoute =
+                    RoutingTableEntry(
+                        destinationIp = destinationIp,
+                        nextHopIp = hint.nextHopId,
+                        hopCount = hint.hopCount,
+                        latencyMs = hint.latencyMs,
+                        trustScore = hint.trustScore,
+                        lastUpdated = hint.lastSeen
+                    )
+                routeCache[destinationIp] = hintedRoute
+                return hintedRoute
+            }
+        }
+
         val directNode =
-            TransportPreference.sortNodes(
-                MeshRegistry.getNodes()
-            )
+            MeshRegistry.getNodes()
                 .firstOrNull {
                     it.online &&
                         (it.name == destinationIp || it.ipAddress == destinationIp)
@@ -40,12 +63,25 @@ object RouteDiscovery {
                     nextHopIp = directNode.ipAddress,
                     hopCount = 1,
                     latencyMs = directNode.latency.toLong(),
-                    trustScore = directNode.trusted + preferredBonus(directNode.ipAddress),
+                    trustScore = directNode.trusted,
                     lastUpdated = System.currentTimeMillis()
                 )
 
             routeCache[destinationIp] =
                 directRoute
+            context?.let {
+                IntelligentRouteMemory.rememberHint(
+                    it,
+                    RouteHint(
+                        destinationId = destinationIp,
+                        nextHopId = directNode.ipAddress,
+                        latencyMs = directNode.latency.toLong(),
+                        hopCount = 1,
+                        trustScore = directNode.trusted,
+                        lastSeen = System.currentTimeMillis()
+                    )
+                )
+            }
 
             return directRoute
         }
@@ -61,6 +97,9 @@ object RouteDiscovery {
         latencyMs: Long = 0L,
         trustScore: Int = 50
     ) {
+        // TODO unified identity:
+        // store canonical route ownership by globalId once discovery and
+        // contact resolution stop mixing peerId and IP.
         if (destinationPeerId.isBlank() || destinationIp.isBlank()) {
             return
         }
@@ -71,12 +110,25 @@ object RouteDiscovery {
                 nextHopIp = destinationIp,
                 hopCount = 1,
                 latencyMs = latencyMs,
-                trustScore = trustScore + preferredBonus(destinationIp),
+                trustScore = trustScore,
                 lastUpdated = System.currentTimeMillis()
             )
 
         routeCache[destinationPeerId] =
             entry
+        appContext?.let {
+            IntelligentRouteMemory.rememberHint(
+                it,
+                RouteHint(
+                    destinationId = destinationPeerId,
+                    nextHopId = destinationIp,
+                    latencyMs = latencyMs,
+                    hopCount = 1,
+                    trustScore = trustScore,
+                    lastSeen = System.currentTimeMillis()
+                )
+            )
+        }
 
         RouteTable.updateRoute(
             destinationPeerId,
@@ -167,18 +219,6 @@ object RouteDiscovery {
             val threshold = System.currentTimeMillis() - timeoutMs
             db.routingDao().deleteOlderThan(threshold)
             routeCache.clear()
-        }
-    }
-
-    fun clearAllCachedRoutes() {
-        routeCache.clear()
-    }
-
-    private fun preferredBonus(address: String): Int {
-        return when (TransportPreference.modeForAddress(address)) {
-            TransportPreference.Mode.LAN_HOTSPOT -> 20
-            TransportPreference.Mode.DIRECT_IP -> 10
-            else -> 0
         }
     }
 }

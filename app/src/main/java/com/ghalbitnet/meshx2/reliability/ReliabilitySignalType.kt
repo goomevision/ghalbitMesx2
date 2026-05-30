@@ -1,0 +1,14 @@
+package com.ghalbitnet.meshx2.reliability
+
+enum class ReliabilitySignalType {
+    ONLINE_NODE_COUNT,
+    ACK_PENDING_COUNT,
+    ACK_RECEIVED_COUNT,
+    PENDING_TRANSFER_COUNT,
+    RETRY_METADATA_COUNT,
+    ROUTE_COUNT,
+    ROUTE_REQUEST_COUNT,
+    CONNECTIVITY_SCOPE,
+    HOTSPOT_HINT,
+    BATTERY_HINT
+}

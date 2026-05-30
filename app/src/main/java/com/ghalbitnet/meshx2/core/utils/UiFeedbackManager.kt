@@ -1,37 +1,24 @@
 package com.ghalbitnet.meshx2.core.utils
 
 import android.content.Context
-import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 
 object UiFeedbackManager {
-    private const val MIN_REPEAT_INTERVAL_MS = 1800L
 
-    private var lastToastMessage: String = ""
-    private var lastToastAt: Long = 0L
-    private var activeToast: Toast? = null
-
-    @Synchronized
     fun showToast(
         context: Context,
         message: String,
         duration: Int = Toast.LENGTH_SHORT
     ) {
-        val now = SystemClock.elapsedRealtime()
-        if (
-            message == lastToastMessage &&
-            now - lastToastAt < MIN_REPEAT_INTERVAL_MS
-        ) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            Toast.makeText(context, message, duration).show()
             return
         }
 
-        lastToastMessage = message
-        lastToastAt = now
-
-        activeToast?.cancel()
-        activeToast =
-            Toast.makeText(context.applicationContext, message, duration).also {
-                it.show()
-            }
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(context, message, duration).show()
+        }
     }
 }

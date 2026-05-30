@@ -198,7 +198,6 @@ object UsageSessionRecorder {
         val id = packetId.uppercase()
 
         return when {
-            type == "INTERNET_USAGE" || id.startsWith("INET-") -> ServiceFamily.INTERNET
             type == "CHAT" || id.startsWith("CHAT-") -> ServiceFamily.CHAT
             type == "FILE_CHUNK" ||
                 type == "AUDIO_RECEIVED" ||

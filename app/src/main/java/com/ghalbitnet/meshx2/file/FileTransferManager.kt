@@ -18,6 +18,8 @@ import com.ghalbitnet.meshx2.chat.ChatDatabase
 import com.ghalbitnet.meshx2.chat.ChatMessage
 import com.ghalbitnet.meshx2.chat.ChatActivity
 import com.ghalbitnet.meshx2.core.utils.AppNotificationManager
+import com.ghalbitnet.meshx2.identity.CentralIdentityResolver
+import com.ghalbitnet.meshx2.identity.IdentityDiagnosticsFormatter
 import com.ghalbitnet.meshx2.model.MeshPacket
 import com.ghalbitnet.meshx2.network.MeshSocketClient
 import com.ghalbitnet.meshx2.network.MeshTrafficGuard
@@ -60,6 +62,14 @@ object FileTransferManager {
     private val receiveTotalChunks = ConcurrentHashMap<String, Int>()
     private val receiveTempFiles = ConcurrentHashMap<String, File>()
 
+    fun pendingReceiveCount(): Int {
+        return receiveChunks.size
+    }
+
+    fun isSendingTransfer(): Boolean {
+        return sendingTransfer.get()
+    }
+
     interface TransferStatusListener {
         fun onProgress(message: String, busy: Boolean = true)
         fun onComplete(message: String)
@@ -87,6 +97,19 @@ object FileTransferManager {
                     Log.e("GHALBIT", "No IP for file transfer to $destinationPeerId")
                     return@launch
                 }
+                val resolvedIdentity =
+                    CentralIdentityResolver.resolve(
+                        context = context,
+                        legacyChatId = destinationPeerId,
+                        peerName = destinationPeerId,
+                        peerIp = destIp,
+                        publicKeyHint = keyStore.getPeerKey(destinationPeerId),
+                        displayNameHint = destinationPeerId
+                    )
+                Log.d(
+                    "GHALBIT",
+                    "FILE_TRANSFER_TARGET ${IdentityDiagnosticsFormatter.formatResolved(resolvedIdentity)}"
+                )
 
                 val fileName = getDisplayName(context, fileUri)
                 val fileSize = getFileSize(context, fileUri)
@@ -422,6 +445,22 @@ object FileTransferManager {
         CoroutineScope(Dispatchers.IO).launch {
             val chatDb =
                 ChatDatabase.getInstance(context)
+            val keyStore =
+                KeyStoreManager(context)
+            val resolvedIdentity =
+                CentralIdentityResolver.resolve(
+                    context = context,
+                    legacyChatId = packet.source,
+                    peerName = packet.source,
+                    peerIp = keyStore.getPeerAddress(packet.source).orEmpty(),
+                    publicKeyHint = keyStore.getPeerKey(packet.source),
+                    displayNameHint = packet.source
+                )
+
+            Log.d(
+                "GHALBIT",
+                "FILE_TRANSFER_OWNER ${IdentityDiagnosticsFormatter.formatResolved(resolvedIdentity)}"
+            )
 
             if (chatDb.chatDao().countByPacketId(transferId) > 0) {
                 return@launch
@@ -485,7 +524,11 @@ object FileTransferManager {
                         context = context,
                         peerName = packet.source,
                         message = label,
-                        isSilent = true
+                        isSilent = true,
+                        peerGlobalId = resolvedIdentity.globalId,
+                        peerPublicKey = resolvedIdentity.publicKey,
+                        peerWalletAddress = resolvedIdentity.walletAddress,
+                        peerDisplayName = resolvedIdentity.displayName
                     )
                 }
             } else {
@@ -503,7 +546,11 @@ object FileTransferManager {
                         context = context,
                         peerName = packet.source,
                         message = label,
-                        isSilent = true
+                        isSilent = true,
+                        peerGlobalId = resolvedIdentity.globalId,
+                        peerPublicKey = resolvedIdentity.publicKey,
+                        peerWalletAddress = resolvedIdentity.walletAddress,
+                        peerDisplayName = resolvedIdentity.displayName
                     )
                 }
             }

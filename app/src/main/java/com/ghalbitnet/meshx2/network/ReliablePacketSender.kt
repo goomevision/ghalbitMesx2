@@ -30,6 +30,9 @@ object ReliablePacketSender {
         retryCount: Int = 3,
         delayMs: Long = 700L
     ): Boolean {
+        // TODO unified identity:
+        // callers should resolve destination by globalId first and use
+        // ipAddress here strictly as a transport hop hint.
 
         AckTracker.track(packet.packetId)
 

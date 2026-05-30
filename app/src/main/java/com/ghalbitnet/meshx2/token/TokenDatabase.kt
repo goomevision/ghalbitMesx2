@@ -11,7 +11,6 @@ abstract class TokenDatabase : RoomDatabase() {
         @Volatile private var INSTANCE: TokenDatabase? = null
         fun getInstance(context: Context): TokenDatabase = INSTANCE ?: synchronized(this) {
             Room.databaseBuilder(context.applicationContext, TokenDatabase::class.java, "ghalbit_ledger")
-                .fallbackToDestructiveMigration()
                 .build().also { INSTANCE = it }
         }
     }

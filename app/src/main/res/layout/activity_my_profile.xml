@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_ghalbit_screen"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <com.ghalbitnet.meshx2.profile.MyNameCardView
+        android:id="@+id/viewMyNameCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <TextView
+        android:id="@+id/txtProfileMeta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/bg_ghalbit_card"
+        android:padding="12dp"
+        android:textColor="#D8E8F4"
+        android:textSize="13sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/btnEditMyProfile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Edit Profil" />
+
+        <Button
+            android:id="@+id/btnShareMyQr"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Bagikan QR" />
+
+        <Button
+            android:id="@+id/btnScanContactQr"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Scan QR Kontak" />
+
+        <Button
+            android:id="@+id/btnSyncMyProfile"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Sync Profil ke Relay" />
+    </LinearLayout>
+
+</LinearLayout>

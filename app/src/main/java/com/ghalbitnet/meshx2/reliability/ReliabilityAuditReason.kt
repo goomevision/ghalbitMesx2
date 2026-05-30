@@ -1,0 +1,11 @@
+package com.ghalbitnet.meshx2.reliability
+
+enum class ReliabilityAuditReason {
+    READINESS_DOWNGRADE,
+    PRESSURE_ESCALATION,
+    STRESS_ESCALATION,
+    ACTIVATION_REFUSAL,
+    SAFE_MODE_RECOMMENDATION,
+    STALE_TELEMETRY,
+    CONFIDENCE_DEGRADATION
+}

@@ -9,8 +9,6 @@ interface TokenDao {
     fun countByPeerAndReason(peerIp: String, reason: String): Int
     @Query("SELECT * FROM token_transactions ORDER BY timestamp DESC LIMIT :limit")
     fun getRecentTransactions(limit: Int): List<TokenTransaction>
-    @Query("SELECT * FROM token_transactions WHERE peerIp = :peerIp ORDER BY timestamp DESC LIMIT :limit")
-    fun getTransactionsForWallet(peerIp: String, limit: Int): List<TokenTransaction>
     @Insert
-    fun insertTransaction(transaction: TokenTransaction): Long
+    fun insertTransaction(transaction: TokenTransaction)
 }

@@ -55,32 +55,6 @@ object CryptoEngine {
         }
     }
 
-    fun sign(
-        privateKey: PrivateKey,
-        payload: String
-    ): String {
-        val signature = Signature.getInstance("SHA256withECDSA")
-        signature.initSign(privateKey)
-        signature.update(payload.toByteArray(Charsets.UTF_8))
-        return Base64.encodeToString(signature.sign(), Base64.NO_WRAP)
-    }
-
-    fun verifySignature(
-        publicKeyBase64: String,
-        payload: String,
-        signatureBase64: String
-    ): Boolean {
-        if (publicKeyBase64.isBlank() || signatureBase64.isBlank()) {
-            return false
-        }
-        return runCatching {
-            val verifier = Signature.getInstance("SHA256withECDSA")
-            verifier.initVerify(base64ToPublicKey(publicKeyBase64))
-            verifier.update(payload.toByteArray(Charsets.UTF_8))
-            verifier.verify(Base64.decode(signatureBase64, Base64.NO_WRAP))
-        }.getOrDefault(false)
-    }
-
     fun deriveSharedSecret(privateKey: PrivateKey, publicKey: PublicKey): ByteArray {
         val agreement = KeyAgreement.getInstance("ECDH")
         agreement.init(privateKey)

@@ -12,7 +12,11 @@ object RouteMaintenanceManager {
 
     interface RouteMaintenanceListener {
         fun onMaintenanceStatus(message: String)
-        fun onMaintenanceError(message: String, throwable: Throwable? = null)
+
+        fun onMaintenanceError(
+            message: String,
+            throwable: Throwable? = null
+        )
     }
 
     fun start(
@@ -26,10 +30,12 @@ object RouteMaintenanceManager {
                 runCatching {
                     RouteDiscovery.clearExpiredRoutes()
                 }.onFailure {
-                    listener?.onMaintenanceError("Route cleanup gagal.", it)
+                    listener?.onMaintenanceError(
+                        "Route cleanup gagal.",
+                        it
+                    )
                 }
             }
         }
     }
 }
-
