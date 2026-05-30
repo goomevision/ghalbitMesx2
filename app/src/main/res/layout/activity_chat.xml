@@ -14,19 +14,19 @@
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="8dp"
-        android:paddingTop="8dp"
+        android:paddingTop="7dp"
         android:paddingEnd="8dp"
-        android:paddingBottom="8dp">
+        android:paddingBottom="7dp">
 
         <TextView
             android:id="@+id/txtChatAvatarVisual"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:background="@drawable/bg_name_card_badge"
             android:gravity="center"
             android:text="GN"
             android:textColor="#F5FBFF"
-            android:textSize="12sp"
+            android:textSize="11sp"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -44,7 +44,7 @@
                 android:maxLines="1"
                 android:text="Chat GhalbitNet"
                 android:textColor="#F5FBFF"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <TextView
@@ -56,24 +56,38 @@
                 android:maxLines="1"
                 android:text="Online / pending"
                 android:textColor="#8EE3BE"
-                android:textSize="11sp" />
+                android:textSize="10sp" />
         </LinearLayout>
 
         <Button
             android:id="@+id/btnCall"
-            android:layout_width="52dp"
-            android:layout_height="38dp"
+            android:layout_width="56dp"
+            android:layout_height="40dp"
             android:layout_marginStart="4dp"
-            android:text="Telp"
-            android:textSize="10sp" />
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="0dp"
+            android:paddingEnd="0dp"
+            android:text="Panggil"
+            android:textAllCaps="false"
+            android:textSize="9sp" />
 
         <Button
             android:id="@+id/btnRetryFailed"
             android:layout_width="52dp"
-            android:layout_height="38dp"
+            android:layout_height="40dp"
             android:layout_marginStart="4dp"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingStart="0dp"
+            android:paddingEnd="0dp"
             android:text="Ulang"
-            android:textSize="10sp" />
+            android:textAllCaps="false"
+            android:textSize="9sp" />
     </LinearLayout>
 
     <TextView
@@ -81,18 +95,18 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="4dp"
         android:layout_marginEnd="8dp"
         android:background="@drawable/bg_ghalbit_card"
         android:ellipsize="end"
-        android:maxLines="2"
+        android:maxLines="1"
         android:paddingStart="10dp"
-        android:paddingTop="6dp"
+        android:paddingTop="5dp"
         android:paddingEnd="10dp"
-        android:paddingBottom="6dp"
-        android:text="Pesan terenkripsi • menunggu status jalur"
+        android:paddingBottom="5dp"
+        android:text="Jalur siap"
         android:textColor="#BFD3E6"
-        android:textSize="11sp" />
+        android:textSize="10sp" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvMessages"
@@ -196,8 +210,12 @@
                 android:layout_height="42dp"
                 android:layout_marginEnd="3dp"
                 android:layout_weight="1"
+                android:minWidth="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="Kirim"
-                android:textSize="11sp" />
+                android:textAllCaps="false"
+                android:textSize="10sp" />
 
             <Button
                 android:id="@+id/btnReviewCancel"
@@ -206,8 +224,12 @@
                 android:layout_marginStart="3dp"
                 android:layout_marginEnd="3dp"
                 android:layout_weight="1"
+                android:minWidth="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="Batal"
-                android:textSize="11sp" />
+                android:textAllCaps="false"
+                android:textSize="10sp" />
 
             <Button
                 android:id="@+id/btnReviewEdit"
@@ -216,8 +238,12 @@
                 android:layout_marginStart="3dp"
                 android:layout_marginEnd="3dp"
                 android:layout_weight="1"
+                android:minWidth="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="Edit"
-                android:textSize="11sp" />
+                android:textAllCaps="false"
+                android:textSize="10sp" />
 
             <Button
                 android:id="@+id/btnReviewReplace"
@@ -225,8 +251,12 @@
                 android:layout_height="42dp"
                 android:layout_marginStart="3dp"
                 android:layout_weight="1"
+                android:minWidth="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="Ganti"
-                android:textSize="11sp" />
+                android:textAllCaps="false"
+                android:textSize="10sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -264,19 +294,33 @@
 
             <Button
                 android:id="@+id/btnVoice"
-                android:layout_width="58dp"
+                android:layout_width="62dp"
                 android:layout_height="46dp"
                 android:layout_marginStart="5dp"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="Suara"
-                android:textSize="10sp" />
+                android:textAllCaps="false"
+                android:textSize="9sp" />
 
             <Button
                 android:id="@+id/btnSend"
-                android:layout_width="58dp"
+                android:layout_width="62dp"
                 android:layout_height="46dp"
                 android:layout_marginStart="5dp"
+                android:includeFontPadding="false"
+                android:maxLines="1"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="Kirim"
-                android:textSize="10sp" />
+                android:textAllCaps="false"
+                android:textSize="9sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -293,8 +337,12 @@
                 android:layout_marginEnd="3dp"
                 android:layout_weight="1"
                 android:maxLines="1"
+                android:minWidth="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="File"
-                android:textSize="10sp" />
+                android:textAllCaps="false"
+                android:textSize="9sp" />
 
             <Button
                 android:id="@+id/btnCamera"
@@ -304,8 +352,12 @@
                 android:layout_marginEnd="3dp"
                 android:layout_weight="1"
                 android:maxLines="1"
+                android:minWidth="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="Foto"
-                android:textSize="10sp" />
+                android:textAllCaps="false"
+                android:textSize="9sp" />
 
             <Button
                 android:id="@+id/btnChatLocationVisual"
@@ -316,8 +368,12 @@
                 android:layout_weight="1"
                 android:enabled="false"
                 android:maxLines="1"
+                android:minWidth="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="Lokasi"
-                android:textSize="10sp" />
+                android:textAllCaps="false"
+                android:textSize="9sp" />
 
             <Button
                 android:id="@+id/btnChatMoreVisual"
@@ -327,8 +383,12 @@
                 android:layout_weight="1"
                 android:enabled="false"
                 android:maxLines="1"
+                android:minWidth="0dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
                 android:text="Lain"
-                android:textSize="10sp" />
+                android:textAllCaps="false"
+                android:textSize="9sp" />
         </LinearLayout>
 
         <TextView
@@ -337,8 +397,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="5dp"
             android:gravity="center"
-            android:text="Telp = panggilan • Ulang = kirim ulang pesan gagal"
+            android:text="Panggil di atas • Ulang untuk pesan gagal"
             android:textColor="#88A8C8"
-            android:textSize="10sp" />
+            android:textSize="9sp" />
     </LinearLayout>
 </LinearLayout>
