@@ -37,35 +37,26 @@ object NetworkHandoffMonitor {
     fun start(context: Context, listener: Listener) {
         if (!started.compareAndSet(false, true)) return
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
-        val initialIp = resolveCurrentIpv4()
+        val initialIp = resolveCurrentIpv4(preferRoutable = true)
         currentIp = initialIp
         currentSubnet = subnetOf(initialIp)
+        Log.d(TAG, "start initialIp=$currentIp initialSubnet=$currentSubnet")
         callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 updateNetworkType(cm, network)
-                Log.d(TAG, "available network=$network")
+                Log.d(TAG, "available network=$network type=$networkType")
+                evaluateNetworkChange(listener, reason = "available")
             }
 
             override fun onLost(network: Network) {
-                Log.w(TAG, "lost network=$network")
+                Log.w(TAG, "lost network=$network previousType=$networkType")
+                evaluateNetworkChange(listener, reason = "lost")
             }
 
             override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
                 updateNetworkType(cm, network)
-                Log.d(TAG, "capabilitiesChanged network=$network")
-                val oldIp = currentIp
-                val oldSubnet = currentSubnet
-                val newIp = resolveCurrentIpv4()
-                val newSubnet = subnetOf(newIp)
-                Log.d(TAG, "oldIp=$oldIp")
-                Log.d(TAG, "newIp=$newIp")
-                val subnetChanged = oldSubnet != "-" && newSubnet != "-" && oldSubnet != newSubnet
-                Log.d(TAG, "subnetChanged=$subnetChanged oldSubnet=$oldSubnet newSubnet=$newSubnet")
-                currentIp = newIp
-                currentSubnet = newSubnet
-                if (subnetChanged) {
-                    listener.onSubnetChanged(oldIp, newIp, oldSubnet, newSubnet)
-                }
+                Log.d(TAG, "capabilitiesChanged network=$network type=$networkType")
+                evaluateNetworkChange(listener, reason = "capabilitiesChanged")
             }
         }
         try {
@@ -113,6 +104,34 @@ object NetworkHandoffMonitor {
         )
     }
 
+    private fun evaluateNetworkChange(listener: Listener, reason: String) {
+        val oldIp = currentIp
+        val oldSubnet = currentSubnet
+        val newIp = resolveCurrentIpv4(preferRoutable = true)
+        val newSubnet = subnetOf(newIp)
+        Log.d(TAG, "reason=$reason oldIp=$oldIp newIp=$newIp")
+        Log.d(TAG, "reason=$reason oldSubnet=$oldSubnet newSubnet=$newSubnet")
+
+        if (newIp == "-") {
+            Log.w(TAG, "ipUnavailable reason=$reason keepOldIp=$oldIp networkType=$networkType")
+            if (oldIp != "-") {
+                listener.onSubnetChanged(oldIp, oldIp, oldSubnet, oldSubnet)
+                Log.d(TAG, "recoveryTriggeredWithoutNewIp reason=$reason")
+            }
+            return
+        }
+
+        val ipChanged = oldIp != "-" && oldIp != newIp
+        val subnetChanged = oldSubnet != "-" && newSubnet != "-" && oldSubnet != newSubnet
+        val firstIpResolved = oldIp == "-" && newIp != "-"
+        Log.d(TAG, "subnetChanged=$subnetChanged ipChanged=$ipChanged firstIpResolved=$firstIpResolved")
+        currentIp = newIp
+        currentSubnet = newSubnet
+        if (subnetChanged || ipChanged || firstIpResolved) {
+            listener.onSubnetChanged(oldIp, newIp, oldSubnet, newSubnet)
+        }
+    }
+
     private fun updateNetworkType(cm: ConnectivityManager, network: Network) {
         val caps = cm.getNetworkCapabilities(network)
         networkType = when {
@@ -120,28 +139,43 @@ object NetworkHandoffMonitor {
             caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "WIFI"
             caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "CELLULAR"
             caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ETHERNET"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "VPN"
             else -> "OTHER"
         }
     }
 
-    private fun resolveCurrentIpv4(): String {
+    private fun resolveCurrentIpv4(preferRoutable: Boolean): String {
         return try {
+            val candidates = mutableListOf<Pair<String, String>>()
             val interfaces = NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
                 val iface = interfaces.nextElement()
-                if (!iface.isUp || iface.isLoopback) continue
+                if (!iface.isUp || iface.isLoopback || iface.isVirtual) continue
                 val name = iface.name.lowercase()
-                if (name.startsWith("rmnet") || name.startsWith("ccmni") || name.startsWith("pdp")) continue
                 val addresses = iface.inetAddresses
                 while (addresses.hasMoreElements()) {
                     val address = addresses.nextElement()
-                    if (address is Inet4Address && !address.isLoopbackAddress) {
-                        return address.hostAddress ?: "-"
+                    if (address is Inet4Address && !address.isLoopbackAddress && !address.isAnyLocalAddress) {
+                        val ip = address.hostAddress ?: continue
+                        candidates += name to ip
                     }
                 }
             }
-            "-"
-        } catch (_: Exception) {
+            if (candidates.isEmpty()) return "-"
+            val preferred =
+                if (preferRoutable) {
+                    candidates.firstOrNull { (name, _) ->
+                        name.startsWith("wlan") || name.startsWith("ap") || name.startsWith("swlan")
+                    } ?: candidates.firstOrNull { (name, _) ->
+                        name.startsWith("rmnet") || name.startsWith("ccmni") || name.startsWith("pdp") || name.startsWith("usb") || name.startsWith("eth")
+                    } ?: candidates.first()
+                } else {
+                    candidates.first()
+                }
+            Log.d(TAG, "ipv4Candidates=${candidates.joinToString { "${it.first}:${it.second}" }} selected=${preferred.first}:${preferred.second}")
+            preferred.second
+        } catch (e: Exception) {
+            Log.e(TAG, "resolveCurrentIpv4 failed", e)
             "-"
         }
     }
