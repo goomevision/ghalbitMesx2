@@ -2,6 +2,7 @@ package com.ghalbitnet.meshx2.core.network
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.ghalbitnet.meshx2.settings.HotspotVerificationManager
@@ -14,6 +15,7 @@ object InternetProviderAccessManager {
     private const val KEY_SSID = "ssid"
     private const val KEY_PASSWORD = "password"
     private const val KEY_UPDATED_AT = "updated_at"
+    private const val TAG = "GHALBIT-INTERNET-PROVIDER"
 
     data class ProviderProfile(
         val consentGiven: Boolean,
@@ -41,7 +43,18 @@ object InternetProviderAccessManager {
     }
 
     fun snapshot(context: Context): ProviderProfile {
-        val prefs = prefs(context)
+        val prefs =
+            try {
+                prefs(context)
+            } catch (error: Exception) {
+                Log.e(TAG, "snapshot failed; returning default profile", error)
+                return ProviderProfile(
+                    consentGiven = false,
+                    hotspotSsid = "",
+                    hotspotPassword = "",
+                    updatedAt = 0L
+                )
+            }
         return ProviderProfile(
             consentGiven = prefs.getBoolean(KEY_CONSENT, false),
             hotspotSsid = prefs.getString(KEY_SSID, "").orEmpty(),
@@ -56,18 +69,33 @@ object InternetProviderAccessManager {
         hotspotSsid: String,
         hotspotPassword: String
     ) {
-        prefs(context)
-            .edit()
-            .putBoolean(KEY_CONSENT, consentGiven)
-            .putString(KEY_SSID, hotspotSsid.trim())
-            .putString(KEY_PASSWORD, hotspotPassword.trim())
-            .putLong(KEY_UPDATED_AT, System.currentTimeMillis())
-            .apply()
+        try {
+            prefs(context)
+                .edit()
+                .putBoolean(KEY_CONSENT, consentGiven)
+                .putString(KEY_SSID, hotspotSsid.trim())
+                .putString(KEY_PASSWORD, hotspotPassword.trim())
+                .putLong(KEY_UPDATED_AT, System.currentTimeMillis())
+                .apply()
+        } catch (error: Exception) {
+            Log.e(TAG, "save failed", error)
+            return
+        }
         HotspotVerificationManager.invalidate(context)
         WifiHotspotQrProofManager.invalidate(context)
     }
 
     private fun prefs(context: Context): SharedPreferences {
+        return try {
+            createEncryptedPrefs(context)
+        } catch (firstError: Exception) {
+            Log.w(TAG, "Encrypted prefs open failed, attempting reset", firstError)
+            context.deleteSharedPreferences(PREFS_NAME)
+            createEncryptedPrefs(context)
+        }
+    }
+
+    private fun createEncryptedPrefs(context: Context): SharedPreferences {
         val masterKey =
             MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)

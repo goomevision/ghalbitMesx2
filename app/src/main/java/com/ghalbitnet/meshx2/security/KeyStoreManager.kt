@@ -5,27 +5,21 @@ import android.content.SharedPreferences
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import android.util.Log
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.ghalbitnet.meshx2.core.network.TransportPreference
 import java.security.*
+import java.util.concurrent.ConcurrentHashMap
 
 class KeyStoreManager(context: Context) {
     private val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
     private val alias = "ghalbit_mesh_key"
     private val prefs: SharedPreferences
+    private val prefsName = "ghalbit_keystore_prefs"
 
     init {
-        val masterKey = MasterKey.Builder(context)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        prefs = EncryptedSharedPreferences.create(
-            context,
-            "ghalbit_keystore_prefs",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
+        prefs = createPrefsWithRecovery(context)
     }
 
     val publicKeyBase64: String
@@ -113,5 +107,124 @@ class KeyStoreManager(context: Context) {
             signature.update("ghalbit-sign-check".toByteArray())
             signature.sign().isNotEmpty()
         }.getOrDefault(false)
+    }
+
+    private fun createPrefsWithRecovery(context: Context): SharedPreferences {
+        return try {
+            createEncryptedPrefs(context)
+        } catch (firstError: Exception) {
+            Log.w(TAG, "encrypted prefs failed, resetting", firstError)
+            context.deleteSharedPreferences(prefsName)
+            try {
+                createEncryptedPrefs(context)
+            } catch (secondError: Exception) {
+                Log.e(TAG, "encrypted prefs recovery failed, using ephemeral store", secondError)
+                EphemeralSharedPreferences()
+            }
+        }
+    }
+
+    private fun createEncryptedPrefs(context: Context): SharedPreferences {
+        val masterKey =
+            MasterKey.Builder(context)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+        return EncryptedSharedPreferences.create(
+            context,
+            prefsName,
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+    }
+
+    private class EphemeralSharedPreferences : SharedPreferences {
+        private val values = ConcurrentHashMap<String, Any?>()
+
+        override fun getAll(): MutableMap<String, *> = values.toMutableMap()
+        override fun getString(key: String?, defValue: String?): String? =
+            values[key] as? String ?: defValue
+
+        @Suppress("UNCHECKED_CAST")
+        override fun getStringSet(key: String?, defValues: MutableSet<String>?): MutableSet<String>? =
+            (values[key] as? MutableSet<String>) ?: defValues
+
+        override fun getInt(key: String?, defValue: Int): Int = (values[key] as? Int) ?: defValue
+        override fun getLong(key: String?, defValue: Long): Long = (values[key] as? Long) ?: defValue
+        override fun getFloat(key: String?, defValue: Float): Float = (values[key] as? Float) ?: defValue
+        override fun getBoolean(key: String?, defValue: Boolean): Boolean = (values[key] as? Boolean) ?: defValue
+        override fun contains(key: String?): Boolean = key != null && values.containsKey(key)
+        override fun edit(): SharedPreferences.Editor = Editor(values)
+        override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+        override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) = Unit
+
+        private class Editor(
+            private val values: ConcurrentHashMap<String, Any?>
+        ) : SharedPreferences.Editor {
+            private val staged = mutableMapOf<String, Any?>()
+            private var clearRequested = false
+
+            override fun putString(key: String?, value: String?): SharedPreferences.Editor {
+                if (key != null) staged[key] = value
+                return this
+            }
+
+            override fun putStringSet(key: String?, values: MutableSet<String>?): SharedPreferences.Editor {
+                if (key != null) staged[key] = values
+                return this
+            }
+
+            override fun putInt(key: String?, value: Int): SharedPreferences.Editor {
+                if (key != null) staged[key] = value
+                return this
+            }
+
+            override fun putLong(key: String?, value: Long): SharedPreferences.Editor {
+                if (key != null) staged[key] = value
+                return this
+            }
+
+            override fun putFloat(key: String?, value: Float): SharedPreferences.Editor {
+                if (key != null) staged[key] = value
+                return this
+            }
+
+            override fun putBoolean(key: String?, value: Boolean): SharedPreferences.Editor {
+                if (key != null) staged[key] = value
+                return this
+            }
+
+            override fun remove(key: String?): SharedPreferences.Editor {
+                if (key != null) staged[key] = null
+                return this
+            }
+
+            override fun clear(): SharedPreferences.Editor {
+                clearRequested = true
+                return this
+            }
+
+            override fun commit(): Boolean {
+                apply()
+                return true
+            }
+
+            override fun apply() {
+                if (clearRequested) values.clear()
+                staged.forEach { (key, value) ->
+                    if (value == null) {
+                        values.remove(key)
+                    } else {
+                        values[key] = value
+                    }
+                }
+                staged.clear()
+                clearRequested = false
+            }
+        }
+    }
+
+    companion object {
+        private const val TAG = "GHALBIT-KEYSTORE"
     }
 }
