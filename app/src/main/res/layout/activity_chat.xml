@@ -14,19 +14,19 @@
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingStart="8dp"
-        android:paddingTop="7dp"
+        android:paddingTop="6dp"
         android:paddingEnd="8dp"
-        android:paddingBottom="7dp">
+        android:paddingBottom="6dp">
 
         <TextView
             android:id="@+id/txtChatAvatarVisual"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
             android:background="@drawable/bg_name_card_badge"
             android:gravity="center"
             android:text="GN"
             android:textColor="#F5FBFF"
-            android:textSize="11sp"
+            android:textSize="10sp"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -44,25 +44,25 @@
                 android:maxLines="1"
                 android:text="Chat GhalbitNet"
                 android:textColor="#F5FBFF"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/txtChatStatus"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
+                android:layout_height="0dp"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:text="Online / pending"
                 android:textColor="#8EE3BE"
-                android:textSize="10sp" />
+                android:textSize="9sp"
+                android:visibility="gone" />
         </LinearLayout>
 
         <Button
             android:id="@+id/btnCall"
-            android:layout_width="56dp"
-            android:layout_height="40dp"
+            android:layout_width="62dp"
+            android:layout_height="38dp"
             android:layout_marginStart="4dp"
             android:includeFontPadding="false"
             android:maxLines="1"
@@ -76,8 +76,8 @@
 
         <Button
             android:id="@+id/btnRetryFailed"
-            android:layout_width="52dp"
-            android:layout_height="40dp"
+            android:layout_width="54dp"
+            android:layout_height="38dp"
             android:layout_marginStart="4dp"
             android:includeFontPadding="false"
             android:maxLines="1"
@@ -95,18 +95,18 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="3dp"
         android:layout_marginEnd="8dp"
         android:background="@drawable/bg_ghalbit_card"
         android:ellipsize="end"
         android:maxLines="1"
         android:paddingStart="10dp"
-        android:paddingTop="5dp"
+        android:paddingTop="4dp"
         android:paddingEnd="10dp"
-        android:paddingBottom="5dp"
+        android:paddingBottom="4dp"
         android:text="Jalur siap"
         android:textColor="#BFD3E6"
-        android:textSize="10sp" />
+        android:textSize="9sp" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvMessages"
