@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 object MeshSocketServer {
     private const val PORT = 56565
     private const val MAX_RAW_PACKET_LENGTH = 160 * 1024
+    private const val RESTART_COOLDOWN_MS = 5_000L
     private const val ENVELOPE_MESH_PACKET = "MESH_PACKET"
     private const val ENVELOPE_SECURE_PACKET = "SECURE_PACKET"
     private const val ENVELOPE_BLOCK_PROPOSAL = "BLOCK_PROPOSAL"
@@ -43,12 +44,18 @@ object MeshSocketServer {
     private var secureHandler: ((SecurePacket) -> Unit)? = null
     @Volatile
     private var executor: ExecutorService? = null
+    @Volatile
+    private var lastRestartAt = 0L
 
     fun start(onPacket: (MeshPacket) -> Unit, onSecure: (SecurePacket) -> Unit) {
         packetHandler = onPacket
         secureHandler = onSecure
 
-        if (running.get()) return
+        Log.d("GHALBIT-TCP-LISTENER", "startRequested port=$PORT")
+        if (running.get()) {
+            Log.d("GHALBIT-TCP-LISTENER", "alreadyRunning port=$PORT closed=${serverSocket?.isClosed}")
+            return
+        }
         if (executor == null || executor?.isShutdown == true || executor?.isTerminated == true) {
             executor = Executors.newCachedThreadPool()
             VpnLogManager.info("MESH_SERVER_EXECUTOR_CREATED", "Executor baru dibuat untuk MeshSocketServer.")
@@ -58,10 +65,13 @@ object MeshSocketServer {
         Thread {
             try {
                 serverSocket = ServerSocket(PORT)
+                Log.d("GHALBIT-TCP-LISTENER", "bindSuccess port=$PORT")
+                Log.d("GHALBIT-TCP-LISTENER", "acceptLoopStarted port=$PORT")
                 Log.d("GHALBIT", "Socket server listening on port $PORT")
                 while (running.get()) {
                     try {
                         val client = serverSocket?.accept() ?: break
+                        Log.d("GHALBIT-TCP-LISTENER", "accepted remote=${client.inetAddress?.hostAddress}:${client.port}")
                         val activeExecutor = executor
                         if (!running.get() || activeExecutor == null || activeExecutor.isShutdown || activeExecutor.isTerminated) {
                             try { client.close() } catch (_: Exception) {}
@@ -196,11 +206,46 @@ object MeshSocketServer {
                 }
             } catch (e: Exception) {
                 Log.e("GHALBIT", "MeshSocketServer outer error", e)
+                Log.e("GHALBIT-TCP-LISTENER", "bindFail port=$PORT error=${e.message}", e)
             } finally {
                 running.set(false)
+                Log.d("GHALBIT-TCP-LISTENER", "socketClosed reason=acceptLoopStopped port=$PORT")
                 VpnLogManager.info("MESH_SERVER_ACCEPT_LOOP_STOPPED", "Accept loop MeshSocketServer berhenti.")
             }
         }.start()
+    }
+
+    fun isRunning(): Boolean {
+        return running.get() && serverSocket?.isClosed == false
+    }
+
+    fun ensureRunning(reason: String) {
+        if (isRunning()) {
+            return
+        }
+        Log.w("GHALBIT-TCP-LISTENER", "notRunningOnHealthCheck reason=$reason running=${running.get()} closed=${serverSocket?.isClosed}")
+        restart(reason)
+    }
+
+    @Synchronized
+    fun restart(reason: String) {
+        val now = System.currentTimeMillis()
+        if (now - lastRestartAt < RESTART_COOLDOWN_MS) {
+            Log.d("GHALBIT-TCP-LISTENER", "restartSkipped reason=$reason cooldownMs=${RESTART_COOLDOWN_MS - (now - lastRestartAt)}")
+            return
+        }
+        lastRestartAt = now
+
+        val onPacket = packetHandler
+        val onSecure = secureHandler
+        if (onPacket == null || onSecure == null) {
+            Log.w("GHALBIT-TCP-LISTENER", "restartSkipped reason=$reason handlerMissing=${onPacket == null || onSecure == null}")
+            return
+        }
+
+        Log.w("GHALBIT-TCP-LISTENER", "restart reason=$reason")
+        stop()
+        start(onPacket, onSecure)
     }
 
     fun injectPacket(jsonStr: String, sourceIp: String) {
@@ -312,6 +357,7 @@ object MeshSocketServer {
     }
 
     fun stop() {
+        Log.d("GHALBIT-TCP-LISTENER", "stopRequested port=$PORT")
         VpnLogManager.info("MESH_SERVER_STOP", "MeshSocketServer stop diminta.")
         running.set(false)
         try { serverSocket?.close() } catch (_: Exception) {}
