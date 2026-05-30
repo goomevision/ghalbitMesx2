@@ -20,7 +20,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 object MeshSocketServer {
+    private const val TAG_TCP = "GHALBIT-TCP-LISTENER"
     private const val PORT = 56565
+    private const val RESTART_COOLDOWN_MS = 5_000L
     private const val MAX_RAW_PACKET_LENGTH = 160 * 1024
     private const val ENVELOPE_MESH_PACKET = "MESH_PACKET"
     private const val ENVELOPE_SECURE_PACKET = "SECURE_PACKET"
@@ -37,21 +39,38 @@ object MeshSocketServer {
     var localDeviceInstanceId: String? = null
     private var packetHandler: ((MeshPacket) -> Unit)? = null
     private var secureHandler: ((SecurePacket) -> Unit)? = null
-    private val executor = Executors.newCachedThreadPool()
+    @Volatile private var lastRestartAtMs = 0L
+    private val lock = Any()
+    private var executor = Executors.newCachedThreadPool()
+
+    private fun ensureExecutorActive() {
+        if (executor.isShutdown || executor.isTerminated) {
+            executor = Executors.newCachedThreadPool()
+        }
+    }
 
     fun start(onPacket: (MeshPacket) -> Unit, onSecure: (SecurePacket) -> Unit) {
         packetHandler = onPacket
         secureHandler = onSecure
-
-        if (running) return
-        running = true
+        synchronized(lock) {
+            Log.d(TAG_TCP, "startRequested port=$PORT")
+            if (running) {
+                Log.d(TAG_TCP, "alreadyRunning")
+                return
+            }
+            ensureExecutorActive()
+            running = true
+        }
         Thread {
             try {
                 serverSocket = ServerSocket(PORT)
+                Log.d(TAG_TCP, "bindSuccess port=$PORT")
+                Log.d(TAG_TCP, "acceptLoopStarted")
                 Log.d("GHALBIT", "Socket server listening on port $PORT")
                 while (running) {
                     try {
                         val client = serverSocket?.accept() ?: break
+                        Log.d(TAG_TCP, "accepted remote=${client.inetAddress?.hostAddress}:${client.port}")
                         executor.execute {
                             try {
                                 client.soTimeout = 5000
@@ -142,7 +161,11 @@ object MeshSocketServer {
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG_TCP, "bindFail port=$PORT", e)
                 Log.e("GHALBIT", "MeshSocketServer outer error", e)
+            } finally {
+                Log.d(TAG_TCP, "socketClosed")
+                running = false
             }
         }.start()
     }
@@ -304,6 +327,7 @@ object MeshSocketServer {
     }
 
     fun stop() {
+        Log.d(TAG_TCP, "stopRequested")
         running = false
         try { serverSocket?.close() } catch (_: Exception) {}
         serverSocket = null
@@ -315,5 +339,37 @@ object MeshSocketServer {
         } catch (e: InterruptedException) {
             executor.shutdownNow()
         }
+    }
+
+    fun isRunning(): Boolean {
+        val socketOpen = serverSocket?.isClosed == false
+        return running && socketOpen
+    }
+
+    fun ensureRunning(reason: String) {
+        if (!isRunning()) {
+            Log.w(TAG_TCP, "notRunningOnHealthCheck reason=$reason")
+            restart(reason)
+        }
+    }
+
+    fun restart(reason: String) {
+        synchronized(lock) {
+            val now = System.currentTimeMillis()
+            if (now - lastRestartAtMs < RESTART_COOLDOWN_MS) {
+                Log.d(TAG_TCP, "restart skipped cooldown reason=$reason")
+                return
+            }
+            if (packetHandler == null || secureHandler == null) {
+                Log.w(TAG_TCP, "restart skipped missingHandlers reason=$reason")
+                return
+            }
+            lastRestartAtMs = now
+        }
+        Log.w(TAG_TCP, "restart reason=$reason")
+        stop()
+        val onPacket = packetHandler ?: return
+        val onSecure = secureHandler ?: return
+        start(onPacket, onSecure)
     }
 }

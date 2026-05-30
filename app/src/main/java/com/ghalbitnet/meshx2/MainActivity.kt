@@ -90,6 +90,7 @@ import com.ghalbitnet.meshx2.core.runtime.LightweightMeshSupervisor
 import com.ghalbitnet.meshx2.core.runtime.MeshHeartbeatTicker
 import com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager
 import com.ghalbitnet.meshx2.core.runtime.MeshRuntimeState
+import com.ghalbitnet.meshx2.core.runtime.NetworkHandoffMonitor
 import com.ghalbitnet.meshx2.core.recovery.MeshAutoRecovery
 import com.ghalbitnet.meshx2.core.health.MeshHealthReporter
 import com.ghalbitnet.meshx2.core.utils.AppNotificationManager
@@ -410,6 +411,28 @@ class MainActivity : AppCompatActivity() {
         MeshSocketServer.localPeerId = myPeerId
 
         startSocketServer()
+        NetworkHandoffMonitor.updateTcpListenerRunning(MeshSocketServer.isRunning())
+        NetworkHandoffMonitor.start(
+            context = applicationContext,
+            listener = object : NetworkHandoffMonitor.Listener {
+                override fun onSubnetChanged(oldIp: String, newIp: String, oldSubnet: String, newSubnet: String) {
+                    NetworkHandoffMonitor.markRediscovering(true)
+                    UdpDiscovery.stop()
+                    startDiscoveryListener()
+                    startDiscoveryHeartbeat()
+                    broadcastLocalNode()
+                    MeshSocketServer.ensureRunning("networkChanged")
+                    NetworkHandoffMonitor.updateTcpListenerRunning(MeshSocketServer.isRunning())
+                    Log.w("GHALBIT-NETWORK-HANDOFF", "staleRoutesCleared oldSubnet=$oldSubnet newSubnet=$newSubnet")
+                    Log.w("GHALBIT-NETWORK-HANDOFF", "directHintsCleared oldIp=$oldIp newIp=$newIp")
+                    Log.w("GHALBIT-NETWORK-HANDOFF", "discoveryRestarted")
+                    NetworkHandoffMonitor.markRediscovering(false)
+                }
+            }
+        )
+        startDiscoveryListener()
+        startDiscoveryHeartbeat()
+        broadcastLocalNode()
         MeshRuntimeManager.start()
         initializeMeshFeatures()
         lifecycleScope.launch(Dispatchers.IO) {
@@ -454,7 +477,7 @@ class MainActivity : AppCompatActivity() {
         startAutoRecovery()
     }
 
-        private fun startAutoRecovery() {
+    private fun startAutoRecovery() {
         MeshAutoRecovery.start {
             try {
                 MeshRuntimeManager.start()
@@ -463,6 +486,11 @@ class MainActivity : AppCompatActivity() {
 
             try {
                 MeshRuntimeState.heartbeat()
+            } catch (_: Exception) {
+            }
+            try {
+                MeshSocketServer.ensureRunning("healthCheck")
+                NetworkHandoffMonitor.updateTcpListenerRunning(MeshSocketServer.isRunning())
             } catch (_: Exception) {
             }
         }
@@ -564,6 +592,35 @@ class MainActivity : AppCompatActivity() {
             if (packet.type == "CHAT") {
                 handleIncomingChatMessage(packet, payload)
                 sendAck(packet)
+            }
+
+            if (packet.type == "ROUTE_CHECK") {
+                val ackFor = runCatching { JSONObject(payload).optString("packetId", packet.packetId) }.getOrDefault(packet.packetId)
+                sendRouteAck(packet.source, ackFor)
+            }
+
+            if (packet.type == "ROUTE_ACK") {
+                val ackFor = runCatching { JSONObject(payload).optString("ackFor") }.getOrDefault("")
+                if (ackFor.isNotBlank()) {
+                    AckTracker.markAckReceived(ackFor)
+                }
+            }
+
+            if (packet.type == "VOICE_PROBE") {
+                val parsed = runCatching { JSONObject(payload) }.getOrNull()
+                val callId = parsed?.optString("callId").orEmpty()
+                Log.d("GHALBIT-VOICE-PROBE", "received source=${packet.source} callId=$callId")
+                val ackFor = parsed?.optString("packetId")?.ifBlank { packet.packetId } ?: packet.packetId
+                val audioPath = if (VoiceCallRegistry.activeSession != null) "PROBE_READY" else "PROBE_RECEIVED_NO_ACTIVE_CALL"
+                sendVoiceAck(packet.source, ackFor = ackFor, callId = callId, audioPath = audioPath)
+            }
+
+            if (packet.type == "VOICE_ACK") {
+                val ackFor = runCatching { JSONObject(payload).optString("ackFor") }.getOrDefault("")
+                if (ackFor.isNotBlank()) {
+                    AckTracker.markAckReceived(ackFor)
+                }
+                Log.d("GHALBIT-VOICE-PROBE", "ack source=${packet.source}")
             }
 
             if (packet.type == "ACK" || packet.type == "CHAT_ACK" || packet.type == "CHAT_DELIVERED") {
@@ -1287,6 +1344,38 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun sendRouteAck(targetPeerId: String, ackFor: String) {
+        val peerIp = keyStore.getPeerAddress(targetPeerId) ?: return
+        val payload = JSONObject().put("ackFor", ackFor).toString()
+        val ackPacket = MeshPacket(
+            packetId = "ROUTE_ACK-${System.currentTimeMillis()}",
+            source = myPeerId,
+            destination = targetPeerId,
+            type = "ROUTE_ACK",
+            payload = payload,
+            encrypted = false
+        )
+        MeshSocketClient.send(peerIp, ackPacket)
+    }
+
+    private fun sendVoiceAck(targetPeerId: String, ackFor: String, callId: String, audioPath: String) {
+        val peerIp = keyStore.getPeerAddress(targetPeerId) ?: return
+        val payload = JSONObject()
+            .put("ackFor", ackFor)
+            .put("callId", callId)
+            .put("audioPath", audioPath)
+            .toString()
+        val ackPacket = MeshPacket(
+            packetId = "VOICE_ACK-${System.currentTimeMillis()}",
+            source = myPeerId,
+            destination = targetPeerId,
+            type = "VOICE_ACK",
+            payload = payload,
+            encrypted = false
+        )
+        MeshSocketClient.send(peerIp, ackPacket)
+    }
+
     private fun sendSos() {
         RuntimeUiStateManager.onSosSending(true)
         setUserMessage(getString(R.string.sending_sos), true)
@@ -1664,6 +1753,7 @@ class MainActivity : AppCompatActivity() {
         scrollStateHandler.removeCallbacks(clearScrollStateRunnable)
         runtimeLoadingOverlay.onHostDestroy()
         runtimeSoftBanner.onHostDestroy()
+        NetworkHandoffMonitor.stop(applicationContext)
         super.onDestroy()
     }
 }
