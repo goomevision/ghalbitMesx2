@@ -82,6 +82,13 @@
                     android:text="Edit Profil Profesional" />
 
                 <Button
+                    android:id="@+id/btnPreviewPublicCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:text="Lihat Kartu Nama Publik" />
+
+                <Button
                     android:id="@+id/btnShareMyQr"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"
