@@ -173,15 +173,36 @@ object GhalbitCallManager {
                 localGlobalId = event.localGlobalId,
                 localPublicKeyHash = event.localPublicKeyHash
             )
+        if (event.callId.isBlank()) {
+            Log.w("GHALBIT-CALL-SIGNAL", "missingCallId type=${event.type} target=${event.globalId ?: event.nodeId}")
+        }
         return when (routeType) {
             VoipRouteType.INTERNET_RELAY -> {
                 val route = event.globalId?.let { OnlinePresenceManager.getOnlineRoute(context, it) }
-                if (route != null && OnlineFallbackTransport.sendCallSignalViaInternet(context, route, event.type, payload)) {
-                    Log.d("GHALBIT-CALL-SIGNAL", "sent relay type=${event.type}")
-                    CallSignalDispatchResult(true, "ACCEPT_SENT_RELAY", "Menghubungkan lewat relay.", routeType)
-                } else {
-                    Log.d("GHALBIT-CALL-SIGNAL", "pending no route type=${event.type}")
+                if (route == null) {
+                    Log.w("GHALBIT-CALL-SIGNAL", "missingTargetGlobalId type=${event.type} callId=${event.callId}")
                     CallSignalDispatchResult(false, "ACCEPT_QUEUED", "Menunggu jalur internet.", routeType)
+                } else {
+                    val target = toTarget(event.callId, peer, routeType, incoming = false)
+                    val channel = InternetRelaySignalingChannel(context, route)
+                    val sent =
+                        when (event.type) {
+                            CallManager.SIGNAL_CALL_INVITE, CallManager.SIGNAL_CALL_START -> channel.sendCallInvite(target, payload)
+                            CallManager.SIGNAL_CALL_ACCEPT -> channel.sendCallAccept(target, payload)
+                            CallManager.SIGNAL_CALL_END -> channel.sendCallEnd(target, payload)
+                            CallManager.SIGNAL_CALL_WEBRTC_OFFER -> channel.sendOffer(target, payload)
+                            CallManager.SIGNAL_CALL_WEBRTC_ANSWER -> channel.sendAnswer(target, payload)
+                            CallManager.SIGNAL_CALL_WEBRTC_ICE -> channel.sendIceCandidate(target, payload)
+                            else -> OnlineFallbackTransport.sendCallSignalViaInternet(context, route, event.type, payload)
+                        }
+                    if (sent) {
+                        Log.d("GHALBIT-CALL-SIGNAL", "relayAccepted type=${event.type}")
+                        CallSignalDispatchResult(true, "ACCEPT_SENT_RELAY", "Menghubungkan lewat relay.", routeType)
+                    } else {
+                        Log.w("GHALBIT-CALL-SIGNAL", "relayRejected type=${event.type}")
+                        Log.d("GHALBIT-CALL-SIGNAL", "pending no route type=${event.type}")
+                        CallSignalDispatchResult(false, "ACCEPT_QUEUED", "Menunggu relay / jalur suara", routeType)
+                    }
                 }
             }
             VoipRouteType.LOCAL_MESH,

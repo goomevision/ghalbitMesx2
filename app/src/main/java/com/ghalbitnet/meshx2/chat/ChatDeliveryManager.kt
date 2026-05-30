@@ -1,10 +1,13 @@
 package com.ghalbitnet.meshx2.chat
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.util.Base64
 import android.util.Log
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.ghalbitnet.meshx2.MainActivity
+import com.ghalbitnet.meshx2.call.CallManager
 import com.ghalbitnet.meshx2.discovery.DiscoveryManager
 import com.ghalbitnet.meshx2.file.FileTransferManager
 import com.ghalbitnet.meshx2.identity.CentralIdentityResolver
@@ -833,6 +836,27 @@ object ChatDeliveryManager {
     }
 
     private suspend fun handleRemoteRelayMessage(context: Context, message: RelayInboxMessage) {
+        val callSignalType = resolveRelayCallSignalType(message)
+        if (callSignalType != null) {
+            val signalPayload = unwrapRelaySignalPayload(message.payload)
+            val sourceNode = message.senderNodeId.ifBlank { message.senderGlobalId }
+            Log.d("GHALBIT-CALL-INBOX", "received type=$callSignalType callId=${CallManager.extractCallId(signalPayload)} source=$sourceNode")
+            when (callSignalType) {
+                CallManager.SIGNAL_CALL_WEBRTC_OFFER -> Log.d("GHALBIT-CALL-OFFER", "received source=$sourceNode")
+                CallManager.SIGNAL_CALL_WEBRTC_ANSWER -> Log.d("GHALBIT-CALL-ANSWER", "received source=$sourceNode")
+                CallManager.SIGNAL_CALL_WEBRTC_ICE -> Log.d("GHALBIT-CALL-ICE", "received source=$sourceNode")
+            }
+            LocalBroadcastManager.getInstance(context).sendBroadcast(
+                Intent("com.ghalbitnet.meshx2.NEW_MESH_PACKET")
+                    .putExtra("packetId", message.packetId)
+                    .putExtra("source", sourceNode)
+                    .putExtra("destination", com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localNodeId())
+                    .putExtra("payload", signalPayload)
+                    .putExtra("type", callSignalType)
+                    .putExtra("encrypted", false)
+            )
+            return
+        }
         val chatDb = ChatDatabase.getInstance(context)
         val chatId = message.senderDisplayName?.takeIf { it.isNotBlank() } ?: message.senderGlobalId
         val resolvedPublicKeyHash = message.senderPublicKeyHash ?: message.senderPublicKey?.let { com.ghalbitnet.meshx2.call.CallManager.publicKeyHash(it) }
@@ -896,6 +920,25 @@ object ChatDeliveryManager {
         val localGlobalId = com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId()
         OnlineFallbackTransport.sendAck(context, localGlobalId, message.senderGlobalId, message.messageId)
         Log.d("GHALBIT-CHAT-ACK", "id=${message.messageId} delivered=true remote=true")
+    }
+
+    private fun resolveRelayCallSignalType(message: RelayInboxMessage): String? {
+        val contentType = message.contentType.uppercase()
+        if (contentType.startsWith("CALL_")) return contentType
+        val payloadJson = runCatching { JSONObject(message.payload) }.getOrNull() ?: return null
+        val outerType = payloadJson.optString("type")
+        val signalType = payloadJson.optString("signalType")
+        return when {
+            outerType.startsWith("CALL_") -> outerType
+            signalType.startsWith("CALL_") -> signalType
+            else -> null
+        }
+    }
+
+    private fun unwrapRelaySignalPayload(rawPayload: String): String {
+        val json = runCatching { JSONObject(rawPayload) }.getOrNull() ?: return rawPayload
+        val wrappedPayload = json.optString("payload")
+        return if (wrappedPayload.isNotBlank()) wrappedPayload else rawPayload
     }
 
     private fun handleRemoteRelayReceipt(context: Context, receipt: RelayInboxReceipt) {

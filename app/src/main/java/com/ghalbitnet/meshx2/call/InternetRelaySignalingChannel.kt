@@ -30,12 +30,24 @@ class InternetRelaySignalingChannel(
 
     private suspend fun sendTyped(target: VoipTarget, type: String, rawPayload: String): Boolean {
         val enriched = enrichPayload(target, type, rawPayload)
+        val parsed = runCatching { JSONObject(enriched) }.getOrNull()
+        if (parsed?.optString("callId").isNullOrBlank()) {
+            Log.w("GHALBIT-CALL-SIGNAL", "missingCallId type=$type target=${target.globalId ?: target.nodeId}")
+        }
+        if (parsed?.optString("targetGlobalId").isNullOrBlank()) {
+            Log.w("GHALBIT-CALL-SIGNAL", "missingTargetGlobalId type=$type targetNodeId=${target.nodeId}")
+        }
         Log.d(
             "GHALBIT-CALL-SERVER",
             "send type=$type callId=${target.callId} target=${target.globalId ?: target.nodeId} relay=${route.relayUrl}"
         )
         val ok = OnlineFallbackTransport.sendCallSignalViaInternet(context, route, type, enriched)
         Log.d("GHALBIT-CALL-SERVER", "result type=$type callId=${target.callId} ok=$ok")
+        if (ok) {
+            Log.d("GHALBIT-CALL-SIGNAL", "relayAccepted type=$type callId=${target.callId}")
+        } else {
+            Log.w("GHALBIT-CALL-SIGNAL", "relayRejected type=$type callId=${target.callId}")
+        }
         return ok
     }
 
@@ -54,4 +66,4 @@ class InternetRelaySignalingChannel(
             .put("createdAt", System.currentTimeMillis())
             .toString()
     }
-}\n
+}
