@@ -40,6 +40,7 @@ object CallManager {
     const val CODEC_PCM16_8K = "PCM16_8K"
     private val audioTxCounter = AtomicInteger(0)
     private val audioRxCounter = AtomicInteger(0)
+    private val audioParseFailCounter = AtomicInteger(0)
 
     fun publicKeyHash(publicKey: String?): String? {
         if (publicKey.isNullOrBlank()) return null
@@ -242,7 +243,12 @@ object CallManager {
             Log.w("GHALBIT-CALL-AUDIO-TX", "drop frame no route peer=${peer.nodeId}")
             return false
         }
+        if (packet.payload.isEmpty()) {
+            Log.w("GHALBIT-CALL-AUDIO-TX", "drop empty frame seq=${packet.sequence} peer=${peer.nodeId}")
+            return false
+        }
 
+        val encodedAudio = Base64.encodeToString(packet.payload, Base64.NO_WRAP)
         val payload =
             JSONObject()
                 .put("callId", packet.sessionId)
@@ -254,7 +260,7 @@ object CallManager {
                 .put("mode", packet.mode.name)
                 .put("priority", packet.priority.name)
                 .put("checksum", packet.checksum)
-                .put("audioData", Base64.encodeToString(packet.payload, Base64.NO_WRAP))
+                .put("audioData", encodedAudio)
                 .toString()
 
         val meshPacket =
@@ -268,28 +274,55 @@ object CallManager {
             )
 
         val sent = MeshSocketClient.sendBlocking(targetIp, meshPacket)
-        if (sent) {
-            audioTxCounter.incrementAndGet()
-        }
+        val tx = if (sent) audioTxCounter.incrementAndGet() else audioTxCounter.get()
         Log.d("GHALBIT-VOICE-PACKET", "sent seq=${packet.sequence}")
-        Log.d("GHALBIT-CALL-AUDIO-TX", "seq=${packet.sequence} peer=${peer.nodeId} ip=$targetIp sent=$sent")
+        Log.d(
+            "GHALBIT-CALL-AUDIO-TX",
+            "seq=${packet.sequence} peer=${peer.nodeId} ip=$targetIp sent=$sent bytes=${packet.payload.size} encoded=${encodedAudio.length} totalTx=$tx"
+        )
+        if (!sent) {
+            Log.w("GHALBIT-CALL-AUDIO-TX", "send failed seq=${packet.sequence} route=$targetIp")
+        }
         return sent
     }
 
     fun parseVoicePacket(payload: String): VoicePacket? {
-        val json = runCatching { JSONObject(payload) }.getOrNull() ?: return null
+        val json = runCatching { JSONObject(payload) }.getOrElse { error ->
+            val fail = audioParseFailCounter.incrementAndGet()
+            Log.w("GHALBIT-CALL-AUDIO-RX", "parse json failed count=$fail reason=${error.message}")
+            return null
+        }
+        val sessionId = json.optString("callId")
         val sequence = json.optInt("sequenceNumber", -1)
         val encoded = json.optString("audioData")
-        if (sequence < 0 || encoded.isBlank()) return null
-        val raw = runCatching { Base64.decode(encoded, Base64.NO_WRAP) }.getOrNull() ?: return null
+        if (sessionId.isBlank() || sequence < 0 || encoded.isBlank()) {
+            val fail = audioParseFailCounter.incrementAndGet()
+            Log.w(
+                "GHALBIT-CALL-AUDIO-RX",
+                "parse missing fields count=$fail callIdBlank=${sessionId.isBlank()} sequence=$sequence audioBlank=${encoded.isBlank()}"
+            )
+            return null
+        }
+        val raw = runCatching { Base64.decode(encoded, Base64.NO_WRAP) }.getOrElse { error ->
+            val fail = audioParseFailCounter.incrementAndGet()
+            Log.w("GHALBIT-CALL-AUDIO-RX", "parse base64 failed count=$fail seq=$sequence reason=${error.message}")
+            return null
+        }
+        if (raw.isEmpty()) {
+            val fail = audioParseFailCounter.incrementAndGet()
+            Log.w("GHALBIT-CALL-AUDIO-RX", "parse empty audio count=$fail seq=$sequence")
+            return null
+        }
         val mode =
             AdaptiveVoiceMode.entries.firstOrNull { it.name == json.optString("mode") }
                 ?: AdaptiveVoiceMode.LIVE_VOICE
         val priority =
             VoicePacketPriority.entries.firstOrNull { it.name == json.optString("priority") }
                 ?: VoicePacketPriority.NORMAL
+        val rx = audioRxCounter.get()
+        Log.d("GHALBIT-CALL-AUDIO-RX", "parsed seq=$sequence bytes=${raw.size} totalRx=$rx")
         return VoicePacket(
-            sessionId = json.optString("callId"),
+            sessionId = sessionId,
             senderId = json.optString("sourceNodeId"),
             sequence = sequence,
             timestamp = json.optLong("timestamp", System.currentTimeMillis()),
@@ -310,12 +343,17 @@ object CallManager {
     }
 
     fun recordAudioFrameReceived() {
-        audioRxCounter.incrementAndGet()
+        val rx = audioRxCounter.incrementAndGet()
+        if (rx == 1 || rx % 50 == 0) {
+            Log.d("GHALBIT-CALL-AUDIO-RX", "frameReceived totalRx=$rx")
+        }
     }
 
     fun audioTxCount(): Int = audioTxCounter.get()
 
     fun audioRxCount(): Int = audioRxCounter.get()
+
+    fun audioParseFailCount(): Int = audioParseFailCounter.get()
 
     fun extractCallId(payload: String): String? =
         runCatching { JSONObject(payload).optString("callId") }.getOrNull()
