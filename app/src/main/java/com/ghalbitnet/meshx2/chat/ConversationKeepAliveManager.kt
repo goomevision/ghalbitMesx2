@@ -25,8 +25,14 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.min
 
 object ConversationKeepAliveManager {
-    private const val MAX_PROBING_FAILURES = 3
-    private const val FRESH_HINT_WINDOW_MS = 10_000L
+    private const val MAX_PROBING_FAILURES = 5
+    private const val FRESH_HINT_WINDOW_MS = 30_000L
+    private const val FAST_PING_MS = 3_000L
+    private const val NORMAL_PING_MS = 8_000L
+    private const val STABLE_LOW_POWER_PING_MS = 15_000L
+    private const val WEAK_SIGNAL_PING_MS = 4_000L
+    private const val MINIMAL_SIGNAL_PING_MS = 2_500L
+    private const val PONG_TIMEOUT_MS = 18_000L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val jobs = ConcurrentHashMap<String, Job>()
     private val states = ConcurrentHashMap<String, ActiveConversationRouteState>()
@@ -63,7 +69,9 @@ object ConversationKeepAliveManager {
             scope.launch {
                 while (true) {
                     sendKeepAlive(appContext, chatId)
-                    delay(if (preferFastPing) 4_000L else 8_000L)
+                    val interval = nextKeepAliveDelay(chatId, configs[chatId])
+                    Log.d("GHALBIT-LOW-SIGNAL", "keepaliveInterval chatId=$chatId intervalMs=$interval health=${states[chatId]?.routeHealth ?: "-"} misses=${misses[chatId] ?: 0}")
+                    delay(interval)
                 }
             }
     }
@@ -112,7 +120,8 @@ object ConversationKeepAliveManager {
             return
         }
 
-        val packetType = if ((misses[chatId] ?: 0) >= 2) "ROUTE_CHECK" else "PING"
+        val currentMisses = misses[chatId] ?: 0
+        val packetType = if (currentMisses >= 1 || states[chatId]?.routeHealth == RouteHealthStatus.PROBING_ROUTE) "ROUTE_CHECK" else "PING"
         val sentAt = System.currentTimeMillis()
         val payload =
             JSONObject()
@@ -120,6 +129,7 @@ object ConversationKeepAliveManager {
                 .put("sourceNodeId", MainActivity.myGlobalPeerId)
                 .put("sourceGlobalId", config.globalId)
                 .put("sentAt", sentAt)
+                .put("minimalSignal", currentMisses >= 2)
                 .toString()
         val packet =
             MeshPacket(
@@ -143,25 +153,25 @@ object ConversationKeepAliveManager {
             )
         )
         if (sent) {
-            val currentMisses = misses[chatId] ?: 0
             updateState(
                 chatId,
                 config.globalId,
                 lastPingAt = sentAt,
                 latencyMs = states[chatId]?.latencyMs ?: -1L,
                 route = route,
-                health =
-                    when {
-                        currentMisses >= 2 -> RouteHealthStatus.WEAK
-                        else -> RouteHealthStatus.STABLE
-                    },
-                packetLossEstimate = min(100, currentMisses * 25),
+                health = when {
+                    currentMisses >= 2 -> RouteHealthStatus.PROBING_ROUTE
+                    currentMisses == 1 -> RouteHealthStatus.WEAK
+                    else -> RouteHealthStatus.STABLE
+                },
+                packetLossEstimate = min(100, currentMisses * 20),
                 transport = decision.transport
             )
-            if (states[chatId]?.lastPongAt?.let { sentAt - it > 15_000L } == true) {
+            if (states[chatId]?.lastPongAt?.let { sentAt - it > PONG_TIMEOUT_MS } == true) {
                 val newMisses = currentMisses + 1
                 misses[chatId] = newMisses
                 if (shouldDelayDemotion(context, config, route, newMisses)) {
+                    Log.d("GHALBIT-LOW-SIGNAL", "holdRoute chatId=$chatId route=$route misses=$newMisses")
                     Log.d("GHALBIT-ROUTE-SCORE", "udp fresh")
                     Log.d("GHALBIT-ROUTE-SCORE", "tcp failed but udp alive")
                     Log.d("GHALBIT-ROUTE-SCORE", "demotion delayed")
@@ -170,7 +180,7 @@ object ConversationKeepAliveManager {
                         globalId = config.globalId,
                         route = route,
                         health = RouteHealthStatus.PROBING_ROUTE,
-                        packetLossEstimate = min(100, newMisses * 25),
+                        packetLossEstimate = min(100, newMisses * 20),
                         transport = decision.transport
                     )
                     return
@@ -178,7 +188,7 @@ object ConversationKeepAliveManager {
                 switchToFallback(context, config, "pongTimeout")
             }
         } else {
-            val newMisses = (misses[chatId] ?: 0) + 1
+            val newMisses = currentMisses + 1
             misses[chatId] = newMisses
             if (shouldDelayDemotion(context, config, route, newMisses)) {
                 updateState(
@@ -186,9 +196,10 @@ object ConversationKeepAliveManager {
                     globalId = config.globalId,
                     route = route,
                     health = RouteHealthStatus.PROBING_ROUTE,
-                    packetLossEstimate = min(100, newMisses * 25),
+                    packetLossEstimate = min(100, newMisses * 20),
                     transport = decision.transport
                 )
+                Log.d("GHALBIT-LOW-SIGNAL", "sendFailedHoldRoute chatId=$chatId route=$route misses=$newMisses")
                 Log.d("GHALBIT-ROUTE-SCORE", "demotion delayed")
                 return
             }
@@ -257,6 +268,7 @@ object ConversationKeepAliveManager {
             transport = states[chatId]?.transport ?: "LOCAL_MESH_DIRECT"
         )
         Log.d("GHALBIT-PONG", "chatId=$chatId latency=$latency")
+        Log.d("GHALBIT-LOW-SIGNAL", "recovered chatId=$chatId latency=$latency")
         PacketTraceStore.record(
             PacketTraceEntry(
                 packetType = "PONG",
@@ -284,7 +296,7 @@ object ConversationKeepAliveManager {
                 globalId = config.globalId,
                 route = states[config.chatId]?.activeRoute ?: "-",
                 health = RouteHealthStatus.ROUTE_DEMOTED_AFTER_CONFIRMATION,
-                packetLossEstimate = min(100, (misses[config.chatId] ?: 0) * 25),
+                packetLossEstimate = min(100, (misses[config.chatId] ?: 0) * 20),
                 transport = states[config.chatId]?.transport ?: "RECONNECTING"
             )
         }
@@ -294,7 +306,7 @@ object ConversationKeepAliveManager {
             globalId = config.globalId,
             route = states[config.chatId]?.activeRoute ?: "-",
             health = RouteHealthStatus.RECONNECTING,
-            packetLossEstimate = min(100, (misses[config.chatId] ?: 0) * 25),
+            packetLossEstimate = min(100, (misses[config.chatId] ?: 0) * 20),
             transport = states[config.chatId]?.transport ?: "RECONNECTING"
         )
 
@@ -316,8 +328,7 @@ object ConversationKeepAliveManager {
             return
         }
 
-        val internetRoute =
-            config.globalId?.let { OnlinePresenceManager.getOnlineRoute(context, it) }
+        val internetRoute = config.globalId?.let { OnlinePresenceManager.getOnlineRoute(context, it) }
         if (OnlinePresenceManager.hasInternet(context) && internetRoute != null) {
             scope.launch {
                 val ok =
@@ -375,15 +386,11 @@ object ConversationKeepAliveManager {
         _stateFlow.value = states.toMap()
         Log.d("GHALBIT-ROUTE-HEALTH", "chatId=$chatId health=${effectiveHealth.label} route=$effectiveRoute loss=$packetLossEstimate latency=$latencyMs avg=$rollingAverageLatencyMs score=$routeStabilityScore reconnect=$reconnectCounter transport=$effectiveTransport")
         Log.d("GHALBIT-KEEPALIVE-HEALTH", "chatId=$chatId health=${effectiveHealth.name} avg=$rollingAverageLatencyMs loss=$packetLossEstimate score=$routeStabilityScore")
+        Log.d("GHALBIT-LOW-SIGNAL", "score chatId=$chatId score=$routeStabilityScore health=${effectiveHealth.name} transport=$effectiveTransport")
         Log.d("GHALBIT-ROUTE-SCORE", "final score=$routeStabilityScore")
     }
 
-    private fun shouldDelayDemotion(
-        context: Context,
-        config: SessionConfig,
-        route: String?,
-        failureCount: Int
-    ): Boolean {
+    private fun shouldDelayDemotion(context: Context, config: SessionConfig, route: String?, failureCount: Int): Boolean {
         if (failureCount >= MAX_PROBING_FAILURES) return false
         if (route.isNullOrBlank()) return false
         val hint =
@@ -425,9 +432,21 @@ object ConversationKeepAliveManager {
                 lastPingAt = System.currentTimeMillis(),
                 route = "internet:$relayUrl",
                 health = if (ok) RouteHealthStatus.INTERNET_FALLBACK else RouteHealthStatus.OFFLINE_PENDING,
-                packetLossEstimate = if (ok) 0 else min(100, ((misses[config.chatId] ?: 0) + 1) * 25),
+                packetLossEstimate = if (ok) 0 else min(100, ((misses[config.chatId] ?: 0) + 1) * 20),
                 transport = decision.transport
             )
+        }
+    }
+
+    private fun nextKeepAliveDelay(chatId: String, config: SessionConfig?): Long {
+        val state = states[chatId]
+        val missCount = misses[chatId] ?: 0
+        return when {
+            config?.preferFastPing == true -> FAST_PING_MS
+            missCount >= 3 || state?.routeHealth == RouteHealthStatus.RECONNECTING -> MINIMAL_SIGNAL_PING_MS
+            missCount >= 1 || state?.routeHealth == RouteHealthStatus.WEAK || state?.routeHealth == RouteHealthStatus.PROBING_ROUTE -> WEAK_SIGNAL_PING_MS
+            state?.routeHealth == RouteHealthStatus.STABLE && (state.routeStabilityScore >= 80) -> STABLE_LOW_POWER_PING_MS
+            else -> NORMAL_PING_MS
         }
     }
 
