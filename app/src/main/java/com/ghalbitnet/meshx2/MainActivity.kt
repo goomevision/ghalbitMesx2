@@ -63,6 +63,7 @@ import com.ghalbitnet.meshx2.token.WalletActivity
 import com.ghalbitnet.meshx2.core.utils.SafeNavigator
 import com.ghalbitnet.meshx2.core.runtime.MeshRuntimeState
 import com.ghalbitnet.meshx2.core.runtime.MeshStartupManager
+import com.ghalbitnet.meshx2.core.runtime.NetworkHandoffMonitor
 import com.ghalbitnet.meshx2.core.health.MeshHealthReporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -526,6 +527,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUI() {
         val nodes = DiscoveryManager.discoverNodes()
+        val handoffSnapshot = NetworkHandoffMonitor.snapshot()
         val connectionSnapshot =
             ConnectivityStatusDetector.snapshot(this, nodes)
         HybridConnectivityPlanner.snapshot(this, nodes)
@@ -552,6 +554,7 @@ class MainActivity : AppCompatActivity() {
         txtNodes.text = nodes.size.toString()
         txtConnectionScope.text = connectionSnapshot.title(this)
         txtHybridStatus.text = internetLaneText
+        txtStatus.text = buildRuntimeDiagnosticText(handoffSnapshot)
         setUserMessage(getString(R.string.checking_network), true)
 
         pingUpdateJob?.cancel()
@@ -598,6 +601,10 @@ class MainActivity : AppCompatActivity() {
         connectionSnapshot: ConnectivityStatusDetector.Snapshot,
         selectedGateway: InternetGatewayRegistry.GatewaySelection?
     ): String {
+        val handoff = NetworkHandoffMonitor.snapshot()
+        if (handoff.rediscovering) {
+            return "LOCAL_MESH_REDISCOVERING"
+        }
         val base =
             simpleConnectionMessage(connectionSnapshot)
         if (selectedGateway == null) {
@@ -621,6 +628,22 @@ class MainActivity : AppCompatActivity() {
             providerName,
             presentation.statusLabel
         )
+    }
+
+    private fun buildRuntimeDiagnosticText(
+        handoff: NetworkHandoffMonitor.Snapshot
+    ): String {
+        val ip = handoff.currentIp.ifBlank { "-" }
+        val subnet = handoff.currentSubnet.ifBlank { "-" }
+        val networkType = handoff.networkType.ifBlank { "UNKNOWN" }
+        val tcpRunning = if (handoff.tcpListenerRunning) "YES" else "NO"
+        val routeChanged =
+            if (handoff.lastRouteChange <= 0L) {
+                "-"
+            } else {
+                handoff.lastRouteChange.toString()
+            }
+        return "ONLINE | $networkType | IP=$ip | SUBNET=$subnet | TCP=$tcpRunning | LAST_ROUTE_CHANGE=$routeChanged"
     }
 
     private fun simpleConnectionMessage(

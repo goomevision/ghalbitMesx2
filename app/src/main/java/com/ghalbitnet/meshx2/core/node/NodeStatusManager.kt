@@ -129,6 +129,12 @@ object NodeStatusManager {
         }
     }
 
+    fun clearAll() {
+        nodes.clear()
+        lastSeen.clear()
+        recentActivity.clear()
+    }
+
     private fun appendActivity(
         nodeName: String,
         record: NodeActivityRecord

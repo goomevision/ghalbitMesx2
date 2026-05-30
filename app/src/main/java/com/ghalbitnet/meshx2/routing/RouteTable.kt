@@ -50,6 +50,10 @@ object RouteTable {
         }
     }
 
+    fun clearAll() {
+        routes.clear()
+    }
+
     fun report(): String {
 
         return buildString {

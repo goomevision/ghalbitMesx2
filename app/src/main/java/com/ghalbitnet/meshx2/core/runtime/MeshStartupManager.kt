@@ -4,10 +4,15 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.ghalbitnet.meshx2.core.node.NodeStatusManager
+import com.ghalbitnet.meshx2.discovery.DiscoveryManager
 import com.ghalbitnet.meshx2.discovery.UdpDiscovery
 import com.ghalbitnet.meshx2.model.MeshPacket
 import com.ghalbitnet.meshx2.model.SecurePacket
 import com.ghalbitnet.meshx2.network.MeshSocketServer
+import com.ghalbitnet.meshx2.routing.MeshRegistry
+import com.ghalbitnet.meshx2.routing.RouteDiscovery
+import com.ghalbitnet.meshx2.routing.RouteTable
 import com.ghalbitnet.meshx2.security.KeyStoreManager
 import com.ghalbitnet.meshx2.service.MeshForegroundService
 import com.ghalbitnet.meshx2.wifi.WifiDirectManager
@@ -92,11 +97,40 @@ object MeshStartupManager {
             onPacket = params.onPacket,
             onSecure = params.onSecurePacket
         )
+        NetworkHandoffMonitor.updateTcpListenerRunning(MeshSocketServer.isRunning())
 
         UdpDiscovery.listen { peerId, ip, pubKey, gateway, relay ->
+            NetworkHandoffMonitor.markRediscovering(false)
             params.onNodeFound(peerId, ip, pubKey, gateway, relay)
             listener.onNodeDiscovered("$peerId@$ip")
         }
+
+        NetworkHandoffMonitor.start(
+            context = params.applicationContext,
+            listener =
+                object : NetworkHandoffMonitor.Listener {
+                    override fun onSubnetChanged(oldIp: String, newIp: String, oldSubnet: String, newSubnet: String) {
+                        NetworkHandoffMonitor.markRediscovering(true)
+                        RouteTable.clearAll()
+                        RouteDiscovery.clearAllCachedRoutes()
+                        MeshRegistry.clear()
+                        DiscoveryManager.clear()
+                        NodeStatusManager.clearAll()
+                        Log.w("GHALBIT-NETWORK-HANDOFF", "staleRoutesCleared oldSubnet=$oldSubnet newSubnet=$newSubnet")
+                        Log.w("GHALBIT-NETWORK-HANDOFF", "directHintsCleared oldIp=$oldIp newIp=$newIp")
+                        UdpDiscovery.stop()
+                        UdpDiscovery.listen { peerId, ip, pubKey, gateway, relay ->
+                            NetworkHandoffMonitor.markRediscovering(false)
+                            params.onNodeFound(peerId, ip, pubKey, gateway, relay)
+                            listener.onNodeDiscovered("$peerId@$ip")
+                        }
+                        runCatching { params.onBroadcastLocalNode() }
+                        MeshSocketServer.ensureRunning("networkChanged")
+                        NetworkHandoffMonitor.updateTcpListenerRunning(MeshSocketServer.isRunning())
+                        Log.w("GHALBIT-NETWORK-HANDOFF", "discoveryRestarted")
+                    }
+                }
+        )
 
         val wifiDirectManager = WifiDirectManager(params.context)
         val nearbyManager = NearbyManager(params.context, params.keyStore)
@@ -120,6 +154,7 @@ object MeshStartupManager {
         session?.wifiDirectManager?.cleanup()
         MeshSocketServer.stop()
         UdpDiscovery.stop()
+        NetworkHandoffMonitor.stop(context.applicationContext)
         context.stopService(Intent(context, MeshForegroundService::class.java))
         session?.discoveryHeartbeatJob?.cancel()
         session?.wgManager?.stop()
@@ -150,6 +185,7 @@ object MeshStartupManager {
 
             try {
                 MeshSocketServer.ensureRunning("healthCheck")
+                NetworkHandoffMonitor.updateTcpListenerRunning(MeshSocketServer.isRunning())
             } catch (error: Exception) {
                 Log.e("GHALBIT-TCP-LISTENER", "healthCheck failed", error)
             }

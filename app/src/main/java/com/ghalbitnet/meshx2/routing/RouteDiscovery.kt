@@ -170,6 +170,10 @@ object RouteDiscovery {
         }
     }
 
+    fun clearAllCachedRoutes() {
+        routeCache.clear()
+    }
+
     private fun preferredBonus(address: String): Int {
         return when (TransportPreference.modeForAddress(address)) {
             TransportPreference.Mode.LAN_HOTSPOT -> 20
