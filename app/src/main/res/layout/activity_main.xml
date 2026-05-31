@@ -42,10 +42,21 @@
                     android:textColor="#A9C7D9"
                     android:textSize="12sp" />
 
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_ghalbit_card"
+                    android:padding="10dp"
+                    android:text="Siaga • Terhubung • Terenkripsi"
+                    android:textColor="#8EE3BE"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="12dp"
                     android:orientation="horizontal"
                     android:weightSum="2">
 
@@ -320,10 +331,10 @@
                 <Button
                     android:id="@+id/btnMesh"
                     android:layout_width="match_parent"
-                    android:layout_height="54dp"
-                    android:text="Aktifkan Mesh"
+                    android:layout_height="56dp"
+                    android:text="Aktifkan Mesh\nMulai jaringan lokal"
                     android:textAllCaps="false"
-                    android:textSize="15sp" />
+                    android:textSize="13sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -335,20 +346,20 @@
                     <Button
                         android:id="@+id/btnNetwork"
                         android:layout_width="0dp"
-                        android:layout_height="52dp"
+                        android:layout_height="56dp"
                         android:layout_marginEnd="4dp"
                         android:layout_weight="1"
-                        android:text="Mesh Jalur"
+                        android:text="Mesh Jalur\nKelola koneksi"
                         android:textAllCaps="false"
                         android:textSize="11sp" />
 
                     <Button
                         android:id="@+id/btnMint"
                         android:layout_width="0dp"
-                        android:layout_height="52dp"
+                        android:layout_height="56dp"
                         android:layout_marginStart="4dp"
                         android:layout_weight="1"
-                        android:text="Wallet GHBT"
+                        android:text="Wallet GHBT\nDompet digital"
                         android:textAllCaps="false"
                         android:textSize="11sp" />
                 </LinearLayout>
@@ -356,7 +367,7 @@
                 <Button
                     android:id="@+id/btnRemoteMode"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="52dp"
                     android:layout_marginTop="8dp"
                     android:text="Jarak Jauh • Relay internet"
                     android:textAllCaps="false" />
@@ -364,7 +375,7 @@
                 <Button
                     android:id="@+id/btnRuntimeDashboard"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="52dp"
                     android:layout_marginTop="6dp"
                     android:text="Runtime Dashboard • Status jaringan"
                     android:textAllCaps="false" />
@@ -372,7 +383,7 @@
                 <Button
                     android:id="@+id/btnNotifications"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="52dp"
                     android:layout_marginTop="6dp"
                     android:text="Notifikasi • Pesan sistem"
                     android:textAllCaps="false" />
@@ -380,7 +391,7 @@
                 <Button
                     android:id="@+id/btnMediaSettings"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="52dp"
                     android:layout_marginTop="6dp"
                     android:text="Chat &amp; Media • File dan suara"
                     android:textAllCaps="false" />
@@ -388,7 +399,7 @@
                 <Button
                     android:id="@+id/btnDebug"
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
+                    android:layout_height="52dp"
                     android:layout_marginTop="6dp"
                     android:text="Pengaturan • Debug teknis"
                     android:textAllCaps="false" />
