@@ -216,6 +216,74 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
+                android:text="Kontak Aktif"
+                android:textColor="#F5FBFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="9dp"
+                android:background="@drawable/bg_ghalbit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:background="@drawable/bg_name_card_badge"
+                        android:gravity="center"
+                        android:text="0"
+                        android:textColor="#F5FBFF"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Belum ada kontak online"
+                            android:textColor="#F5FBFF"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="Aktifkan mesh atau relay untuk menemukan teman di sekitar."
+                            android:textColor="#A9C7D9"
+                            android:textSize="11sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnSavedContacts"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="10dp"
+                    android:text="Buka Kontak"
+                    android:textAllCaps="false"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
                 android:text="Kondisi Sekarang"
                 android:textColor="#F5FBFF"
                 android:textSize="15sp"
@@ -315,67 +383,6 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:orientation="horizontal"
-                android:weightSum="2">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="72dp"
-                    android:layout_marginEnd="6dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_ghalbit_card"
-                    android:orientation="vertical"
-                    android:padding="10dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Ping"
-                        android:textColor="#8EA7BD"
-                        android:textSize="10sp" />
-
-                    <TextView
-                        android:id="@+id/txtPing"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:text="--"
-                        android:textColor="#FFD54F"
-                        android:textSize="20sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="72dp"
-                    android:layout_marginStart="6dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_ghalbit_card"
-                    android:orientation="vertical"
-                    android:padding="10dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Keamanan"
-                        android:textColor="#8EA7BD"
-                        android:textSize="10sp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
-                        android:text="End-to-end"
-                        android:textColor="#8EE3BE"
-                        android:textSize="14sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-            </LinearLayout>
-
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -469,31 +476,6 @@
                     android:text="Pengaturan • Debug teknis"
                     android:textAllCaps="false" />
             </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:background="@drawable/bg_ghalbit_card"
-                android:orientation="vertical"
-                android:padding="14dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Aman • Cepat • Privat"
-                    android:textColor="#8EE3BE"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="Chat, panggilan, SOS, dan kartu nama berjalan melalui mesh lokal atau relay internet."
-                    android:textColor="#B6C8D8"
-                    android:textSize="12sp" />
-            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
@@ -566,18 +548,13 @@
             android:textAllCaps="false"
             android:textSize="10sp" />
 
-        <Button
-            android:id="@+id/btnSavedContacts"
+        <TextView
             android:layout_width="0dp"
-            android:layout_height="52dp"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="2dp"
+            android:layout_height="match_parent"
             android:layout_weight="1"
-            android:minWidth="0dp"
-            android:paddingStart="0dp"
-            android:paddingEnd="0dp"
+            android:gravity="center"
             android:text="Kontak"
-            android:textAllCaps="false"
+            android:textColor="#B6C8D8"
             android:textSize="10sp" />
 
         <Button
