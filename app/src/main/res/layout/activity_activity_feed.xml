@@ -23,6 +23,16 @@
         android:textSize="14sp"
         android:paddingBottom="8dp" />
 
+    <TextView
+        android:id="@+id/tvActivityFeedAnalytics"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_ghalbit_card"
+        android:padding="12dp"
+        android:text="Analytics menunggu data..."
+        android:textSize="13sp"
+        android:layout_marginBottom="8dp" />
+
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
