@@ -10,6 +10,7 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.ghalbitnet.meshx2.R
+import com.ghalbitnet.meshx2.profile.ProfessionalCardTierSystem
 import com.ghalbitnet.meshx2.ui.GhalbitTheme
 import com.ghalbitnet.meshx2.verified.trust.CommunityReputationEngine
 import com.ghalbitnet.meshx2.verified.trust.IdentityLevel
@@ -89,6 +90,8 @@ class ProfessionalCardActivity : AppCompatActivity() {
             referralRewarded = 0,
             reputation = CommunityReputationEngine.calculate(0, 0, 0, trustScore / 5)
         )
+        val tier = ProfessionalCardTierSystem.resolve(verified, summary)
+        val theme = ProfessionalCardTierSystem.themeFor(tier)
         val rankLabel = if (summary.trustRank.equals("Pemula", ignoreCase = true)) "Aktif" else summary.trustRank
         val unifiedText = UnifiedProfessionalIdentityCard.render(displayName, community, verified, summary)
 
@@ -98,13 +101,21 @@ class ProfessionalCardActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.txtProfessionalCommunity).text = community
         findViewById<TextView>(R.id.txtProfessionalNicknameOrGlobal).text =
             nickname.ifBlank { globalId }
-        findViewById<TextView>(R.id.txtProfessionalVerifiedBadge).text = if (verified) "VERIFIED ✓" else "UNVERIFIED"
+        findViewById<TextView>(R.id.txtProfessionalVerifiedBadge).text = if (verified) "VERIFIED ✓ • ${tier.name}" else "UNVERIFIED • ${tier.name}"
+        findViewById<TextView>(R.id.txtProfessionalVerifiedBadge).apply {
+            background?.setTint(theme.badgeBgColor)
+            setTextColor(theme.badgeTextColor)
+        }
         findViewById<TextView>(R.id.txtProfessionalTrustBadge).text = "Trust Score: ${summary.trustScore} • Rank: $rankLabel"
         findViewById<TextView>(R.id.txtProfessionalReferralBadge).text = "Referral: ${summary.referralLabel}"
         findViewById<TextView>(R.id.txtProfessionalMentorBadge).text = "Mentor: ${summary.mentorLevel}"
         findViewById<TextView>(R.id.txtProfessionalReputationBadge).text = "Community Reputation: ${summary.communityReputation}"
         findViewById<TextView>(R.id.txtProfessionalUnifiedSummary).text = "$unifiedText\n\nGlobal ID: $globalId"
         bindProfilePhoto(profilePhotoUri, displayName)
+        findViewById<View>(R.id.professionalCardRoot)?.setBackgroundColor(theme.cardGlowColor)
+        playCardEntryAnimation()
+        playVerifiedPulse()
+        playQrGlowLite()
 
         findViewById<Button>(R.id.btnShareProfessionalCard).setOnClickListener {
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -128,5 +139,39 @@ class ProfessionalCardActivity : AppCompatActivity() {
         }
         runCatching { img.setImageURI(Uri.parse(photoUri)) }.onFailure { img.setImageDrawable(null) }
         initial.visibility = if (img.drawable != null) View.GONE else View.VISIBLE
+    }
+
+    private fun playCardEntryAnimation() {
+        val root = findViewById<View>(R.id.professionalCardRoot) ?: return
+        root.scaleX = 0.987f
+        root.scaleY = 0.987f
+        root.alpha = 0.94f
+        root.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .alpha(1f)
+            .setDuration(220L)
+            .start()
+    }
+
+    private fun playVerifiedPulse() {
+        val badge = findViewById<TextView>(R.id.txtProfessionalVerifiedBadge) ?: return
+        if (!(badge.text?.contains("VERIFIED", true) == true)) return
+        android.animation.ObjectAnimator.ofFloat(badge, View.SCALE_X, 1f, 1.03f, 1f).apply {
+            duration = 1800L
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            repeatMode = android.animation.ValueAnimator.RESTART
+            start()
+        }
+    }
+
+    private fun playQrGlowLite() {
+        val summary = findViewById<TextView>(R.id.txtProfessionalUnifiedSummary) ?: return
+        android.animation.ObjectAnimator.ofFloat(summary, View.ALPHA, 0.96f, 1f, 0.96f).apply {
+            duration = 2400L
+            repeatCount = android.animation.ValueAnimator.INFINITE
+            repeatMode = android.animation.ValueAnimator.RESTART
+            start()
+        }
     }
 }

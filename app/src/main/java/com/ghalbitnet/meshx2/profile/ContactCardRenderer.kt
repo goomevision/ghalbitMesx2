@@ -19,11 +19,19 @@ import com.ghalbitnet.meshx2.verified.trust.VerifiedIdentityRecord
 
 object ContactCardRenderer {
     fun bind(root: View, profile: CommunityProfile, routeBadge: String, qrBitmap: Bitmap?) {
-        val trustSummary = buildTrustSummary(profile).toUi()
+        val summaryRaw = buildTrustSummary(profile)
+        val trustSummary = summaryRaw.toUi()
+        val tier = ProfessionalCardTierSystem.resolve(profile.signature.isNotBlank(), summaryRaw)
+        val theme = ProfessionalCardTierSystem.themeFor(tier)
         root.background = ContextCompat.getDrawable(root.context, profile.cardTheme.cardBackgroundRes)
         root.findViewById<TextView>(R.id.txtVerifiedBadge)?.text =
-            if (profile.signature.isNotBlank()) "VERIFIED ✓" else "LOCAL"
+            if (profile.signature.isNotBlank()) "VERIFIED ✓ • ${tier.name}" else "LOCAL • ${tier.name}"
+        root.findViewById<TextView>(R.id.txtVerifiedBadge)?.apply {
+            background?.setTint(theme.badgeBgColor)
+            setTextColor(theme.badgeTextColor)
+        }
         root.findViewById<TextView>(R.id.txtRouteBadge)?.text = routeBadge
+        root.findViewById<TextView>(R.id.txtRouteBadge)?.setTextColor(theme.routeTextColor)
         root.findViewById<TextView>(R.id.txtCardName)?.text = profile.primaryName
         root.findViewById<TextView>(R.id.txtCardNickname)?.text = profile.publicSubtitle
         root.findViewById<TextView>(R.id.txtCardRole)?.text =
@@ -71,8 +79,10 @@ object ContactCardRenderer {
         }
         root.findViewById<TextView>(R.id.txtCardInitials)?.text = initials(profile.primaryName)
         root.findViewById<View>(R.id.viewCardAccent)?.setBackgroundColor(
-            runCatching { Color.parseColor(profile.bannerColor) }.getOrDefault(Color.parseColor(profile.cardTheme.accentColor))
+            runCatching { Color.parseColor(profile.bannerColor) }.getOrDefault(theme.accentColor)
         )
+        root.findViewById<TextView>(R.id.txtCardRole)?.background?.setTint(theme.badgeBgColor)
+        root.findViewById<ImageView>(R.id.imgCardQr)?.alpha = 0.96f
         Log.d("GHALBIT-CARD", "rendered id=${profile.globalId}")
         Log.d("GHALBIT-CARD", "lightweight theme applied")
     }
