@@ -11,6 +11,8 @@ import androidx.lifecycle.lifecycleScope
 import com.ghalbitnet.meshx2.R
 import com.ghalbitnet.meshx2.ui.GhalbitTheme
 import com.ghalbitnet.meshx2.ui.RuntimeSoftBannerManager
+import com.ghalbitnet.meshx2.verified.screen.ProfessionalCardActivity
+import com.ghalbitnet.meshx2.verified.share.VerifiedCardPngShareManager
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.Dispatchers
@@ -139,29 +141,25 @@ class MyProfileActivity : AppCompatActivity() {
 
     private fun openPublicCardPreview() {
         val profile = currentProfile ?: return
-        Log.d("GHALBIT-NAMECARD", "preview_open")
+        Log.d("GHALBIT-NAMECARD", "professional_preview_open")
         startActivity(
-            ContactNameCardActivity.createIntent(
+            ProfessionalCardActivity.createIntent(
                 context = this,
                 globalId = profile.globalId,
-                chatId = profile.globalId,
-                fallbackName = profile.primaryName,
-                publicKeyHash = profile.publicKeyHash,
-                routeHint = if (profile.isRelayDiscoveryEnabled) "relay:self" else "mesh:self"
+                displayName = profile.primaryName,
+                role = profile.roleTitle.ifBlank { "Community Member" },
+                community = profile.communityName.ifBlank { "GHALBITNET" },
+                trustScore = 0,
+                verified = profile.publicKeyHash.isNotBlank()
             )
         )
     }
 
     private fun shareCurrentQr() {
         val profile = currentProfile ?: return
-        val payload = ProfileQrCodec.encode(ProfileSyncManager.buildSignedQrPayload(this, profile, relayHint = null))
-        startActivity(
-            Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_SUBJECT, "Kartu Nama GhalbitNet")
-                putExtra(Intent.EXTRA_TEXT, payload)
-            }
-        )
+        val model = VerifiedCardPngShareManager.modelFromProfile(profile, verified = profile.publicKeyHash.isNotBlank())
+        val shareIntent = VerifiedCardPngShareManager.createSharePngIntent(this, model)
+        startActivity(Intent.createChooser(shareIntent, "Bagikan Kartu GHALBIT"))
     }
 
     private fun handleScanResult(contents: String?) {
