@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tvActivityFeedTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Activity Feed"
+        android:textStyle="bold"
+        android:textSize="22sp"
+        android:paddingBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvActivityFeedSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Timeline aktivitas GHALBIT Mesh X2"
+        android:textSize="14sp"
+        android:paddingBottom="8dp" />
+
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fillViewport="false"
+        android:scrollbars="none">
+
+        <RadioGroup
+            android:id="@+id/groupActivityFeedFilter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <RadioButton
+                android:id="@+id/filterAll"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ALL"
+                android:checked="true" />
+
+            <RadioButton
+                android:id="@+id/filterChat"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CHAT" />
+
+            <RadioButton
+                android:id="@+id/filterCall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="CALL" />
+
+            <RadioButton
+                android:id="@+id/filterSos"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SOS" />
+
+            <RadioButton
+                android:id="@+id/filterNetwork"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NETWORK" />
+
+            <RadioButton
+                android:id="@+id/filterSecurity"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SECURITY" />
+
+            <RadioButton
+                android:id="@+id/filterRuntime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="RUNTIME" />
+        </RadioGroup>
+    </HorizontalScrollView>
+
+    <TextView
+        android:id="@+id/tvActivityFeedEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Belum ada aktivitas. Jalankan mesh, chat, SOS, atau panggilan untuk melihat timeline."
+        android:textSize="15sp"
+        android:padding="8dp" />
+
+    <ListView
+        android:id="@+id/listActivityFeed"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+</LinearLayout>
