@@ -79,19 +79,23 @@ class ContactNameCardActivity : AppCompatActivity() {
 
     private fun render() {
         lifecycleScope.launch(Dispatchers.IO) {
-            val scannedPayload = intent.getStringExtra(EXTRA_SCANNED_PAYLOAD)
+            val scannedPayload = resolveIncomingPayload()
             val profile =
                 if (!scannedPayload.isNullOrBlank()) {
-                    val payload = ProfileQrCodec.decode(scannedPayload)
+                    val normalizedPayload = ProfileSmartLink.extractPayloadFromIncomingText(scannedPayload)
+                    val payload = ProfileQrCodec.decode(normalizedPayload)
                     if (payload != null) {
                         ProfileSyncManager.applyScannedQr(this@ContactNameCardActivity, payload)
                     } else {
+                        withContext(Dispatchers.Main) {
+                            UiFeedbackManager.showToast(this@ContactNameCardActivity, "Kartu nama belum bisa dibaca. Periksa payload atau tautan.")
+                        }
                         null
                     }
                 } else {
-                    val globalId = intent.getStringExtra(EXTRA_GLOBAL_ID)
+                    val globalId = intent.getStringExtra(EXTRA_GLOBAL_ID) ?: intent.data?.getQueryParameter("id")
                     currentChatId = intent.getStringExtra(EXTRA_CHAT_ID)
-                    val fallbackName = intent.getStringExtra(EXTRA_FALLBACK_NAME) ?: "Belum dikenal"
+                    val fallbackName = intent.getStringExtra(EXTRA_FALLBACK_NAME) ?: globalId ?: "Belum dikenal"
                     val routeHint = intent.getStringExtra(EXTRA_ROUTE_HINT)
                     val profile = ProfileRepository.getResolvedContact(
                         context = this@ContactNameCardActivity,
@@ -123,6 +127,13 @@ class ContactNameCardActivity : AppCompatActivity() {
                     "Nama publik: ${profile.displayName}\nAlias lokal: ${profile.localAlias ?: "-"}\nSinkron terakhir: ${if (profile.lastProfileSyncAt > 0) profile.lastProfileSyncAt else "-"}"
             }
         }
+    }
+
+    private fun resolveIncomingPayload(): String? {
+        intent.getStringExtra(EXTRA_SCANNED_PAYLOAD)?.takeIf { it.isNotBlank() }?.let { return it }
+        intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }?.let { return it }
+        intent.data?.getQueryParameter("payload")?.takeIf { it.isNotBlank() }?.let { return it }
+        return null
     }
 
     private fun openChat() {
@@ -251,14 +262,18 @@ class ContactNameCardActivity : AppCompatActivity() {
 
     private fun shareQrPayload() {
         val profile = currentProfile ?: return
+        val encodedPayload = ProfileQrCodec.encode(
+            ProfileSyncManager.buildSignedQrPayload(this@ContactNameCardActivity, profile, profile.routeHint)
+        )
         startActivity(
-            Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(
-                    Intent.EXTRA_TEXT,
-                    ProfileQrCodec.encode(ProfileSyncManager.buildSignedQrPayload(this@ContactNameCardActivity, profile, profile.routeHint))
-                )
-            }
+            Intent.createChooser(
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "Kartu Nama GHALBIT - ${profile.displayName}")
+                    putExtra(Intent.EXTRA_TEXT, ProfileShareFormatter.format(profile, encodedPayload))
+                },
+                "Bagikan kartu nama GHALBIT"
+            )
         )
     }
 
