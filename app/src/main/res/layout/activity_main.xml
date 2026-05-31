@@ -42,6 +42,60 @@
                     android:textColor="#A9C7D9"
                     android:textSize="12sp" />
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_ghalbit_card"
+                    android:orientation="horizontal"
+                    android:padding="12dp">
+
+                    <TextView
+                        android:layout_width="42dp"
+                        android:layout_height="42dp"
+                        android:background="@drawable/bg_name_card_badge"
+                        android:gravity="center"
+                        android:text="GX"
+                        android:textColor="#F5FBFF"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Node Pribadi Aktif"
+                            android:textColor="#F5FBFF"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/txtGlobalIdentity"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:ellipsize="middle"
+                            android:maxLines="1"
+                            android:text="GX-UNKNOWN"
+                            android:textColor="#FFD54F"
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:text="Identitas, pesan, dan koneksi berada di perangkat Anda"
+                            android:textColor="#A9C7D9"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -295,20 +349,31 @@
                         android:textStyle="bold" />
                 </LinearLayout>
 
-                <TextView
-                    android:id="@+id/txtGlobalIdentity"
+                <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="72dp"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_ghalbit_card"
-                    android:ellipsize="middle"
-                    android:gravity="center_vertical"
-                    android:maxLines="2"
-                    android:padding="10dp"
-                    android:text="GX-UNKNOWN"
-                    android:textColor="#FFD54F"
-                    android:textSize="12sp" />
+                    android:orientation="vertical"
+                    android:padding="10dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Keamanan"
+                        android:textColor="#8EA7BD"
+                        android:textSize="10sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:text="End-to-end"
+                        android:textColor="#8EE3BE"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
 
             <TextView
