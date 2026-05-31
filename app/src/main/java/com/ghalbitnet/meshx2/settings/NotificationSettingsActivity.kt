@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import com.ghalbitnet.meshx2.R
+import com.ghalbitnet.meshx2.activityfeed.ActivityFeedActivity
 import com.ghalbitnet.meshx2.core.utils.AppNotificationManager
 import com.ghalbitnet.meshx2.settings.DeveloperModeManager
 
@@ -29,6 +30,13 @@ class NotificationSettingsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (!intent.getBooleanExtra(EXTRA_SHOW_SETTINGS, false)) {
+            startActivity(Intent(this, ActivityFeedActivity::class.java))
+            finish()
+            return
+        }
+
         setContentView(R.layout.activity_notification_settings)
 
         switchChat = findViewById(R.id.switchChatNotifications)
@@ -124,5 +132,9 @@ class NotificationSettingsActivity : AppCompatActivity() {
         val developerMode = DeveloperModeManager.isEnabled(this)
         switchTechnicalDetail.isEnabled = developerMode
         switchTechnicalDetail.alpha = if (developerMode) 1f else 0.55f
+    }
+
+    companion object {
+        const val EXTRA_SHOW_SETTINGS = "show_notification_settings"
     }
 }
