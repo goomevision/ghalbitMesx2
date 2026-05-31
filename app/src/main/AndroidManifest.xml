@@ -132,6 +132,14 @@
             android:exported="false" />
 
         <activity
+            android:name=".verified.screen.ProfessionalCardActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".verified.screen.QrVerificationActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".call.CallSessionActivity"
             android:exported="false" />
 
