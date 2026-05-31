@@ -18,43 +18,77 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="14dp"
-            android:paddingTop="14dp"
+            android:paddingTop="12dp"
             android:paddingEnd="14dp"
             android:paddingBottom="16dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_ghalbit_hero"
-                android:orientation="vertical"
-                android:padding="18dp">
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
                 <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="GHALBITNET"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:background="@drawable/bg_name_card_badge"
+                    android:gravity="center"
+                    android:text="G"
                     android:textColor="#F5FBFF"
-                    android:textSize="29sp"
+                    android:textSize="16sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="match_parent"
+                <LinearLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:text="Pusat komunikasi komunitas yang tetap hidup"
-                    android:textColor="#A9C7D9"
-                    android:textSize="12sp" />
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="GHALBITNET"
+                        android:textColor="#F5FBFF"
+                        android:textSize="25sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Mesh • Relay • Komunitas"
+                        android:textColor="#A9C7D9"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="54dp"
+                    android:layout_height="30dp"
+                    android:background="@drawable/bg_ghalbit_log"
+                    android:gravity="center"
+                    android:text="LIVE"
+                    android:textColor="#8EE3BE"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:background="@drawable/bg_ghalbit_hero"
+                android:orientation="vertical"
+                android:padding="14dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
                     android:orientation="horizontal"
                     android:weightSum="2">
 
                     <LinearLayout
                         android:layout_width="0dp"
-                        android:layout_height="88dp"
+                        android:layout_height="92dp"
                         android:layout_marginEnd="6dp"
                         android:layout_weight="1"
                         android:background="@drawable/bg_ghalbit_card"
@@ -64,9 +98,9 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="STATUS"
+                            android:text="STATUS JARINGAN"
                             android:textColor="#8EA7BD"
-                            android:textSize="10sp" />
+                            android:textSize="9sp" />
 
                         <TextView
                             android:id="@+id/txtStatus"
@@ -77,23 +111,23 @@
                             android:maxLines="1"
                             android:text="OFFLINE"
                             android:textColor="#31D07E"
-                            android:textSize="18sp"
+                            android:textSize="17sp"
                             android:textStyle="bold" />
 
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
+                            android:layout_marginTop="5dp"
                             android:ellipsize="end"
                             android:maxLines="1"
-                            android:text="Jaringan aktif"
+                            android:text="Terpantau aman"
                             android:textColor="#A9C7D9"
                             android:textSize="10sp" />
                     </LinearLayout>
 
                     <LinearLayout
                         android:layout_width="0dp"
-                        android:layout_height="88dp"
+                        android:layout_height="92dp"
                         android:layout_marginStart="6dp"
                         android:layout_weight="1"
                         android:background="@drawable/bg_ghalbit_card"
@@ -103,9 +137,9 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="MODE"
+                            android:text="MODE AKTIF"
                             android:textColor="#8EA7BD"
-                            android:textSize="10sp" />
+                            android:textSize="9sp" />
 
                         <TextView
                             android:id="@+id/txtHybridStatus"
@@ -114,7 +148,7 @@
                             android:layout_marginTop="6dp"
                             android:ellipsize="end"
                             android:maxLines="1"
-                            android:text="Belum aktif"
+                            android:text="Hybrid siap"
                             android:textColor="#9FE870"
                             android:textSize="16sp"
                             android:textStyle="bold" />
@@ -122,10 +156,10 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
+                            android:layout_marginTop="5dp"
                             android:ellipsize="end"
                             android:maxLines="1"
-                            android:text="Mesh + relay"
+                            android:text="Mesh + Internet"
                             android:textColor="#A9C7D9"
                             android:textSize="10sp" />
                     </LinearLayout>
@@ -135,29 +169,29 @@
                     android:id="@+id/txtUserMessage"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="10dp"
                     android:background="@drawable/bg_ghalbit_card"
                     android:ellipsize="end"
                     android:maxLines="2"
                     android:minLines="1"
-                    android:padding="12dp"
+                    android:padding="10dp"
                     android:text="Menunggu koneksi jaringan..."
                     android:textColor="#B6C8D8"
-                    android:textSize="12sp" />
+                    android:textSize="11sp" />
 
                 <ProgressBar
                     android:id="@+id/progressMain"
                     style="?android:attr/progressBarStyleSmall"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="6dp"
                     android:visibility="gone" />
             </LinearLayout>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="13dp"
                 android:text="Kondisi Sekarang"
                 android:textColor="#F5FBFF"
                 android:textSize="15sp"
@@ -172,87 +206,87 @@
 
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="76dp"
+                    android:layout_height="70dp"
                     android:layout_marginEnd="5dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_ghalbit_card"
                     android:orientation="vertical"
-                    android:padding="10dp">
+                    android:padding="9dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Koneksi"
                         android:textColor="#8EA7BD"
-                        android:textSize="10sp" />
+                        android:textSize="9sp" />
 
                     <TextView
                         android:id="@+id/txtConnectionScope"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
+                        android:layout_marginTop="4dp"
                         android:ellipsize="end"
                         android:maxLines="2"
                         android:text="OFFLINE"
                         android:textColor="#7FE7FF"
-                        android:textSize="14sp"
+                        android:textSize="13sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="76dp"
+                    android:layout_height="70dp"
                     android:layout_marginStart="5dp"
                     android:layout_marginEnd="5dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_ghalbit_card"
                     android:orientation="vertical"
-                    android:padding="10dp">
+                    android:padding="9dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Node"
                         android:textColor="#8EA7BD"
-                        android:textSize="10sp" />
+                        android:textSize="9sp" />
 
                     <TextView
                         android:id="@+id/txtNodes"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
+                        android:layout_marginTop="4dp"
                         android:text="0"
                         android:textColor="#00D9FF"
-                        android:textSize="21sp"
+                        android:textSize="20sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="76dp"
+                    android:layout_height="70dp"
                     android:layout_marginStart="5dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_ghalbit_card"
                     android:orientation="vertical"
-                    android:padding="10dp">
+                    android:padding="9dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Saldo"
                         android:textColor="#8EA7BD"
-                        android:textSize="10sp" />
+                        android:textSize="9sp" />
 
                     <TextView
                         android:id="@+id/txtBalance"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
+                        android:layout_marginTop="4dp"
                         android:ellipsize="end"
                         android:maxLines="2"
                         android:text="0.00"
                         android:textColor="#FFD700"
-                        android:textSize="16sp"
+                        android:textSize="15sp"
                         android:textStyle="bold" />
                 </LinearLayout>
             </LinearLayout>
@@ -260,95 +294,209 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="9dp"
                 android:orientation="horizontal"
                 android:weightSum="2">
 
                 <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="72dp"
+                    android:layout_height="66dp"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_ghalbit_card"
                     android:orientation="vertical"
-                    android:padding="10dp">
+                    android:padding="9dp">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Ping"
                         android:textColor="#8EA7BD"
-                        android:textSize="10sp" />
+                        android:textSize="9sp" />
 
                     <TextView
                         android:id="@+id/txtPing"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="5dp"
+                        android:layout_marginTop="4dp"
                         android:text="--"
                         android:textColor="#FFD54F"
-                        android:textSize="20sp"
+                        android:textSize="19sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <TextView
                     android:id="@+id/txtGlobalIdentity"
                     android:layout_width="0dp"
-                    android:layout_height="72dp"
+                    android:layout_height="66dp"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_ghalbit_card"
                     android:ellipsize="middle"
                     android:gravity="center_vertical"
                     android:maxLines="2"
-                    android:padding="10dp"
+                    android:padding="9dp"
                     android:text="GX-UNKNOWN"
                     android:textColor="#FFD54F"
-                    android:textSize="12sp" />
+                    android:textSize="11sp" />
             </LinearLayout>
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Kontrol Utama"
+                android:layout_marginTop="15dp"
+                android:text="Shortcut Cepat"
                 android:textColor="#F5FBFF"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
-            <Button
-                android:id="@+id/btnMesh"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="54dp"
-                android:layout_marginTop="9dp"
-                android:text="Aktifkan Mesh"
-                android:textAllCaps="false"
-                android:textSize="15sp" />
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal"
+                android:weightSum="4">
+
+                <Button
+                    android:id="@+id/btnChat"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1"
+                    android:minWidth="0dp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:text="Chat"
+                    android:textAllCaps="false"
+                    android:textSize="10sp" />
+
+                <Button
+                    android:id="@+id/btnSOS"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1"
+                    android:minWidth="0dp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:text="SOS"
+                    android:textAllCaps="false"
+                    android:textSize="10sp" />
+
+                <Button
+                    android:id="@+id/btnSavedContacts"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1"
+                    android:minWidth="0dp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:text="Kontak"
+                    android:textAllCaps="false"
+                    android:textSize="10sp" />
+
+                <Button
+                    android:id="@+id/btnMyProfile"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:minWidth="0dp"
+                    android:paddingStart="0dp"
+                    android:paddingEnd="0dp"
+                    android:text="Profil"
+                    android:textAllCaps="false"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="15dp"
+                android:text="Layanan"
+                android:textColor="#F5FBFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:orientation="horizontal"
-                android:weightSum="2">
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_card"
+                android:orientation="vertical"
+                android:padding="10dp">
+
+                <Button
+                    android:id="@+id/btnMesh"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:text="Mesh Jalur • Kelola rute &amp; relay"
+                    android:textAllCaps="false"
+                    android:textSize="12sp" />
 
                 <Button
                     android:id="@+id/btnNetwork"
-                    android:layout_width="0dp"
-                    android:layout_height="58dp"
-                    android:layout_marginEnd="6dp"
-                    android:layout_weight="1"
-                    android:text="Network\nJaringan"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="7dp"
+                    android:text="Network • Peta jaringan"
+                    android:textAllCaps="false"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnRuntimeDashboard"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="7dp"
+                    android:text="Runtime Dashboard • Status hidup"
+                    android:textAllCaps="false"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnNotifications"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="7dp"
+                    android:text="Notifikasi • Pesan sistem"
+                    android:textAllCaps="false"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnMediaSettings"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="7dp"
+                    android:text="Chat &amp; Media • File dan suara"
+                    android:textAllCaps="false"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnRemoteMode"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="7dp"
+                    android:text="Jarak Jauh • Relay internet"
                     android:textAllCaps="false"
                     android:textSize="12sp" />
 
                 <Button
                     android:id="@+id/btnMint"
-                    android:layout_width="0dp"
-                    android:layout_height="58dp"
-                    android:layout_marginStart="6dp"
-                    android:layout_weight="1"
-                    android:text="Wallet\nGHBT"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="7dp"
+                    android:text="Wallet GHBT • Dompet digital"
+                    android:textAllCaps="false"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnDebug"
+                    android:layout_width="match_parent"
+                    android:layout_height="54dp"
+                    android:layout_marginTop="7dp"
+                    android:text="Pengaturan • Debug dan privasi"
                     android:textAllCaps="false"
                     android:textSize="12sp" />
             </LinearLayout>
@@ -373,66 +521,9 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
-                    android:text="Chat, panggilan, SOS, dan kartu nama berjalan melalui mesh lokal atau relay internet."
+                    android:text="Komunikasi terenkripsi, kartu nama, SOS, dan relay siap dipakai saat jaringan berubah."
                     android:textColor="#B6C8D8"
                     android:textSize="12sp" />
-            </LinearLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Layanan Lanjutan"
-                android:textColor="#F5FBFF"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="9dp"
-                android:background="@drawable/bg_ghalbit_card"
-                android:orientation="vertical"
-                android:padding="10dp">
-
-                <Button
-                    android:id="@+id/btnRemoteMode"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:text="Jarak Jauh • Relay internet"
-                    android:textAllCaps="false" />
-
-                <Button
-                    android:id="@+id/btnRuntimeDashboard"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="6dp"
-                    android:text="Dashboard • Status jaringan"
-                    android:textAllCaps="false" />
-
-                <Button
-                    android:id="@+id/btnNotifications"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="6dp"
-                    android:text="Notifikasi • Pesan sistem"
-                    android:textAllCaps="false" />
-
-                <Button
-                    android:id="@+id/btnMediaSettings"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="6dp"
-                    android:text="Chat Media • File dan suara"
-                    android:textAllCaps="false" />
-
-                <Button
-                    android:id="@+id/btnDebug"
-                    android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:layout_marginTop="6dp"
-                    android:text="Debug Panel • Pemeriksaan teknis"
-                    android:textAllCaps="false" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
@@ -456,82 +547,5 @@
                 android:textColor="#00FF88"
                 android:textSize="9sp" />
         </androidx.core.widget.NestedScrollView>
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="68dp"
-        android:background="@drawable/bg_ghalbit_card"
-        android:gravity="center"
-        android:orientation="horizontal"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:weightSum="5">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="Beranda"
-            android:textColor="#8EE3BE"
-            android:textSize="11sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/btnChat"
-            android:layout_width="0dp"
-            android:layout_height="52dp"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="2dp"
-            android:layout_weight="1"
-            android:minWidth="0dp"
-            android:paddingStart="0dp"
-            android:paddingEnd="0dp"
-            android:text="Chat"
-            android:textAllCaps="false"
-            android:textSize="10sp" />
-
-        <Button
-            android:id="@+id/btnSOS"
-            android:layout_width="0dp"
-            android:layout_height="52dp"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="2dp"
-            android:layout_weight="1"
-            android:minWidth="0dp"
-            android:paddingStart="0dp"
-            android:paddingEnd="0dp"
-            android:text="SOS"
-            android:textAllCaps="false"
-            android:textSize="10sp" />
-
-        <Button
-            android:id="@+id/btnSavedContacts"
-            android:layout_width="0dp"
-            android:layout_height="52dp"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="2dp"
-            android:layout_weight="1"
-            android:minWidth="0dp"
-            android:paddingStart="0dp"
-            android:paddingEnd="0dp"
-            android:text="Kontak"
-            android:textAllCaps="false"
-            android:textSize="10sp" />
-
-        <Button
-            android:id="@+id/btnMyProfile"
-            android:layout_width="0dp"
-            android:layout_height="52dp"
-            android:layout_marginStart="2dp"
-            android:layout_marginEnd="2dp"
-            android:layout_weight="1"
-            android:minWidth="0dp"
-            android:paddingStart="0dp"
-            android:paddingEnd="0dp"
-            android:text="Profil"
-            android:textAllCaps="false"
-            android:textSize="10sp" />
     </LinearLayout>
 </LinearLayout>
