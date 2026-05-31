@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/professionalCardRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="12dp"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:id="@+id/txtProfessionalCardTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="GHALBIT VERIFIED CARD"
+            android:textStyle="bold"
+            android:textSize="16sp" />
+
+        <ImageView
+            android:id="@+id/imgProfessionalProfilePhoto"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_marginTop="14dp"
+            android:contentDescription="Profile photo" />
+
+        <TextView
+            android:id="@+id/txtProfessionalName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Display Name"
+            android:textStyle="bold"
+            android:textSize="22sp" />
+
+        <TextView
+            android:id="@+id/txtProfessionalRole"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Role"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/txtProfessionalCommunity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Community"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/txtProfessionalVerifiedBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="VERIFIED ✓"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtProfessionalTrustBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Trust Score: 0" />
+
+        <TextView
+            android:id="@+id/txtProfessionalReferralBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Referral: 0" />
+
+        <TextView
+            android:id="@+id/txtProfessionalMentorBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:text="Mentor: 0" />
+    </LinearLayout>
+</androidx.cardview.widget.CardView>
