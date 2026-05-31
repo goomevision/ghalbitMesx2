@@ -10,6 +10,9 @@ object ProfileShareFormatter {
         val nickname = profile.nickname?.takeIf { it.isNotBlank() } ?: profile.globalId.takeLast(6)
         val route = profile.routeHint?.takeIf { it.isNotBlank() } ?: "Belum tersedia"
         val publicHash = profile.publicKeyHash?.takeIf { it.isNotBlank() }?.take(16) ?: "Belum tersedia"
+        val centralLink = ProfileSmartLink.central(profile)
+        val appLink = ProfileSmartLink.appDeepLink(profile, encodedPayload)
+        val localLink = ProfileSmartLink.local(profile)
 
         return buildString {
             appendLine("📇 KARTU NAMA GHALBIT")
@@ -19,9 +22,18 @@ object ProfileShareFormatter {
             appendLine("Peran: $role")
             appendLine("ID: ${profile.globalId}")
             appendLine("Fingerprint: $publicHash")
-            appendLine("Jalur: $route")
+            appendLine("Jalur terakhir: $route")
             appendLine()
-            appendLine("Pesan ini adalah kartu nama GHALBIT. Simpan atau kirim kembali ke aplikasi GHALBIT untuk verifikasi identitas.")
+            appendLine("Buka kartu nama:")
+            appendLine(centralLink)
+            appendLine()
+            appendLine("Buka di aplikasi GHALBIT:")
+            appendLine(appLink)
+            appendLine()
+            appendLine("Jika sedang satu jaringan lokal:")
+            appendLine(localLink)
+            appendLine()
+            appendLine("Jika link tidak bisa dibuka, aplikasi GHALBIT tetap dapat membaca payload verifikasi di bawah ini dan menampilkan kartu nama secara lokal.")
             appendLine()
             appendLine(BEGIN_MARKER)
             appendLine(encodedPayload)
