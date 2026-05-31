@@ -8,10 +8,20 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.ghalbitnet.meshx2.ui.GhalbitTheme
+import com.ghalbitnet.meshx2.verified.trust.MentorBadgeRenderer
+import com.ghalbitnet.meshx2.verified.trust.ProfessionalCardMentorPanel
+import com.ghalbitnet.meshx2.verified.trust.ProfessionalCardReferralPanel
+import com.ghalbitnet.meshx2.verified.trust.ProfessionalCardReputationPanel
+import com.ghalbitnet.meshx2.verified.trust.ProfessionalCardTrustPanel
+import com.ghalbitnet.meshx2.verified.trust.ProfessionalCardTrustSummary
+import com.ghalbitnet.meshx2.verified.trust.ReferralBadge
+import com.ghalbitnet.meshx2.verified.trust.ReferralBadgeRenderer
+import com.ghalbitnet.meshx2.verified.trust.TrustRankCalculator
+import com.ghalbitnet.meshx2.verified.trust.UnifiedProfessionalIdentityCard
 
 /**
- * PHASE 270A
- * Real preview Activity for GHALBIT verified cards.
+ * PHASE 280A-280E
+ * Real preview Activity for GHALBIT verified cards with trust panels.
  */
 class ProfessionalCardActivity : AppCompatActivity() {
     companion object {
@@ -54,6 +64,17 @@ class ProfessionalCardActivity : AppCompatActivity() {
         val trustScore = intent.getIntExtra(EXTRA_TRUST_SCORE, 0)
         val verified = intent.getBooleanExtra(EXTRA_VERIFIED, true)
 
+        val trustRank = TrustRankCalculator.rank(trustScore)
+        val mentorLevel = MentorBadgeRenderer.level(studentCount = 0)
+        val referralLabel = ReferralBadgeRenderer.label(ReferralBadge(activeReferrals = 0, rewardedReferrals = 0))
+        val summary = ProfessionalCardTrustSummary(
+            trustScore = trustScore,
+            trustRank = trustRank,
+            mentorLevel = mentorLevel,
+            referralLabel = referralLabel,
+            communityReputation = 0
+        )
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -75,8 +96,14 @@ class ProfessionalCardActivity : AppCompatActivity() {
         root.addView(label(role, 16f))
         root.addView(label(community, 15f))
         root.addView(label(if (verified) "VERIFIED ✓" else "UNVERIFIED", 15f, true))
-        root.addView(label("Trust Score: $trustScore", 14f))
         root.addView(label(globalId, 12f))
+        root.addView(label("", 6f))
+        root.addView(label(ProfessionalCardTrustPanel.render(summary), 14f, true))
+        root.addView(label(ProfessionalCardMentorPanel.render(summary), 14f))
+        root.addView(label(ProfessionalCardReferralPanel.render(summary), 14f))
+        root.addView(label(ProfessionalCardReputationPanel.render(summary), 14f))
+        root.addView(label("", 6f))
+        root.addView(label(UnifiedProfessionalIdentityCard.render(displayName, community, verified, summary), 12f))
 
         setContentView(root)
     }
