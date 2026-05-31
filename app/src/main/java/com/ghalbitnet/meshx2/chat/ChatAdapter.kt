@@ -143,7 +143,7 @@ class ChatAdapter(
                 holder.senderName.text = msg.senderName
             }
             holder.itemView.setOnClickListener(null)
-            if (!msg.filePath.isNullOrBlank() && (msg.contentType == "AUDIO" || msg.contentType == "IMAGE" || msg.contentType == "FILE")) {
+            if (isContactCard(msg) || (!msg.filePath.isNullOrBlank() && (msg.contentType == "AUDIO" || msg.contentType == "IMAGE" || msg.contentType == "FILE"))) {
                 holder.itemView.setOnClickListener { onMessageClick(msg) }
             }
             holder.itemView.setOnLongClickListener {
@@ -157,6 +157,7 @@ class ChatAdapter(
                 "IMAGE" -> formatImageCaption(msg.content)
                 "FILE" -> formatFileCaption(msg.content)
                 "AUDIO" -> if (isPlaying) "${msg.content}\nSedang diputar" else msg.content
+                "CONTACT_CARD" -> ChatContactCardRenderer.render(msg.content) ?: formatTextContent(msg)
                 else -> formatTextContent(msg)
             }
         }
@@ -210,13 +211,14 @@ class ChatAdapter(
     }
 
     private fun bindMessageTag(holder: MessageViewHolder, msg: ChatMessage) {
-        val tagText = when (msg.contentType) {
-            "IMAGE" -> "FOTO"
-            "FILE" -> "FILE"
-            "AUDIO" -> "SUARA"
-            "CALL" -> "PANGGILAN"
-            "CALL_EVENT" -> "EVENT"
-            "SOS" -> "SOS"
+        val tagText = when {
+            isContactCard(msg) -> "KARTU NAMA"
+            msg.contentType == "IMAGE" -> "FOTO"
+            msg.contentType == "FILE" -> "FILE"
+            msg.contentType == "AUDIO" -> "SUARA"
+            msg.contentType == "CALL" -> "PANGGILAN"
+            msg.contentType == "CALL_EVENT" -> "EVENT"
+            msg.contentType == "SOS" -> "SOS"
             else -> ""
         }
         if (tagText.isBlank()) {
@@ -307,8 +309,13 @@ class ChatAdapter(
         val normalizedStatus = msg.status.uppercase(Locale.ROOT)
         return when {
             normalizedStatus.contains("DELETED") -> "Pesan dihapus"
+            ChatContactCardRenderer.isContactCard(msg.content) -> ChatContactCardRenderer.render(msg.content) ?: msg.content
             else -> msg.content
         }
+    }
+
+    private fun isContactCard(msg: ChatMessage): Boolean {
+        return msg.contentType == "CONTACT_CARD" || ChatContactCardRenderer.isContactCard(msg.content)
     }
 
     private fun formatDayHeader(timestamp: Long): String {
