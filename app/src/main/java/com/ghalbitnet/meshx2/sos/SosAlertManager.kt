@@ -7,6 +7,8 @@ import android.os.Looper
 import android.util.Log
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.ghalbitnet.meshx2.MainActivity
+import com.ghalbitnet.meshx2.activityfeed.ActivityFeedManager
+import com.ghalbitnet.meshx2.activityfeed.ActivityFeedType
 import com.ghalbitnet.meshx2.core.network.GlobalMeshIdentityManager
 import com.ghalbitnet.meshx2.core.utils.AppNotificationManager
 import com.ghalbitnet.meshx2.identity.CentralIdentityResolver
@@ -22,7 +24,16 @@ object SosAlertManager {
     val alerts: StateFlow<List<SosAlert>> = _alerts
 
     fun initialize(context: Context) {
-        _alerts.value = SosAlertStore.getAll(context.applicationContext)
+        val appContext = context.applicationContext
+        ActivityFeedManager.bind(appContext)
+        _alerts.value = SosAlertStore.getAll(appContext)
+        ActivityFeedManager.publish(
+            type = ActivityFeedType.RUNTIME_EVENT,
+            title = "SOS monitor aktif",
+            message = "Sistem SOS siap merekam dan menampilkan peringatan darurat.",
+            source = "SosAlertManager",
+            metadata = "{\"alerts\":${_alerts.value.size}}"
+        )
     }
 
     fun all(context: Context): List<SosAlert> {
@@ -38,6 +49,7 @@ object SosAlertManager {
         routeHint: String?
     ): SosAlert? {
         val appContext = context.applicationContext
+        ActivityFeedManager.bind(appContext)
         val keyStore = KeyStoreManager(appContext)
         val localGlobalId = GlobalMeshIdentityManager.buildGlobalId(keyStore.publicKeyBase64)
         val resolved =
@@ -53,6 +65,14 @@ object SosAlertManager {
         val sourceGlobalId = resolved.globalId
         if (packet.source == MainActivity.myGlobalPeerId || (!sourceGlobalId.isNullOrBlank() && sourceGlobalId == localGlobalId)) {
             Log.d("GHALBIT-SOS-RX", "ignored self sos source=${packet.source}")
+            ActivityFeedManager.publish(
+                type = ActivityFeedType.RUNTIME_EVENT,
+                title = "SOS sendiri diabaikan",
+                message = "Paket SOS dari node lokal tidak dimasukkan ke inbox darurat.",
+                peerId = packet.source,
+                source = "SosAlertManager",
+                metadata = "{\"alertId\":\"${packet.packetId}\",\"routeHint\":\"${routeHint ?: ""}\"}"
+            )
             return null
         }
 
@@ -68,6 +88,14 @@ object SosAlertManager {
             )
         SosAlertStore.upsert(appContext, alert)
         _alerts.value = SosAlertStore.getAll(appContext)
+        ActivityFeedManager.publish(
+            type = ActivityFeedType.SOS_RECEIVED,
+            title = "SOS diterima",
+            message = "Peringatan darurat dari ${alert.sourceNodeId}: ${alert.message.take(120)}",
+            peerId = alert.sourceNodeId,
+            source = "SosAlertManager",
+            metadata = "{\"alertId\":\"${alert.alertId}\",\"sourceGlobalId\":\"${alert.sourceGlobalId ?: ""}\",\"routeHint\":\"${alert.routeHint ?: ""}\"}"
+        )
         Log.d("GHALBIT-SOS-RX", "alertId=${alert.alertId} node=${alert.sourceNodeId} globalId=${alert.sourceGlobalId ?: "-"} route=${alert.routeHint ?: "-"}")
 
         LocalBroadcastManager.getInstance(appContext).sendBroadcast(
@@ -88,18 +116,44 @@ object SosAlertManager {
             peerGlobalId = alert.sourceGlobalId,
             peerDisplayName = alert.sourceNodeId
         )
+        ActivityFeedManager.publish(
+            type = ActivityFeedType.SOS_RECEIVED,
+            title = "Notifikasi SOS ditampilkan",
+            message = "Peringatan dari ${alert.sourceNodeId} sudah dikirim ke notifikasi pengguna.",
+            peerId = alert.sourceNodeId,
+            source = "SosAlertManager",
+            metadata = "{\"alertId\":\"${alert.alertId}\",\"notified\":true}"
+        )
         Log.d("GHALBIT-SOS-NOTIFY", "notified alertId=${alert.alertId}")
         return alert
     }
 
     fun markRead(context: Context, alertId: String) {
-        SosAlertStore.markRead(context.applicationContext, alertId)
-        _alerts.value = SosAlertStore.getAll(context.applicationContext)
+        val appContext = context.applicationContext
+        ActivityFeedManager.bind(appContext)
+        SosAlertStore.markRead(appContext, alertId)
+        _alerts.value = SosAlertStore.getAll(appContext)
+        ActivityFeedManager.publish(
+            type = ActivityFeedType.SOS_RECEIVED,
+            title = "SOS dibaca",
+            message = "Peringatan SOS $alertId ditandai sudah dibaca.",
+            source = "SosAlertManager",
+            metadata = "{\"alertId\":\"$alertId\",\"read\":true}"
+        )
     }
 
     fun clearReadItems(context: Context): Int {
-        val removed = SosAlertStore.clearReadItems(context.applicationContext)
-        _alerts.value = SosAlertStore.getAll(context.applicationContext)
+        val appContext = context.applicationContext
+        ActivityFeedManager.bind(appContext)
+        val removed = SosAlertStore.clearReadItems(appContext)
+        _alerts.value = SosAlertStore.getAll(appContext)
+        ActivityFeedManager.publish(
+            type = ActivityFeedType.RUNTIME_EVENT,
+            title = "Inbox SOS dibersihkan",
+            message = "$removed peringatan SOS yang sudah dibaca dibersihkan dari inbox.",
+            source = "SosAlertManager",
+            metadata = "{\"removed\":$removed}"
+        )
         return removed
     }
 
