@@ -22,13 +22,33 @@
             android:textStyle="bold"
             android:textSize="16sp" />
 
-        <ImageView
-            android:id="@+id/imgProfessionalProfilePhoto"
+        <FrameLayout
             android:layout_width="86dp"
             android:layout_height="86dp"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="12dp"
-            android:contentDescription="Profile photo" />
+            android:layout_marginTop="12dp">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@android:color/white" />
+
+            <ImageView
+                android:id="@+id/imgProfessionalProfilePhoto"
+                android:layout_width="86dp"
+                android:layout_height="86dp"
+                android:contentDescription="Profile photo" />
+
+            <TextView
+                android:id="@+id/txtProfessionalInitial"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="G"
+                android:textColor="#0D1E35"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/txtProfessionalName"
@@ -55,6 +75,14 @@
             android:layout_marginTop="10dp"
             android:gravity="center"
             android:text="COMMUNITY" />
+
+        <TextView
+            android:id="@+id/txtProfessionalNicknameOrGlobal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="Global ID"
+            android:textSize="12sp" />
 
         <TextView
             android:id="@+id/txtProfessionalVerifiedBadge"
@@ -88,5 +116,13 @@
             android:layout_marginTop="4dp"
             android:gravity="center"
             android:text="Mentor: 0" />
+
+        <TextView
+            android:id="@+id/txtProfessionalReputationBadge"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:gravity="center"
+            android:text="Community Reputation: 0" />
     </LinearLayout>
 </androidx.cardview.widget.CardView>

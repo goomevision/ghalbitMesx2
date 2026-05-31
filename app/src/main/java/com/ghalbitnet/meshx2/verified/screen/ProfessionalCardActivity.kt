@@ -2,18 +2,21 @@ package com.ghalbitnet.meshx2.verified.screen
 
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.view.View
+import android.widget.ImageView
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.ghalbitnet.meshx2.R
 import com.ghalbitnet.meshx2.ui.GhalbitTheme
-import com.ghalbitnet.meshx2.verified.trust.MentorBadgeRenderer
-import com.ghalbitnet.meshx2.verified.trust.ProfessionalCardTrustSummary
-import com.ghalbitnet.meshx2.verified.trust.ReferralBadge
-import com.ghalbitnet.meshx2.verified.trust.ReferralBadgeRenderer
-import com.ghalbitnet.meshx2.verified.trust.TrustRankCalculator
+import com.ghalbitnet.meshx2.verified.trust.CommunityReputationEngine
+import com.ghalbitnet.meshx2.verified.trust.IdentityLevel
+import com.ghalbitnet.meshx2.verified.trust.ProfessionalCardSummaryFactory
+import com.ghalbitnet.meshx2.verified.trust.RealTrustScoreCalculator
 import com.ghalbitnet.meshx2.verified.trust.UnifiedProfessionalIdentityCard
+import com.ghalbitnet.meshx2.verified.trust.VerifiedIdentityRecord
 
 /**
  * PHASE 282B-282E
@@ -27,6 +30,8 @@ class ProfessionalCardActivity : AppCompatActivity() {
         private const val EXTRA_COMMUNITY = "verified.community"
         private const val EXTRA_TRUST_SCORE = "verified.trustScore"
         private const val EXTRA_VERIFIED = "verified.verified"
+        private const val EXTRA_PROFILE_PHOTO_URI = "verified.profilePhotoUri"
+        private const val EXTRA_NICKNAME = "verified.nickname"
 
         fun createIntent(
             context: Context,
@@ -35,7 +40,9 @@ class ProfessionalCardActivity : AppCompatActivity() {
             role: String,
             community: String,
             trustScore: Int = 0,
-            verified: Boolean = true
+            verified: Boolean = true,
+            profilePhotoUri: String? = null,
+            nickname: String? = null
         ): Intent {
             return Intent(context, ProfessionalCardActivity::class.java).apply {
                 putExtra(EXTRA_GLOBAL_ID, globalId)
@@ -44,6 +51,8 @@ class ProfessionalCardActivity : AppCompatActivity() {
                 putExtra(EXTRA_COMMUNITY, community)
                 putExtra(EXTRA_TRUST_SCORE, trustScore)
                 putExtra(EXTRA_VERIFIED, verified)
+                putExtra(EXTRA_PROFILE_PHOTO_URI, profilePhotoUri)
+                putExtra(EXTRA_NICKNAME, nickname)
             }
         }
     }
@@ -58,27 +67,44 @@ class ProfessionalCardActivity : AppCompatActivity() {
         val role = intent.getStringExtra(EXTRA_ROLE).orEmpty().ifBlank { "Community Member" }
         val community = intent.getStringExtra(EXTRA_COMMUNITY).orEmpty().ifBlank { "GHALBITNET" }
         val globalId = intent.getStringExtra(EXTRA_GLOBAL_ID).orEmpty().ifBlank { "GX-UNKNOWN" }
-        val trustScore = intent.getIntExtra(EXTRA_TRUST_SCORE, 0)
+        val trustSeed = intent.getIntExtra(EXTRA_TRUST_SCORE, 0)
         val verified = intent.getBooleanExtra(EXTRA_VERIFIED, true)
+        val nickname = intent.getStringExtra(EXTRA_NICKNAME).orEmpty()
+        val profilePhotoUri = intent.getStringExtra(EXTRA_PROFILE_PHOTO_URI)
 
-        val summary = ProfessionalCardTrustSummary(
-            trustScore = trustScore,
-            trustRank = TrustRankCalculator.rank(trustScore),
-            mentorLevel = MentorBadgeRenderer.level(studentCount = 0),
-            referralLabel = ReferralBadgeRenderer.label(ReferralBadge(activeReferrals = 0, rewardedReferrals = 0)),
-            communityReputation = 0
+        val identity = VerifiedIdentityRecord(
+            globalId = globalId,
+            publicKeyHash = if (verified) "verified" else "",
+            displayName = displayName,
+            community = community,
+            role = role,
+            createdAt = System.currentTimeMillis(),
+            identityLevel = if (verified) IdentityLevel.COMMUNITY_VERIFIED else IdentityLevel.UNVERIFIED
         )
+        val trustScore = RealTrustScoreCalculator.calculate(identity).coerceAtLeast(trustSeed)
+        val summary = ProfessionalCardSummaryFactory.create(
+            trustScore = trustScore,
+            mentorCount = 0,
+            referralActive = 0,
+            referralRewarded = 0,
+            reputation = CommunityReputationEngine.calculate(0, 0, 0, trustScore / 5)
+        )
+        val rankLabel = if (summary.trustRank.equals("Pemula", ignoreCase = true)) "Aktif" else summary.trustRank
         val unifiedText = UnifiedProfessionalIdentityCard.render(displayName, community, verified, summary)
 
         findViewById<TextView>(R.id.txtProfessionalCardTitle).text = "GHALBIT VERIFIED CARD"
         findViewById<TextView>(R.id.txtProfessionalName).text = displayName
         findViewById<TextView>(R.id.txtProfessionalRole).text = role
         findViewById<TextView>(R.id.txtProfessionalCommunity).text = community
+        findViewById<TextView>(R.id.txtProfessionalNicknameOrGlobal).text =
+            nickname.ifBlank { globalId }
         findViewById<TextView>(R.id.txtProfessionalVerifiedBadge).text = if (verified) "VERIFIED ✓" else "UNVERIFIED"
-        findViewById<TextView>(R.id.txtProfessionalTrustBadge).text = "Trust Score: ${summary.trustScore} • ${summary.trustRank}"
+        findViewById<TextView>(R.id.txtProfessionalTrustBadge).text = "Trust Score: ${summary.trustScore} • Rank: $rankLabel"
         findViewById<TextView>(R.id.txtProfessionalReferralBadge).text = "Referral: ${summary.referralLabel}"
         findViewById<TextView>(R.id.txtProfessionalMentorBadge).text = "Mentor: ${summary.mentorLevel}"
+        findViewById<TextView>(R.id.txtProfessionalReputationBadge).text = "Community Reputation: ${summary.communityReputation}"
         findViewById<TextView>(R.id.txtProfessionalUnifiedSummary).text = "$unifiedText\n\nGlobal ID: $globalId"
+        bindProfilePhoto(profilePhotoUri, displayName)
 
         findViewById<Button>(R.id.btnShareProfessionalCard).setOnClickListener {
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -88,5 +114,19 @@ class ProfessionalCardActivity : AppCompatActivity() {
             }
             startActivity(Intent.createChooser(shareIntent, "Bagikan Kartu"))
         }
+    }
+
+    private fun bindProfilePhoto(photoUri: String?, displayName: String) {
+        val img = findViewById<ImageView>(R.id.imgProfessionalProfilePhoto)
+        val initial = findViewById<TextView>(R.id.txtProfessionalInitial)
+        val first = displayName.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "G"
+        initial.text = first
+        if (photoUri.isNullOrBlank()) {
+            img.setImageDrawable(null)
+            initial.visibility = View.VISIBLE
+            return
+        }
+        runCatching { img.setImageURI(Uri.parse(photoUri)) }.onFailure { img.setImageDrawable(null) }
+        initial.visibility = if (img.drawable != null) View.GONE else View.VISIBLE
     }
 }

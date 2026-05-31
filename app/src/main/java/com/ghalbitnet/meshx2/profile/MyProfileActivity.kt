@@ -150,7 +150,9 @@ class MyProfileActivity : AppCompatActivity() {
                 role = profile.roleTitle.ifBlank { "Community Member" },
                 community = profile.communityName.ifBlank { "GHALBITNET" },
                 trustScore = 0,
-                verified = profile.publicKeyHash.isNotBlank()
+                verified = profile.publicKeyHash.isNotBlank(),
+                profilePhotoUri = profile.avatarUri,
+                nickname = profile.nickname
             )
         )
     }

@@ -18,7 +18,7 @@ object VerifiedCardPngShareManager {
             community = profile.communityName.ifBlank { "GHALBITNET" },
             trustScore = 0,
             verified = verified,
-            profilePhotoUri = null
+            profilePhotoUri = profile.avatarUri
         )
     }
 

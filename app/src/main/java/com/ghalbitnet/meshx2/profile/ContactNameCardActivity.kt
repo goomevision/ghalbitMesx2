@@ -20,6 +20,7 @@ import com.ghalbitnet.meshx2.routing.CallRouteDiscoveryManager
 import com.ghalbitnet.meshx2.ui.GhalbitTheme
 import com.ghalbitnet.meshx2.ui.CallSearchingToneManager
 import com.ghalbitnet.meshx2.ui.RouteSearchingAnimator
+import com.ghalbitnet.meshx2.verified.screen.ProfessionalCardActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,6 +74,7 @@ class ContactNameCardActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnCardSave).setOnClickListener { showSaveAliasDialog() }
         findViewById<Button>(R.id.btnCardVerify).setOnClickListener { verifyProfile() }
         findViewById<Button>(R.id.btnCardShare).setOnClickListener { shareQrPayload() }
+        findViewById<Button>(R.id.btnCardProfessional).setOnClickListener { openProfessionalCard() }
 
         render()
     }
@@ -268,5 +270,22 @@ class ContactNameCardActivity : AppCompatActivity() {
             !profile.routeHint.isNullOrBlank() -> "MESH"
             else -> "OFFLINE"
         }
+    }
+
+    private fun openProfessionalCard() {
+        val profile = currentProfile ?: return
+        startActivity(
+            ProfessionalCardActivity.createIntent(
+                context = this,
+                globalId = profile.globalId,
+                displayName = profile.primaryName,
+                role = profile.roleTitle.ifBlank { "Community Member" },
+                community = profile.communityName.ifBlank { "GHALBITNET" },
+                trustScore = 0,
+                verified = profile.publicKeyHash.isNotBlank(),
+                profilePhotoUri = profile.avatarUri,
+                nickname = profile.nickname
+            )
+        )
     }
 }
