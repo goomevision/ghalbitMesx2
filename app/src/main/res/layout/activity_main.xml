@@ -355,6 +355,77 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
+                android:text="Aktivitas Terbaru"
+                android:textColor="#F5FBFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:id="@+id/homeActivityFeed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="9dp"
+                android:background="@drawable/bg_ghalbit_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Sistem siap"
+                    android:textColor="#8EE3BE"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Mesh, wallet, dan relay akan tampil sebagai aktivitas terbaru di sini."
+                    android:textColor="#A9C7D9"
+                    android:textSize="11sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_ghalbit_log"
+                        android:padding="9dp"
+                        android:text="• Wallet sinkron dan saldo tersedia"
+                        android:textColor="#F5FBFF"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:background="@drawable/bg_ghalbit_log"
+                        android:padding="9dp"
+                        android:text="• Menunggu node mesh atau kontak aktif"
+                        android:textColor="#F5FBFF"
+                        android:textSize="11sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:background="@drawable/bg_ghalbit_log"
+                        android:padding="9dp"
+                        android:text="• SOS dan panggilan akan muncul sebagai notifikasi penting"
+                        android:textColor="#F5FBFF"
+                        android:textSize="11sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
                 android:text="Kondisi Sekarang"
                 android:textColor="#F5FBFF"
                 android:textSize="15sp"
