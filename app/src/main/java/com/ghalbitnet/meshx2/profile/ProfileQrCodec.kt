@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.util.Log
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
 
@@ -20,12 +21,23 @@ object ProfileQrCodec {
             payload.displayName,
             payload.nickname,
             payload.roleTitle,
+            payload.bio,
+            payload.community,
+            payload.region,
+            payload.tier,
+            payload.trustScore.toString(),
+            payload.trustRank,
+            payload.mentorStatus,
+            payload.referralLabel,
+            payload.communityReputation.toString(),
             payload.profileVersion.toString(),
-            payload.relayHint.orEmpty()
+            payload.relayHint.orEmpty(),
+            payload.timestamp.toString()
         ).joinToString("|")
     }
 
     fun encode(payload: ProfileQrPayload): String {
+        Log.d("GHALBIT-CARD-QR", "QR payload created")
         return JSONObject()
             .put("globalId", payload.globalId)
             .put("publicKey", payload.publicKey)
@@ -33,8 +45,19 @@ object ProfileQrCodec {
             .put("displayName", payload.displayName)
             .put("nickname", payload.nickname)
             .put("roleTitle", payload.roleTitle)
+            .put("bio", payload.bio)
+            .put("community", payload.community)
+            .put("region", payload.region)
+            .put("tier", payload.tier)
+            .put("trustScore", payload.trustScore)
+            .put("trustRank", payload.trustRank)
+            .put("badges", JSONArray(payload.badges))
+            .put("mentorStatus", payload.mentorStatus)
+            .put("referralLabel", payload.referralLabel)
+            .put("communityReputation", payload.communityReputation)
             .put("profileVersion", payload.profileVersion)
             .put("relayHint", payload.relayHint ?: "")
+            .put("timestamp", payload.timestamp)
             .put("signature", payload.signature)
             .toString()
     }
@@ -42,19 +65,39 @@ object ProfileQrCodec {
     fun decode(raw: String): ProfileQrPayload? {
         return runCatching {
             val json = JSONObject(raw)
+            val badges = mutableListOf<String>()
+            val badgesArray = json.optJSONArray("badges")
+            if (badgesArray != null) {
+                for (i in 0 until badgesArray.length()) {
+                    badges += badgesArray.optString(i)
+                }
+            }
             ProfileQrPayload(
                 globalId = json.getString("globalId"),
                 publicKey = json.getString("publicKey"),
-                publicKeyHash = json.getString("publicKeyHash"),
-                displayName = json.optString("displayName"),
+                publicKeyHash = json.optString("publicKeyHash"),
+                displayName = json.optString("displayName", "Pengguna GHALBITNET"),
                 nickname = json.optString("nickname"),
-                roleTitle = json.optString("roleTitle"),
+                roleTitle = json.optString("roleTitle", "Anggota Komunitas"),
+                bio = json.optString("bio"),
+                community = json.optString("community", "GhalbitNet Community"),
+                region = json.optString("region", "Wilayah belum diisi"),
+                tier = json.optString("tier", "BASIC"),
+                trustScore = json.optInt("trustScore", 0),
+                trustRank = json.optString("trustRank", "Baru"),
+                badges = badges,
+                mentorStatus = json.optString("mentorStatus", "Belum Menjadi Mentor"),
+                referralLabel = json.optString("referralLabel", "0/0"),
+                communityReputation = json.optInt("communityReputation", 0),
                 profileVersion = json.optInt("profileVersion", 1),
                 relayHint = json.optString("relayHint").ifBlank { null },
-                signature = json.getString("signature")
+                timestamp = json.optLong("timestamp", 0L),
+                signature = json.optString("signature")
             )
         }.onSuccess {
-            Log.d("GHALBIT-CARD-QR", "verified")
+            Log.d("GHALBIT-CARD-QR", "QR decode success")
+        }.onFailure {
+            Log.w("GHALBIT-CARD-QR", "QR decode failed safely")
         }.getOrNull()
     }
 
@@ -72,8 +115,7 @@ object ProfileQrCodec {
             }
         }
         renderCache[cacheKey] = CacheEntry(bitmap, System.currentTimeMillis())
-        Log.d("GHALBIT-CARD", "qr rendered")
-        Log.d("GHALBIT-CARD-QR", "generated")
+        Log.d("GHALBIT-CARD-QR", "QR bitmap rendered")
         return bitmap
     }
 }

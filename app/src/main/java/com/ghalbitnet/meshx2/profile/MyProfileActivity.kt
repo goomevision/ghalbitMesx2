@@ -159,7 +159,7 @@ class MyProfileActivity : AppCompatActivity() {
                 role = profile.roleTitle.ifBlank { "Community Member" },
                 community = profile.communityName.ifBlank { "GHALBITNET" },
                 trustScore = 0,
-                verified = profile.publicKeyHash.isNotBlank(),
+                verified = ProfessionalCardDataMapper.verifyProfile(profile) == ProfileVerificationStatus.VALID_SIGNATURE,
                 profilePhotoUri = profile.avatarUri,
                 nickname = profile.nickname
             )
@@ -168,7 +168,7 @@ class MyProfileActivity : AppCompatActivity() {
 
     private fun shareCurrentQr() {
         val profile = currentProfile ?: return
-        val model = VerifiedCardPngShareManager.modelFromProfile(profile, verified = profile.publicKeyHash.isNotBlank())
+        val model = VerifiedCardPngShareManager.modelFromProfile(profile)
         val shareIntent = VerifiedCardPngShareManager.createSharePngIntent(this, model)
         startActivity(Intent.createChooser(shareIntent, "Bagikan Kartu GHALBIT"))
     }
@@ -209,3 +209,4 @@ class MyProfileActivity : AppCompatActivity() {
         }
     }
 }
+

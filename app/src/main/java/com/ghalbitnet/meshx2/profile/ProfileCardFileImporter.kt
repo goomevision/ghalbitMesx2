@@ -2,6 +2,7 @@ package com.ghalbitnet.meshx2.profile
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import org.json.JSONObject
 
 object ProfileCardFileImporter {
@@ -18,9 +19,10 @@ object ProfileCardFileImporter {
 
     private fun extractQrPayload(raw: String): String? {
         val trimmed = raw.trim()
-        if (ProfileQrCodec.decode(trimmed) != null) return trimmed
+        if (ProfileQrCodec.decode(trimmed) != null) {
+            return trimmed
+        }
 
-        // Cari objek JSON profile QR di dalam teks campuran (chat/export/log).
         val globalIdx = trimmed.indexOf("\"globalId\"")
         if (globalIdx >= 0) {
             val start = trimmed.lastIndexOf('{', globalIdx)
@@ -33,9 +35,8 @@ object ProfileCardFileImporter {
                             depth--
                             if (depth == 0) {
                                 val candidate = trimmed.substring(start, i + 1)
-                                if (runCatching { JSONObject(candidate) }.isSuccess &&
-                                    ProfileQrCodec.decode(candidate) != null
-                                ) {
+                                if (runCatching { JSONObject(candidate) }.isSuccess && ProfileQrCodec.decode(candidate) != null) {
+                                    Log.d("GHALBIT-CARD-QR", "QR payload fallback used")
                                     return candidate
                                 }
                                 break

@@ -17,10 +17,11 @@ import com.ghalbitnet.meshx2.call.CallSessionActivity
 import com.ghalbitnet.meshx2.chat.ChatActivity
 import com.ghalbitnet.meshx2.core.utils.UiFeedbackManager
 import com.ghalbitnet.meshx2.routing.CallRouteDiscoveryManager
-import com.ghalbitnet.meshx2.ui.GhalbitTheme
 import com.ghalbitnet.meshx2.ui.CallSearchingToneManager
+import com.ghalbitnet.meshx2.ui.GhalbitTheme
 import com.ghalbitnet.meshx2.ui.RouteSearchingAnimator
 import com.ghalbitnet.meshx2.verified.screen.ProfessionalCardActivity
+import com.ghalbitnet.meshx2.verified.share.VerifiedCardPngShareManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -73,7 +74,7 @@ class ContactNameCardActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnCardCall).setOnClickListener { openCall() }
         findViewById<Button>(R.id.btnCardSave).setOnClickListener { showSaveAliasDialog() }
         findViewById<Button>(R.id.btnCardVerify).setOnClickListener { verifyProfile() }
-        findViewById<Button>(R.id.btnCardShare).setOnClickListener { shareQrPayload() }
+        findViewById<Button>(R.id.btnCardShare).setOnClickListener { shareCardPng() }
         findViewById<Button>(R.id.btnCardProfessional).setOnClickListener { openProfessionalCard() }
 
         render()
@@ -88,6 +89,9 @@ class ContactNameCardActivity : AppCompatActivity() {
                     if (payload != null) {
                         ProfileSyncManager.applyScannedQr(this@ContactNameCardActivity, payload)
                     } else {
+                        withContext(Dispatchers.Main) {
+                            UiFeedbackManager.showToast(this@ContactNameCardActivity, "Kartu tidak dapat diverifikasi atau data QR rusak.")
+                        }
                         null
                     }
                 } else {
@@ -110,10 +114,8 @@ class ContactNameCardActivity : AppCompatActivity() {
                 }
             if (profile == null) return@launch
             currentProfile = profile
-            val qr = ProfileQrCodec.renderBitmap(
-                ProfileQrCodec.encode(ProfileSyncManager.buildSignedQrPayload(this@ContactNameCardActivity, profile, profile.routeHint)),
-                220
-            )
+            val qrPayload = ProfileSyncManager.buildSignedQrPayload(this@ContactNameCardActivity, profile, profile.routeHint)
+            val qr = ProfileQrCodec.renderBitmap(ProfileQrCodec.encode(qrPayload), 220)
             withContext(Dispatchers.Main) {
                 ContactCardRenderer.bind(
                     root = findViewById(R.id.viewContactCard),
@@ -244,24 +246,15 @@ class ContactNameCardActivity : AppCompatActivity() {
                     .setMessage(if (verified) "Profil terverifikasi relay." else "Profil belum bisa diverifikasi.")
                     .setPositiveButton("OK", null)
                     .show()
-                if (verified) {
-                    render()
-                }
+                if (verified) render()
             }
         }
     }
 
-    private fun shareQrPayload() {
+    private fun shareCardPng() {
         val profile = currentProfile ?: return
-        startActivity(
-            Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(
-                    Intent.EXTRA_TEXT,
-                    ProfileQrCodec.encode(ProfileSyncManager.buildSignedQrPayload(this@ContactNameCardActivity, profile, profile.routeHint))
-                )
-            }
-        )
+        val model = VerifiedCardPngShareManager.modelFromProfile(profile)
+        startActivity(Intent.createChooser(VerifiedCardPngShareManager.createSharePngIntent(this, model), "Bagikan Kartu PNG"))
     }
 
     private fun routeBadge(profile: CommunityProfile): String {
@@ -282,7 +275,7 @@ class ContactNameCardActivity : AppCompatActivity() {
                 role = profile.roleTitle.ifBlank { "Community Member" },
                 community = profile.communityName.ifBlank { "GHALBITNET" },
                 trustScore = 0,
-                verified = profile.publicKeyHash.isNotBlank(),
+                verified = ProfessionalCardDataMapper.verifyProfile(profile) == ProfileVerificationStatus.VALID_SIGNATURE,
                 profilePhotoUri = profile.avatarUri,
                 nickname = profile.nickname
             )

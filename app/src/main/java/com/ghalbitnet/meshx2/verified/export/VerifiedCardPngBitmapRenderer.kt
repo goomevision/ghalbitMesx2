@@ -14,6 +14,7 @@ import android.graphics.Typeface
 import android.net.Uri
 import com.ghalbitnet.meshx2.profile.ProfileQrCodec
 import com.ghalbitnet.meshx2.verified.ui.ProfessionalCardUiModel
+import kotlin.math.min
 
 object VerifiedCardPngBitmapRenderer {
     fun render(context: Context, model: ProfessionalCardUiModel, width: Int = 1680, height: Int = 2200): Bitmap {
@@ -23,15 +24,8 @@ object VerifiedCardPngBitmapRenderer {
 
         val outer = RectF(40f, 40f, width - 40f, height - 40f)
         val outerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(
-                outer.left,
-                outer.top,
-                outer.right,
-                outer.bottom,
-                intArrayOf(Color.parseColor("#081A3D"), Color.parseColor("#0A1D44"), Color.parseColor("#071636")),
-                null,
-                Shader.TileMode.CLAMP
-            )
+            shader = LinearGradient(outer.left, outer.top, outer.right, outer.bottom,
+                intArrayOf(Color.parseColor("#081A3D"), Color.parseColor("#0A1D44"), Color.parseColor("#071636")), null, Shader.TileMode.CLAMP)
         }
         canvas.drawRoundRect(outer, 34f, 34f, outerPaint)
 
@@ -45,28 +39,14 @@ object VerifiedCardPngBitmapRenderer {
 
         val topRect = RectF(58f, 58f, width - 58f, 1380f)
         val topPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(
-                topRect.left,
-                topRect.top,
-                topRect.right,
-                topRect.bottom,
-                intArrayOf(Color.parseColor("#123A77"), Color.parseColor("#0D2D5C"), Color.parseColor("#0A2248")),
-                null,
-                Shader.TileMode.CLAMP
-            )
+            shader = LinearGradient(topRect.left, topRect.top, topRect.right, topRect.bottom,
+                intArrayOf(Color.parseColor("#123A77"), Color.parseColor("#0D2D5C"), Color.parseColor("#0A2248")), null, Shader.TileMode.CLAMP)
         }
         canvas.drawRoundRect(topRect, 28f, 28f, topPaint)
 
         val stripPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(
-                topRect.left,
-                topRect.top,
-                topRect.right,
-                topRect.top + 130f,
-                intArrayOf(Color.parseColor("#2A72C9"), Color.parseColor("#1D58AE")),
-                null,
-                Shader.TileMode.CLAMP
-            )
+            shader = LinearGradient(topRect.left, topRect.top, topRect.right, topRect.top + 130f,
+                intArrayOf(Color.parseColor("#2A72C9"), Color.parseColor("#1D58AE")), null, Shader.TileMode.CLAMP)
         }
         canvas.drawRoundRect(RectF(topRect.left, topRect.top, topRect.right, topRect.top + 112f), 24f, 24f, stripPaint)
 
@@ -103,15 +83,8 @@ object VerifiedCardPngBitmapRenderer {
             canvas.drawBitmap(photo, null, dst, null)
         } else {
             val fallback = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                shader = LinearGradient(
-                    avatarCx - avatarRadius,
-                    avatarCy - avatarRadius,
-                    avatarCx + avatarRadius,
-                    avatarCy + avatarRadius,
-                    intArrayOf(Color.parseColor("#2A5FA5"), Color.parseColor("#1C345D")),
-                    null,
-                    Shader.TileMode.CLAMP
-                )
+                shader = LinearGradient(avatarCx - avatarRadius, avatarCy - avatarRadius, avatarCx + avatarRadius, avatarCy + avatarRadius,
+                    intArrayOf(Color.parseColor("#2A5FA5"), Color.parseColor("#1C345D")), null, Shader.TileMode.CLAMP)
             }
             canvas.drawCircle(avatarCx, avatarCy, avatarRadius, fallback)
             val initial = model.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "G"
@@ -132,41 +105,28 @@ object VerifiedCardPngBitmapRenderer {
             textAlign = Paint.Align.CENTER
             typeface = Typeface.DEFAULT_BOLD
         }
-        val namePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 86f; typeface = Typeface.DEFAULT_BOLD }
-        val rolePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F4C45E"); textSize = 58f; typeface = Typeface.DEFAULT_BOLD }
-        val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#EAF3FF"); textSize = 56f }
-        val metaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#C3D5EF"); textSize = 44f }
+        val namePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 82f; typeface = Typeface.DEFAULT_BOLD }
+        val rolePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#F4C45E"); textSize = 56f; typeface = Typeface.DEFAULT_BOLD }
+        val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#EAF3FF"); textSize = 52f }
+        val metaPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#C3D5EF"); textSize = 42f }
 
         val leftX = 520f
         val badgeRect = RectF(leftX, 300f, leftX + 320f, 388f)
         canvas.drawRoundRect(badgeRect, 30f, 30f, badgePaint)
-        canvas.drawText(if (model.verified) "✓ VERIFIED" else "UNVERIFIED", badgeRect.centerX(), 359f, badgeTextPaint)
+        canvas.drawText(verificationBadge(model), badgeRect.centerX(), 359f, badgeTextPaint)
 
         canvas.drawText(model.displayName, leftX, 530f, namePaint)
         canvas.drawText(model.role, leftX, 620f, rolePaint)
-        canvas.drawText(model.community, leftX, 700f, bodyPaint)
-        canvas.drawText("GHALBITNET ID: ${model.globalId}", leftX, 780f, metaPaint)
-        canvas.drawText("Aceh, Indonesia", leftX, 844f, metaPaint)
-        canvas.drawText("\u201cMembangun jaringan komunitas", leftX, 922f, metaPaint)
-        canvas.drawText("dan komunikasi terdesentralisasi.\u201d", leftX, 976f, metaPaint)
+        drawSingleLineTrimmed(canvas, model.community, leftX, 700f, 520f, bodyPaint)
+        drawSingleLineTrimmed(canvas, "GHALBITNET ID: ${model.globalId}", leftX, 780f, 520f, metaPaint)
+        drawSingleLineTrimmed(canvas, model.region, leftX, 844f, 520f, metaPaint)
+        drawWrappedText(canvas, "\u201cMembangun jaringan komunitas dan komunikasi terdesentralisasi.\u201d", leftX, 922f, 520f, metaPaint, 2)
 
-        val mentorTier = when {
-            model.trustScore >= 90 -> "TIER 4"
-            model.trustScore >= 75 -> "TIER 3"
-            model.trustScore >= 55 -> "TIER 2"
-            else -> "TIER 1"
-        }
+        val mentorTier = model.tier.name
         val mentorRect = RectF(width - 420f, 208f, width - 120f, 438f)
         val mentorPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(
-                mentorRect.left,
-                mentorRect.top,
-                mentorRect.right,
-                mentorRect.bottom,
-                intArrayOf(Color.parseColor("#2C2213"), Color.parseColor("#15110B")),
-                null,
-                Shader.TileMode.CLAMP
-            )
+            shader = LinearGradient(mentorRect.left, mentorRect.top, mentorRect.right, mentorRect.bottom,
+                intArrayOf(Color.parseColor("#2C2213"), Color.parseColor("#15110B")), null, Shader.TileMode.CLAMP)
         }
         canvas.drawRoundRect(mentorRect, 24f, 24f, mentorPaint)
         canvas.drawRoundRect(mentorRect, 24f, 24f, borderPaint)
@@ -175,15 +135,8 @@ object VerifiedCardPngBitmapRenderer {
 
         val scoreRect = RectF(width - 585f, 520f, width - 120f, 820f)
         val scoreBg = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(
-                scoreRect.left,
-                scoreRect.top,
-                scoreRect.right,
-                scoreRect.bottom,
-                intArrayOf(Color.parseColor("#091A35"), Color.parseColor("#0E2446")),
-                null,
-                Shader.TileMode.CLAMP
-            )
+            shader = LinearGradient(scoreRect.left, scoreRect.top, scoreRect.right, scoreRect.bottom,
+                intArrayOf(Color.parseColor("#091A35"), Color.parseColor("#0E2446")), null, Shader.TileMode.CLAMP)
         }
         canvas.drawRoundRect(scoreRect, 24f, 24f, scoreBg)
         canvas.drawRoundRect(scoreRect, 24f, 24f, borderPaint)
@@ -215,37 +168,37 @@ object VerifiedCardPngBitmapRenderer {
         drawChip(canvas, RectF(430f, chipY - 52f, 730f, chipY + 16f), Color.parseColor("#2F7B47"), "TRUSTED", chipTextPaint)
         drawChip(canvas, RectF(770f, chipY - 52f, 1070f, chipY + 16f), Color.parseColor("#5A3A8E"), "MENTOR", chipTextPaint)
 
-        val bottomRect = RectF(58f, 1410f, width - 58f, height - 90f)
+        val bottomRect = RectF(58f, 1410f, width - 58f, height - 130f)
         val bottomPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            shader = LinearGradient(
-                bottomRect.left,
-                bottomRect.top,
-                bottomRect.right,
-                bottomRect.bottom,
-                intArrayOf(Color.parseColor("#071530"), Color.parseColor("#041126")),
-                null,
-                Shader.TileMode.CLAMP
-            )
+            shader = LinearGradient(bottomRect.left, bottomRect.top, bottomRect.right, bottomRect.bottom,
+                intArrayOf(Color.parseColor("#071530"), Color.parseColor("#041126")), null, Shader.TileMode.CLAMP)
         }
         canvas.drawRoundRect(bottomRect, 28f, 28f, bottomPaint)
         canvas.drawRoundRect(bottomRect, 28f, 28f, borderPaint)
 
         val sectionTitle = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#E2B657"); textSize = 44f; typeface = Typeface.DEFAULT_BOLD }
         val sectionBody = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#E8EEF9"); textSize = 38f }
-        canvas.drawText("TENTANG SAYA", 120f, 1510f, sectionTitle)
-        canvas.drawText("Saya membangun ekosistem komunikasi mesh", 120f, 1570f, sectionBody)
-        canvas.drawText("dan jaringan komunitas yang aman.", 120f, 1624f, sectionBody)
-        canvas.drawText("STATISTIK", 700f, 1510f, sectionTitle)
-        canvas.drawText("Koneksi: 128", 700f, 1570f, sectionBody)
-        canvas.drawText("Komunitas: 15", 700f, 1624f, sectionBody)
-        canvas.drawText("Trust: ${model.trustScore}/100", 700f, 1678f, sectionBody)
-        canvas.drawText("KONTAK PUBLIK", 1160f, 1510f, sectionTitle)
-        canvas.drawText("WA/CHAT: Tersedia", 1160f, 1570f, sectionBody)
-        canvas.drawText("Lokasi: Aceh, Indonesia", 1160f, 1624f, sectionBody)
+
+        val col1X = 120f
+        val col2X = 680f
+        val col3X = 1080f
+        val startY = 1510f
+
+        canvas.drawText("TENTANG SAYA", col1X, startY, sectionTitle)
+        drawWrappedText(canvas, "Saya membangun ekosistem komunikasi mesh dan jaringan komunitas yang aman.", col1X, startY + 60f, 500f, sectionBody, 3)
+
+        canvas.drawText("STATISTIK", col2X, startY, sectionTitle)
+        canvas.drawText("Koneksi: 128", col2X, startY + 62f, sectionBody)
+        canvas.drawText("Komunitas: 15", col2X, startY + 114f, sectionBody)
+        canvas.drawText("Trust: ${model.trustScore}/100", col2X, startY + 166f, sectionBody)
+
+        canvas.drawText("KONTAK PUBLIK", col3X, startY, sectionTitle)
+        canvas.drawText("WA/CHAT: Tersedia", col3X, startY + 62f, sectionBody)
+        drawSingleLineTrimmed(canvas, "Lokasi: ${model.region}", col3X, startY + 114f, 440f, sectionBody)
 
         val footer = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#D4A94E")
-            textSize = 34f
+            textSize = 30f
             textAlign = Paint.Align.CENTER
             typeface = Typeface.DEFAULT_BOLD
         }
@@ -255,7 +208,7 @@ object VerifiedCardPngBitmapRenderer {
             textAlign = Paint.Align.CENTER
         }
         canvas.drawText(model.globalId, width / 2f, 1370f, smallPaint)
-        canvas.drawText("KARTU INI AMAN DIBAGIKAN • DATA TERLINDUNGI • PRIVASI TERJAGA", width / 2f, height - 26f, footer)
+        canvas.drawText("KARTU INI AMAN DIBAGIKAN • DATA TERLINDUNGI • PRIVASI TERJAGA", width / 2f, height - 64f, footer)
 
         return bitmap
     }
@@ -264,6 +217,49 @@ object VerifiedCardPngBitmapRenderer {
         val chip = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
         canvas.drawRoundRect(rect, 24f, 24f, chip)
         canvas.drawText(text, rect.centerX(), rect.centerY() + 12f, textPaint)
+    }
+
+    private fun drawSingleLineTrimmed(canvas: Canvas, text: String, x: Float, y: Float, maxWidth: Float, paint: Paint) {
+        var out = text
+        if (paint.measureText(out) <= maxWidth) {
+            canvas.drawText(out, x, y, paint)
+            return
+        }
+        while (out.length > 4 && paint.measureText("$out...") > maxWidth) {
+            out = out.dropLast(1)
+        }
+        canvas.drawText("$out...", x, y, paint)
+    }
+
+    private fun drawWrappedText(canvas: Canvas, text: String, x: Float, y: Float, maxWidth: Float, paint: Paint, maxLines: Int) {
+        val words = text.split(" ")
+        val lines = mutableListOf<String>()
+        var current = ""
+        for (word in words) {
+            val candidate = if (current.isEmpty()) word else "$current $word"
+            if (paint.measureText(candidate) <= maxWidth) {
+                current = candidate
+            } else {
+                if (current.isNotEmpty()) lines += current
+                current = word
+            }
+            if (lines.size >= maxLines) break
+        }
+        if (current.isNotEmpty() && lines.size < maxLines) lines += current
+        val visibleLines = lines.take(maxLines)
+        for (i in visibleLines.indices) {
+            canvas.drawText(visibleLines[i], x, y + (i * (paint.textSize + 10f)), paint)
+        }
+    }
+
+
+    private fun verificationBadge(model: ProfessionalCardUiModel): String {
+        return when (model.verificationStatus) {
+            com.ghalbitnet.meshx2.profile.ProfileVerificationStatus.VALID_SIGNATURE -> "✓ VERIFIED"
+            com.ghalbitnet.meshx2.profile.ProfileVerificationStatus.INVALID_SIGNATURE -> "INVALID"
+            com.ghalbitnet.meshx2.profile.ProfileVerificationStatus.UNSIGNED -> "UNSIGNED"
+            com.ghalbitnet.meshx2.profile.ProfileVerificationStatus.UNKNOWN -> "UNKNOWN"
+        }
     }
 
     private fun loadPhoto(context: Context, photoUri: String?): Bitmap? {

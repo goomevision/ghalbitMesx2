@@ -5,41 +5,18 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 import com.ghalbitnet.meshx2.profile.CommunityProfile
 import com.ghalbitnet.meshx2.profile.ProfileQrCodec
-import com.ghalbitnet.meshx2.profile.ProfileQrPayload
+import com.ghalbitnet.meshx2.profile.ProfileSyncManager
+import com.ghalbitnet.meshx2.profile.ProfessionalCardDataMapper
 import com.ghalbitnet.meshx2.verified.export.VerifiedCardPngBitmapRenderer
 import com.ghalbitnet.meshx2.verified.ui.ProfessionalCardUiModel
 import java.io.File
 import java.io.FileOutputStream
 
 object VerifiedCardPngShareManager {
-    fun modelFromProfile(profile: CommunityProfile, verified: Boolean = true): ProfessionalCardUiModel {
-        val qrPayload = ProfileQrCodec.encode(
-            ProfileQrPayload(
-                globalId = profile.globalId,
-                publicKey = profile.publicKeyBase64,
-                publicKeyHash = profile.publicKeyHash,
-                displayName = profile.displayName,
-                nickname = profile.nickname,
-                roleTitle = profile.roleTitle,
-                profileVersion = profile.profileVersion,
-                relayHint = profile.routeHint,
-                signature = profile.signature
-            )
-        )
-        return ProfessionalCardUiModel(
-            globalId = profile.globalId,
-            displayName = profile.primaryName,
-            role = profile.roleTitle.ifBlank { "Community Member" },
-            community = profile.communityName.ifBlank { "GHALBITNET" },
-            trustScore = when {
-                verified && profile.signature.isNotBlank() -> 72
-                verified -> 58
-                else -> 30
-            },
-            verified = verified,
-            profilePhotoUri = profile.avatarUri,
-            qrPayload = qrPayload
-        )
+    fun modelFromProfile(profile: CommunityProfile): ProfessionalCardUiModel {
+        val mapped = ProfessionalCardDataMapper.fromProfile(profile)
+        val qrPayload = ProfileQrCodec.encode(ProfileSyncManager.buildQrPayload(profile, profile.routeHint))
+        return mapped.model.copy(qrPayload = qrPayload)
     }
 
     fun savePngToCache(context: Context, model: ProfessionalCardUiModel): File {

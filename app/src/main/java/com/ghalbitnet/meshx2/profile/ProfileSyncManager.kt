@@ -113,16 +113,28 @@ object ProfileSyncManager {
     }
 
     fun buildQrPayload(profile: CommunityProfile, relayHint: String?): ProfileQrPayload {
+        val mapped = ProfessionalCardDataMapper.fromProfile(profile)
         return ProfileQrPayload(
-            globalId = profile.globalId,
+            globalId = mapped.model.globalId,
             publicKey = profile.publicKeyBase64,
-            publicKeyHash = profile.publicKeyHash,
-            displayName = profile.displayName,
-            nickname = profile.nickname,
-            roleTitle = profile.roleTitle,
-            profileVersion = profile.profileVersion,
+            publicKeyHash = mapped.model.publicKeyHash,
+            displayName = mapped.model.displayName,
+            nickname = mapped.model.nickname,
+            roleTitle = mapped.model.role,
+            bio = mapped.model.bio,
+            community = mapped.model.community,
+            region = mapped.model.region,
+            tier = mapped.model.tier.name,
+            trustScore = mapped.model.trustScore,
+            trustRank = mapped.model.trustRank,
+            badges = mapped.model.badges,
+            mentorStatus = mapped.model.mentorStatus,
+            referralLabel = mapped.model.referralLabel,
+            communityReputation = mapped.model.communityReputation,
+            profileVersion = mapped.model.profileVersion,
             relayHint = relayHint,
-            signature = profile.signature
+            timestamp = mapped.model.updatedAt,
+            signature = mapped.model.signature
         )
     }
 
@@ -133,13 +145,18 @@ object ProfileSyncManager {
     }
 
     fun applyScannedQr(context: Context, payload: ProfileQrPayload): CommunityProfile? {
-        val ok =
+        val verificationStatus = when {
+            payload.signature.isBlank() -> ProfileVerificationStatus.UNSIGNED
+            payload.publicKey.isBlank() -> ProfileVerificationStatus.UNKNOWN
             NodeSigningIdentityManager.verify(
                 payload.publicKey,
                 ProfileQrCodec.canonicalPayload(payload.copy(signature = "")),
                 payload.signature
-            )
-        if (!ok) {
+            ) -> ProfileVerificationStatus.VALID_SIGNATURE
+            else -> ProfileVerificationStatus.INVALID_SIGNATURE
+        }
+        if (verificationStatus == ProfileVerificationStatus.INVALID_SIGNATURE) {
+            Log.w("GHALBIT-CARD-QR", "QR decode failed safely")
             return null
         }
         val remote = ContactProfileEntity(
@@ -148,12 +165,15 @@ object ProfileSyncManager {
             publicKeyHash = payload.publicKeyHash,
             publicDisplayName = payload.displayName,
             publicNickname = payload.nickname,
+            communityName = payload.community,
             roleTitle = payload.roleTitle,
+            bio = payload.bio,
+            region = payload.region,
             profileVersion = payload.profileVersion,
             signature = payload.signature,
             visibility = "PUBLIC",
             routeHint = payload.relayHint,
-            verifiedAt = System.currentTimeMillis()
+            verifiedAt = if (verificationStatus == ProfileVerificationStatus.VALID_SIGNATURE) System.currentTimeMillis() else null
         )
         ProfileRepository.upsertRemoteProfile(context, remote)
         Log.d("GHALBIT-CARD-QR", "saved")
@@ -283,3 +303,5 @@ object ProfileSyncManager {
         )
     }
 }
+
+

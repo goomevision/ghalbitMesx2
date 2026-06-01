@@ -30,12 +30,12 @@
             android:layout_marginTop="12dp"
             android:orientation="vertical">
 
-            <Button android:id="@+id/btnCardProfessional" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Kartu Profesional" />
+            <Button android:id="@+id/btnCardProfessional" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Lihat Profil Lengkap" />
             <Button android:id="@+id/btnCardChat" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Chat" />
             <Button android:id="@+id/btnCardCall" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Call" />
             <Button android:id="@+id/btnCardSave" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Simpan Kontak" />
             <Button android:id="@+id/btnCardVerify" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Verifikasi" />
-            <Button android:id="@+id/btnCardShare" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Bagikan Kartu PNG" />
+            <Button android:id="@+id/btnCardShare" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Share Ulang PNG" />
         </LinearLayout>
     </LinearLayout>
 </ScrollView>
