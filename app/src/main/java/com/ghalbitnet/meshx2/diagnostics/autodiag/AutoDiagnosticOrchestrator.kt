@@ -8,6 +8,8 @@ import com.ghalbitnet.meshx2.call.VoipReadinessChecker
 import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
 import com.ghalbitnet.meshx2.diagnostics.ServerTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
+import com.ghalbitnet.meshx2.diagnostics.recovery.RecoveryReportGenerator
+import com.ghalbitnet.meshx2.diagnostics.recovery.SmartRecoveryEngine
 import com.ghalbitnet.meshx2.online.PendingMessageStore
 
 object AutoDiagnosticOrchestrator {
@@ -24,6 +26,7 @@ object AutoDiagnosticOrchestrator {
         steps += runCallStep(context)
         steps += runAudioStep(context)
         steps += runLoopStep(context)
+        steps += runSmartRecoveryStep(context)
 
         val total = steps.map { it.score }.average().toInt().coerceIn(0, 100)
         val finalStatus = when {
@@ -35,7 +38,7 @@ object AutoDiagnosticOrchestrator {
         val scoreMap = steps.associateBy { it.name }
         Log.i(
             "GHALBIT-AUTO-DIAG",
-            "SCORE server=${scoreMap["server"]?.score ?: 0} network=${scoreMap["network"]?.score ?: 0} simulation=${scoreMap["simulation"]?.score ?: 0} audio=${scoreMap["audio"]?.score ?: 0} media=${scoreMap["pending"]?.score ?: 0} call=${scoreMap["call_signaling"]?.score ?: 0} loop=${scoreMap["loop_guard"]?.score ?: 0}"
+            "SCORE server=${scoreMap["server"]?.score ?: 0} network=${scoreMap["network"]?.score ?: 0} simulation=${scoreMap["simulation"]?.score ?: 0} audio=${scoreMap["audio"]?.score ?: 0} media=${scoreMap["pending"]?.score ?: 0} call=${scoreMap["call_signaling"]?.score ?: 0} loop=${scoreMap["loop_guard"]?.score ?: 0} recovery=${scoreMap["smart_recovery"]?.score ?: 0}"
         )
         Log.i("GHALBIT-AUTO-DIAG", "RESULT status=$finalStatus total=$total")
         return AutoDiagnosticResult(steps = steps, totalScore = total, status = finalStatus)
@@ -164,6 +167,27 @@ object AutoDiagnosticOrchestrator {
             status = status,
             score = if (loopSafe) 88 else 60,
             notes = listOf("dbProbeMs=$elapsed", "pendingCount=$pending")
+        )
+        Log.i("GHALBIT-AUTO-DIAG", "STEP name=${step.name} status=${step.status}")
+        return step
+    }
+
+    private fun runSmartRecoveryStep(context: Context): AutoDiagnosticStep {
+        val result = SmartRecoveryEngine.run(context)
+        val total = (result.recovered + result.pending + result.failed).coerceAtLeast(1)
+        val score = ((result.recovered * 100.0) / total).toInt().coerceIn(0, 100)
+        val status = when {
+            result.failed > 0 -> AutoDiagnosticStatus.PARTIAL
+            result.recovered > 0 -> AutoDiagnosticStatus.PASS
+            else -> AutoDiagnosticStatus.PARTIAL
+        }
+        val markdown = RecoveryReportGenerator.toMarkdown(result)
+        Log.d("GHALBIT-RECOVERY", "REPORT ${markdown.take(180)}")
+        val step = AutoDiagnosticStep(
+            name = "smart_recovery",
+            status = status,
+            score = score,
+            notes = listOf("recovered=${result.recovered}", "pending=${result.pending}", "failed=${result.failed}")
         )
         Log.i("GHALBIT-AUTO-DIAG", "STEP name=${step.name} status=${step.status}")
         return step
