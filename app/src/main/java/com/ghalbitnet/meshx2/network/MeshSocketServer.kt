@@ -17,6 +17,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.ServerSocket
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 object MeshSocketServer {
@@ -24,6 +25,9 @@ object MeshSocketServer {
     private const val TAG_ROUTE = "GHALBIT-ROUTE-DEST"
     private const val PORT = 56565
     private const val RESTART_COOLDOWN_MS = 5_000L
+    private val RETRY_BACKOFF_MS = longArrayOf(2_000L, 5_000L, 10_000L, 30_000L)
+    private const val HEALTH_LOG_INTERVAL_MS = 10_000L
+    private const val ACCEPT_STALL_MS = 30_000L
     private const val MAX_RAW_PACKET_LENGTH = 160 * 1024
     private const val ENVELOPE_MESH_PACKET = "MESH_PACKET"
     private const val ENVELOPE_SECURE_PACKET = "SECURE_PACKET"
@@ -42,8 +46,15 @@ object MeshSocketServer {
     private var packetHandler: ((MeshPacket) -> Unit)? = null
     private var secureHandler: ((SecurePacket) -> Unit)? = null
     @Volatile private var lastRestartAtMs = 0L
+    @Volatile private var acceptCount = 0L
+    @Volatile private var lastAcceptAtMs = 0L
+    @Volatile private var acceptLoopActive = false
+    @Volatile private var lastHealthLogAtMs = 0L
+    @Volatile private var retryStage = 0
+    private var scheduledRestart: ScheduledFuture<*>? = null
     private val lock = Any()
     private var executor = Executors.newCachedThreadPool()
+    private val scheduler = Executors.newSingleThreadScheduledExecutor()
 
     private fun ensureExecutorActive() {
         if (executor.isShutdown || executor.isTerminated) {
@@ -66,13 +77,18 @@ object MeshSocketServer {
         Thread {
             try {
                 serverSocket = ServerSocket(PORT)
+                retryStage = 0
                 Log.d(TAG_TCP, "bindSuccess port=$PORT")
                 Log.d(TAG_TCP, "acceptLoopStarted")
                 Log.d("GHALBIT", "Socket server listening on port $PORT")
+                acceptLoopActive = true
                 while (running) {
+                    emitTcpHealth()
                     try {
                         val client = serverSocket?.accept() ?: break
                         val remoteIp = client.inetAddress?.hostAddress.orEmpty()
+                        acceptCount += 1
+                        lastAcceptAtMs = System.currentTimeMillis()
                         Log.d(TAG_TCP, "accepted remote=$remoteIp:${client.port}")
                         executor.execute {
                             try {
@@ -160,14 +176,19 @@ object MeshSocketServer {
                             }
                         }
                     } catch (e: Exception) {
-                        if (running) Log.e("GHALBIT", "MeshSocketServer accept loop error", e)
+                        if (running) {
+                            Log.e("GHALBIT", "MeshSocketServer accept loop error", e)
+                            scheduleRestart("acceptLoopError")
+                        }
                     }
                 }
             } catch (e: Exception) {
                 Log.e(TAG_TCP, "bindFail port=$PORT", e)
                 Log.e("GHALBIT", "MeshSocketServer outer error", e)
+                scheduleRestart("bindFail")
             } finally {
                 Log.d(TAG_TCP, "socketClosed")
+                acceptLoopActive = false
                 running = false
             }
         }.start()
@@ -349,6 +370,7 @@ object MeshSocketServer {
     fun stop() {
         Log.d(TAG_TCP, "stopRequested")
         running = false
+        acceptLoopActive = false
         try { serverSocket?.close() } catch (_: Exception) {}
         serverSocket = null
         executor.shutdown()
@@ -361,13 +383,20 @@ object MeshSocketServer {
 
     fun isRunning(): Boolean {
         val socketOpen = serverSocket?.isClosed == false
-        return running && socketOpen
+        return running && socketOpen && acceptLoopActive
     }
 
     fun ensureRunning(reason: String) {
+        emitTcpHealth()
         if (!isRunning()) {
             Log.w(TAG_TCP, "notRunningOnHealthCheck reason=$reason")
             restart(reason)
+            return
+        }
+        val now = System.currentTimeMillis()
+        if (lastAcceptAtMs > 0 && now - lastAcceptAtMs > ACCEPT_STALL_MS) {
+            Log.w(TAG_TCP, "acceptStall reason=$reason lastAcceptMsAgo=${now - lastAcceptAtMs}")
+            restart("acceptStall")
         }
     }
 
@@ -389,5 +418,39 @@ object MeshSocketServer {
         val onPacket = packetHandler ?: return
         val onSecure = secureHandler ?: return
         start(onPacket, onSecure)
+    }
+
+    private fun scheduleRestart(reason: String) {
+        synchronized(lock) {
+            if (packetHandler == null || secureHandler == null) {
+                Log.w(TAG_TCP, "retry skipped missingHandlers reason=$reason")
+                return
+            }
+            if (scheduledRestart?.isDone == false) {
+                Log.d(TAG_TCP, "retry alreadyScheduled reason=$reason")
+                return
+            }
+            val delay = RETRY_BACKOFF_MS[retryStage.coerceAtMost(RETRY_BACKOFF_MS.lastIndex)]
+            retryStage = (retryStage + 1).coerceAtMost(RETRY_BACKOFF_MS.lastIndex)
+            Log.w(TAG_TCP, "retryScheduled reason=$reason delayMs=$delay")
+            scheduledRestart = scheduler.schedule({
+                try {
+                    restart("auto:$reason")
+                } catch (e: Exception) {
+                    Log.e(TAG_TCP, "retry failed reason=$reason", e)
+                }
+            }, delay, TimeUnit.MILLISECONDS)
+        }
+    }
+
+    private fun emitTcpHealth() {
+        val now = System.currentTimeMillis()
+        if (now - lastHealthLogAtMs < HEALTH_LOG_INTERVAL_MS) return
+        lastHealthLogAtMs = now
+        val lastAcceptAgo = if (lastAcceptAtMs > 0) now - lastAcceptAtMs else -1L
+        Log.d(
+            "GHALBIT-TCP-HEALTH",
+            "alive=${isRunning()} port=$PORT accepts=$acceptCount lastAcceptMs=$lastAcceptAgo"
+        )
     }
 }

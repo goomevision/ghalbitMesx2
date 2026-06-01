@@ -11,9 +11,11 @@ import java.util.concurrent.ConcurrentHashMap
 
 object AdaptiveRouteManager {
     private const val FAILED_ROUTE_COOLDOWN_MS = 30_000L
+    private const val HOST_UNHEALTHY_COOLDOWN_MS = 30_000L
     private val lastDecisions = ConcurrentHashMap<String, AdaptiveRouteDecision>()
     private val switchHistory = ConcurrentHashMap<String, ArrayDeque<String>>()
     private val failedRouteCooldowns = ConcurrentHashMap<String, Long>()
+    private val unhealthyHosts = ConcurrentHashMap<String, Long>()
 
     fun evaluate(
         context: Context,
@@ -135,6 +137,7 @@ object AdaptiveRouteManager {
             if (!globalId.isNullOrBlank()) {
                 failedRouteCooldowns.remove(failureKeyByGlobal(globalId, nextHop))
             }
+            unhealthyHosts.remove(nextHop)
             Log.d("GHALBIT-PREDICTIVE-ROUTE", "success chatId=$chatId nextHop=$nextHop")
         } else {
             val now = System.currentTimeMillis()
@@ -144,6 +147,12 @@ object AdaptiveRouteManager {
             }
             Log.d("GHALBIT-PREDICTIVE-ROUTE", "cooldown chatId=$chatId nextHop=$nextHop")
         }
+    }
+
+    fun markHostTemporarilyUnhealthy(host: String, reason: String) {
+        if (host.isBlank()) return
+        unhealthyHosts[host] = System.currentTimeMillis()
+        Log.d("GHALBIT-PREDICTIVE-ROUTE", "hostUnhealthy host=$host reason=$reason cooldownMs=$HOST_UNHEALTHY_COOLDOWN_MS")
     }
 
     fun activeRoutes(): List<AdaptiveRouteDecision> = lastDecisions.values.sortedBy { it.chatId }
@@ -199,7 +208,7 @@ object AdaptiveRouteManager {
         val filtered = candidates
             .distinctBy { it.nextHopId }
             .filterNot { hint ->
-                val cooled = isInCooldown(now, chatId, globalId, hint.nextHopId)
+                val cooled = isInCooldown(now, chatId, globalId, hint.nextHopId) || isHostUnhealthy(now, hint.nextHopId)
                 if (cooled) Log.d("GHALBIT-PREDICTIVE-ROUTE", "skipCooldown chatId=$chatId nextHop=${hint.nextHopId}")
                 cooled
             }
@@ -229,4 +238,11 @@ object AdaptiveRouteManager {
     private fun failureKeyByChat(chatId: String, nextHop: String): String = "chat:$chatId@$nextHop"
 
     private fun failureKeyByGlobal(globalId: String, nextHop: String): String = "global:$globalId@$nextHop"
+
+    private fun isHostUnhealthy(now: Long, host: String): Boolean {
+        val last = unhealthyHosts[host] ?: return false
+        val active = now - last < HOST_UNHEALTHY_COOLDOWN_MS
+        if (!active) unhealthyHosts.remove(host)
+        return active
+    }
 }

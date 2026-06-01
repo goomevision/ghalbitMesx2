@@ -61,6 +61,9 @@ object MeshSocketClient {
         } catch (e: Exception) {
             Log.e("GHALBIT", "send failed to $host: ${e.message}")
             Log.d("GHALBIT-ROUTE-FEEDBACK", "sendException type=${packet.type} dest=${packet.destination} host=$host reason=${e.message}")
+            if ((e.message ?: "").contains("ECONNREFUSED", ignoreCase = true)) {
+                AdaptiveRouteManager.markHostTemporarilyUnhealthy(host, "ECONNREFUSED")
+            }
             recordRouteFeedback(packet, host, success = false)
             return false
         } finally {
