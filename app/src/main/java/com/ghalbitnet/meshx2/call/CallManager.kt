@@ -5,6 +5,8 @@ import android.util.Base64
 import android.util.Log
 import com.ghalbitnet.meshx2.MainActivity
 import com.ghalbitnet.meshx2.identity.CentralIdentityResolver
+import com.ghalbitnet.meshx2.chat.AdaptiveRouteManager
+import com.ghalbitnet.meshx2.chat.RouteEvidenceSource
 import com.ghalbitnet.meshx2.model.MeshPacket
 import com.ghalbitnet.meshx2.network.MeshSocketClient
 import com.ghalbitnet.meshx2.network.ReliablePacketSender
@@ -151,7 +153,8 @@ object CallManager {
         localPublicKeyHash: String?,
         retryCount: Int = 3
     ): Boolean {
-        val targetIp = peer.routeHint ?: peer.transportIp
+        val lockedRoute = AdaptiveRouteManager.resolveLockedNextHop(peer.nodeId, peer.globalId)
+        val targetIp = lockedRoute ?: peer.routeHint ?: peer.transportIp
         if (targetIp.isNullOrBlank()) {
             Log.w("GHALBIT-CALL-SIGNAL", "missing route for ${peer.nodeId} type=$type")
             return false
@@ -186,7 +189,8 @@ object CallManager {
         localNodeId: String,
         retryCount: Int = 2
     ): Boolean {
-        val targetIp = peer.routeHint ?: peer.transportIp
+        val lockedRoute = AdaptiveRouteManager.resolveLockedNextHop(peer.nodeId, peer.globalId)
+        val targetIp = lockedRoute ?: peer.routeHint ?: peer.transportIp
         if (targetIp.isNullOrBlank()) {
             Log.w("GHALBIT-VOIP-SIGNAL", "missing route for ${peer.nodeId} type=$type")
             return false
@@ -238,7 +242,8 @@ object CallManager {
         localNodeId: String,
         packet: VoicePacket
     ): Boolean {
-        val targetIp = peer.routeHint ?: peer.transportIp
+        val lockedRoute = AdaptiveRouteManager.resolveLockedNextHop(peer.nodeId, peer.globalId)
+        val targetIp = lockedRoute ?: peer.routeHint ?: peer.transportIp
         if (targetIp.isNullOrBlank()) {
             Log.w("GHALBIT-CALL-AUDIO-TX", "drop frame no route peer=${peer.nodeId}")
             return false
@@ -274,6 +279,7 @@ object CallManager {
             )
 
         val sent = MeshSocketClient.sendBlocking(targetIp, meshPacket)
+        Log.d("GHALBIT-CALL-ROUTE", "route=$targetIp locked=${lockedRoute != null}")
         val tx = if (sent) audioTxCounter.incrementAndGet() else audioTxCounter.get()
         Log.d("GHALBIT-VOICE-PACKET", "sent seq=${packet.sequence}")
         Log.d(
@@ -282,6 +288,15 @@ object CallManager {
         )
         if (!sent) {
             Log.w("GHALBIT-CALL-AUDIO-TX", "send failed seq=${packet.sequence} route=$targetIp")
+        } else if (packet.sequence == 1 || packet.sequence % 40 == 0) {
+            AdaptiveRouteManager.recordRouteEvidence(
+                chatId = peer.nodeId,
+                globalId = peer.globalId,
+                nextHop = targetIp,
+                transport = "LOCAL_MESH_DIRECT",
+                source = RouteEvidenceSource.CALL,
+                confidence = 88
+            )
         }
         return sent
     }

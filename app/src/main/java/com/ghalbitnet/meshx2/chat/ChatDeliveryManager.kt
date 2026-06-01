@@ -1043,16 +1043,19 @@ object ChatDeliveryManager {
         val hasOnlineRelay = OnlinePresenceManager.getOnlineRoute(context, pending.targetGlobalId.orEmpty()) != null
         if (routeHealth == RouteHealthStatus.OFFLINE_PENDING || (pending.routeHint.isNullOrBlank() && !hasOnlineRelay)) {
             val nextRetryAt = System.currentTimeMillis() + guardedBackoffMs(pending.retryAttempt)
-            updateState(context, pending.packetId, ChatDeliveryState.WAITING_FOR_PEER)
+            updateState(context, pending.packetId, ChatDeliveryState.PENDING)
             PendingMessageStore.upsert(
                 context,
                 pending.copy(
+                    deliveryStatus = DeliveryStatus.PENDING_SYNC,
+                    expiresAt = maxOf(pending.expiresAt, System.currentTimeMillis() + MESSAGE_GRACE_PERIOD_MS),
                     retryAttempt = (pending.retryAttempt + 1).coerceAtMost(MAX_RETRY_BUDGET_PER_HOUR),
                     nextRetryAt = nextRetryAt,
                     lastAttemptAt = System.currentTimeMillis(),
                     lastFailureReason = "peerOffline"
                 )
             )
+            Log.d("GHALBIT-MEDIA-PENDING", "id=${pending.messageId} ttl=${maxOf(pending.expiresAt - System.currentTimeMillis(), MESSAGE_GRACE_PERIOD_MS)}")
             throttledLog("waiting-route", "GHALBIT-PENDING-GUARD", "waiting for route")
             return
         }

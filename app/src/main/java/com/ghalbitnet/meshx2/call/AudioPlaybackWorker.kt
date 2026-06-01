@@ -23,6 +23,7 @@ class AudioPlaybackWorker(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var audioTrack: AudioTrack? = null
     private var job: Job? = null
+    @Volatile private var safeMode: Boolean = false
 
     fun start() {
         if (job?.isActive == true) return
@@ -99,9 +100,14 @@ class AudioPlaybackWorker(
                     } else if (writeCount == 1 || writeCount % 50 == 0) {
                         Log.d("GHALBIT-AUDIO-PLAYBACK", "frame written=$written count=$writeCount")
                     }
-                    delay(frameMs.toLong())
+                    delay(if (safeMode) 10L else frameMs.toLong())
                 }
             }
+    }
+
+    fun setSafeMode(enabled: Boolean) {
+        safeMode = enabled
+        Log.d("GHALBIT-CALL-AUDIO", "safePlayback=$enabled")
     }
 
     fun stop() {

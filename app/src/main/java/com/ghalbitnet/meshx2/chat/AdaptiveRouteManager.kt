@@ -16,12 +16,15 @@ object AdaptiveRouteManager {
     private const val ROUTE_LOCK_MAX_FAILURES = 3
     private const val SLOT_DIRECT_BOOST = 12
     private const val SLOT_RELAY_BOOST = 8
+    private const val EVIDENCE_TTL_MS = 3 * 60_000L
+    private const val EVIDENCE_BOOST_MAX = 16
     private val lastDecisions = ConcurrentHashMap<String, AdaptiveRouteDecision>()
     private val switchHistory = ConcurrentHashMap<String, ArrayDeque<String>>()
     private val failedRouteCooldowns = ConcurrentHashMap<String, Long>()
     private val unhealthyHosts = ConcurrentHashMap<String, Long>()
     private val routeLocks = ConcurrentHashMap<String, RouteLock>()
     private val routeLockFailures = ConcurrentHashMap<String, Int>()
+    private val routeEvidence = ConcurrentHashMap<String, RouteEvidence>()
 
     fun evaluate(
         context: Context,
@@ -193,6 +196,41 @@ object AdaptiveRouteManager {
         Log.d("GHALBIT-PREDICTIVE-ROUTE", "hostUnhealthy host=$host reason=$reason cooldownMs=$HOST_UNHEALTHY_COOLDOWN_MS")
     }
 
+    fun recordRouteEvidence(
+        chatId: String,
+        globalId: String?,
+        nextHop: String?,
+        transport: String?,
+        source: RouteEvidenceSource,
+        confidence: Int = 70
+    ) {
+        if (nextHop.isNullOrBlank()) return
+        val now = System.currentTimeMillis()
+        val evidence =
+            RouteEvidence(
+                chatId = chatId,
+                globalId = globalId,
+                nextHop = nextHop,
+                transport = transport ?: "LOCAL_MESH_DIRECT",
+                source = source,
+                timestamp = now,
+                confidence = confidence.coerceIn(1, 100)
+            )
+        routeEvidence[routeLockKey(chatId, globalId)] = evidence
+        Log.d(
+            "GHALBIT-ROUTE-EVIDENCE",
+            "source=${source.name} peer=${globalId ?: chatId} route=${evidence.transport} host=$nextHop confidence=${evidence.confidence}"
+        )
+    }
+
+    fun resolveLockedNextHop(chatId: String, globalId: String?): String? {
+        return getActiveRouteLock(chatId, globalId, System.currentTimeMillis())?.nextHop
+    }
+
+    fun hasActiveRouteLock(chatId: String, globalId: String?): Boolean {
+        return getActiveRouteLock(chatId, globalId, System.currentTimeMillis()) != null
+    }
+
     fun activeRoutes(): List<AdaptiveRouteDecision> = lastDecisions.values.sortedBy { it.chatId }
 
     fun switchHistory(chatId: String? = null): List<String> {
@@ -246,6 +284,7 @@ object AdaptiveRouteManager {
         val preferredTransport = RouteTimeSlotScheduler.getPreferredTransport(now)
         val neighborSlots = RouteTimeSlotScheduler.getNeighborSlots(now)
         val boostApplied = preferredTransport == "LOCAL_MESH_DIRECT" || preferredTransport == "LOCAL_RELAY"
+        val evidence = routeEvidenceFor(chatId, globalId, now)
         val filtered = candidates
             .distinctBy { it.nextHopId }
             .filterNot { hint ->
@@ -256,7 +295,8 @@ object AdaptiveRouteManager {
             .sortedByDescending { hint ->
                 val base = IntelligentRouteMemory.scoreHint(hint).score
                 val slotBoost = slotBoostForHint(hint, preferredTransport, neighborSlots)
-                base + slotBoost
+                val evidenceBoost = evidenceBoostForHint(hint, evidence, now)
+                base + slotBoost + evidenceBoost
             }
 
         Log.d(
@@ -353,6 +393,31 @@ object AdaptiveRouteManager {
 
     private fun routeLockKey(chatId: String, globalId: String?): String = "${chatId.trim()}|${globalId?.trim().orEmpty()}"
 
+    private fun routeEvidenceFor(chatId: String, globalId: String?, now: Long): RouteEvidence? {
+        val key = routeLockKey(chatId, globalId)
+        val evidence = routeEvidence[key] ?: return null
+        if (now - evidence.timestamp > EVIDENCE_TTL_MS) {
+            routeEvidence.remove(key)
+            return null
+        }
+        return evidence
+    }
+
+    private fun evidenceBoostForHint(hint: RouteHint, evidence: RouteEvidence?, now: Long): Int {
+        if (evidence == null) return 0
+        if (hint.nextHopId != evidence.nextHop) return 0
+        val ageMs = now - evidence.timestamp
+        val freshness = ((EVIDENCE_TTL_MS - ageMs).coerceAtLeast(0L).toDouble() / EVIDENCE_TTL_MS.toDouble())
+        val sourceWeight =
+            when (evidence.source) {
+                RouteEvidenceSource.SOS -> 1.0
+                RouteEvidenceSource.PTT -> 0.85
+                RouteEvidenceSource.CALL -> 0.9
+                RouteEvidenceSource.CHAT -> 0.75
+            }
+        return (EVIDENCE_BOOST_MAX * freshness * sourceWeight).toInt().coerceAtLeast(1)
+    }
+
     private data class RouteLock(
         val chatId: String,
         val globalId: String?,
@@ -362,5 +427,15 @@ object AdaptiveRouteManager {
         val source: RouteEvidenceSource,
         val lockedAt: Long,
         val expiresAt: Long
+    )
+
+    private data class RouteEvidence(
+        val chatId: String,
+        val globalId: String?,
+        val nextHop: String,
+        val transport: String,
+        val source: RouteEvidenceSource,
+        val timestamp: Long,
+        val confidence: Int
     )
 }

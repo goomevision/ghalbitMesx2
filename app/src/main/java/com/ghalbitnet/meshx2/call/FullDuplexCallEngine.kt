@@ -9,6 +9,14 @@ class FullDuplexCallEngine(
     private val endpointProvider: () -> CallPeerEndpoint?,
     private val onRealtimeFailure: (String) -> Unit
 ) {
+    data class AudioRuntimeMetrics(
+        val rxFrames: Long,
+        val queuedFrames: Int,
+        val playedFrames: Long,
+        val droppedFrames: Long,
+        val concealFrames: Long,
+        val rxActiveForMs: Long
+    )
     private val running = AtomicBoolean(false)
     private val muted = AtomicBoolean(false)
     private val sequence = AtomicInteger(0)
@@ -120,5 +128,21 @@ class FullDuplexCallEngine(
         CallManager.recordAudioFrameReceived()
         jitterBuffer.offer(voicePacket.sequence, voicePacket.payload)
         Log.d("GHALBIT-CALL-AUDIO-RX", "seq=${voicePacket.sequence} bytes=${voicePacket.payload.size}")
+    }
+
+    fun audioMetricsSnapshot(): AudioRuntimeMetrics {
+        val m = jitterBuffer.metricsSnapshot()
+        return AudioRuntimeMetrics(
+            rxFrames = m.rxFrames,
+            queuedFrames = m.queuedFrames,
+            playedFrames = m.playedFrames,
+            droppedFrames = m.droppedFrames,
+            concealFrames = m.concealFrames,
+            rxActiveForMs = m.rxActiveForMs
+        )
+    }
+
+    fun enableSafePlaybackMode(enabled: Boolean) {
+        playbackWorker.setSafeMode(enabled)
     }
 }

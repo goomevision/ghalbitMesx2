@@ -34,6 +34,8 @@ import com.ghalbitnet.meshx2.chat.ChatDatabase
 import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
 import com.ghalbitnet.meshx2.chat.InternalEventRouter
 import com.ghalbitnet.meshx2.chat.ChatMessage
+import com.ghalbitnet.meshx2.chat.AdaptiveRouteManager
+import com.ghalbitnet.meshx2.chat.RouteEvidenceSource
 import com.ghalbitnet.meshx2.chat.ContactListActivity
 import com.ghalbitnet.meshx2.chat.RemoteModeActivity
 import com.ghalbitnet.meshx2.chat.SavedContactsActivity
@@ -931,6 +933,14 @@ class MainActivity : AppCompatActivity() {
                 payload = payload,
                 routeHint = routeHint
             ) ?: return
+        AdaptiveRouteManager.recordRouteEvidence(
+            chatId = packet.source,
+            globalId = alert.sourceGlobalId,
+            nextHop = routeHint.takeIf { it.isNotBlank() },
+            transport = "LOCAL_MESH_DIRECT",
+            source = RouteEvidenceSource.SOS,
+            confidence = 92
+        )
         val resolvedIdentity =
             CentralIdentityResolver.resolve(
                 context = applicationContext,
@@ -1412,10 +1422,17 @@ class MainActivity : AppCompatActivity() {
 
                 MeshStatistics.sentPacket("SOS")
 
-                MeshSocketClient.send(
-                    node.ipAddress,
-                    sosPacket
-                )
+                val sent = MeshSocketClient.sendBlocking(node.ipAddress, sosPacket)
+                if (sent) {
+                    AdaptiveRouteManager.recordRouteEvidence(
+                        chatId = node.name,
+                        globalId = identityRecord.globalId,
+                        nextHop = node.ipAddress,
+                        transport = "LOCAL_MESH_DIRECT",
+                        source = RouteEvidenceSource.SOS,
+                        confidence = 95
+                    )
+                }
             } catch (e: Exception) {
                 appendLogRaw("\nSOS failed to ${node.name}")
             }

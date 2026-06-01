@@ -28,8 +28,10 @@ import com.ghalbitnet.meshx2.MainActivity
 import com.ghalbitnet.meshx2.R
 import com.ghalbitnet.meshx2.chat.ChatDatabase
 import com.ghalbitnet.meshx2.chat.ChatMessage
+import com.ghalbitnet.meshx2.chat.AdaptiveRouteManager
 import com.ghalbitnet.meshx2.chat.ConversationKeepAliveManager
 import com.ghalbitnet.meshx2.chat.ConversationOwnershipHint
+import com.ghalbitnet.meshx2.chat.RouteEvidenceSource
 import com.ghalbitnet.meshx2.core.log.MeshLogger
 import com.ghalbitnet.meshx2.core.utils.AppNotificationManager
 import com.ghalbitnet.meshx2.core.utils.GhalbitDeepLinkRouter
@@ -161,6 +163,8 @@ class CallSessionActivity : AppCompatActivity() {
     private var lastRelayValidation: RelayConfigValidation? = null
     private var currentVoiceMode: AdaptiveVoiceMode = AdaptiveVoiceMode.PTT_STORE_FORWARD
     private var lastVoiceModeSwitchAt = 0L
+    private var safePlaybackModeActive = false
+    private var safePlaybackTriggeredAt = 0L
     private var preparedRouteStatusLabel: String = ""
     private lateinit var callSearchingToneManager: CallSearchingToneManager
     private lateinit var routeSearchingAnimator: RouteSearchingAnimator
@@ -964,11 +968,37 @@ class CallSessionActivity : AppCompatActivity() {
     private fun startAudioWatchdog() {
         audioWatchdogJob?.cancel()
         lastAudioPacketAt = System.currentTimeMillis()
+        safePlaybackModeActive = false
+        safePlaybackTriggeredAt = 0L
+        fullDuplexEngine.enableSafePlaybackMode(false)
         audioWatchdogJob =
             lifecycleScope.launch {
                 while (isVoiceRealtimeState(callState) && !finishedSafely) {
                     delay(1000)
                     val gapMs = System.currentTimeMillis() - lastAudioPacketAt
+                    val audioMetrics = fullDuplexEngine.audioMetricsSnapshot()
+                    Log.d(
+                        "GHALBIT-CALL-AUDIO",
+                        "rx=${audioMetrics.rxFrames} queued=${audioMetrics.queuedFrames} played=${audioMetrics.playedFrames} dropped=${audioMetrics.droppedFrames} safeMode=$safePlaybackModeActive"
+                    )
+                    if (
+                        !safePlaybackModeActive &&
+                            audioMetrics.rxFrames > 0L &&
+                            audioMetrics.playedFrames == 0L &&
+                            audioMetrics.rxActiveForMs > 3000L
+                    ) {
+                        safePlaybackModeActive = true
+                        safePlaybackTriggeredAt = System.currentTimeMillis()
+                        fullDuplexEngine.enableSafePlaybackMode(true)
+                        runtimeSoftBanner.showMessage(
+                            key = "call:safe-mode:$callId",
+                            title = "Mode audio aman",
+                            detail = "Suara belum stabil, mencoba mode aman",
+                            priority = 4,
+                            durationMs = 2400L,
+                            miniStatus = "Mode aman"
+                        )
+                    }
                     val snapshot =
                         VoiceQualityMonitor.evaluate(
                             packetLoss = when {
@@ -1016,6 +1046,9 @@ class CallSessionActivity : AppCompatActivity() {
     private fun stopAudioWatchdog() {
         audioWatchdogJob?.cancel()
         audioWatchdogJob = null
+        fullDuplexEngine.enableSafePlaybackMode(false)
+        safePlaybackModeActive = false
+        safePlaybackTriggeredAt = 0L
     }
 
     private fun sendSignal(type: String) {
@@ -1177,6 +1210,14 @@ class CallSessionActivity : AppCompatActivity() {
 
                     override fun onComplete(message: String) {
                         Log.d("GHALBIT-PTT-FALLBACK", "sent")
+                        AdaptiveRouteManager.recordRouteEvidence(
+                            chatId = peerName,
+                            globalId = peerGlobalId,
+                            nextHop = peerEndpoint?.routeHint ?: peerEndpoint?.transportIp ?: peerIp,
+                            transport = "LOCAL_MESH_DIRECT",
+                            source = RouteEvidenceSource.PTT,
+                            confidence = 86
+                        )
                         postUi { setCallStatus("PTT terkirim") }
                     }
 
@@ -1220,6 +1261,14 @@ class CallSessionActivity : AppCompatActivity() {
                     setDataSource(filePath)
                     setOnCompletionListener {
                         releasePlayer()
+                        AdaptiveRouteManager.recordRouteEvidence(
+                            chatId = peerName,
+                            globalId = peerGlobalId,
+                            nextHop = peerEndpoint?.routeHint ?: peerEndpoint?.transportIp ?: peerIp,
+                            transport = "LOCAL_MESH_DIRECT",
+                            source = RouteEvidenceSource.PTT,
+                            confidence = 84
+                        )
                         setCallStatus("PTT diterima")
                     }
                     prepare()

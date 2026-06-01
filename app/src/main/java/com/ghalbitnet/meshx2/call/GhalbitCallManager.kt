@@ -3,6 +3,7 @@ package com.ghalbitnet.meshx2.call
 import android.content.Context
 import android.util.Log
 import com.ghalbitnet.meshx2.BuildConfig
+import com.ghalbitnet.meshx2.chat.AdaptiveRouteManager
 import com.ghalbitnet.meshx2.chat.ConversationKeepAliveManager
 import com.ghalbitnet.meshx2.chat.RouteHealthStatus
 import com.ghalbitnet.meshx2.online.OnlineFallbackTransport
@@ -50,6 +51,11 @@ object GhalbitCallManager {
         localNodeId().isNotBlank() && localGlobalId().isNotBlank() && localPublicKeyHash().isNotBlank()
 
     fun resolveRoute(context: Context, peer: CallPeerEndpoint): VoipRouteType {
+        val lockedRoute = AdaptiveRouteManager.resolveLockedNextHop(peer.nodeId, peer.globalId)
+        val hasRouteLock = lockedRoute != null
+        if (hasRouteLock) {
+            Log.d("GHALBIT-CALL-ROUTE", "route=$lockedRoute locked=true")
+        }
         val routeMode = GhalbitRouteMode.fromRaw(BuildConfig.GHALBIT_ROUTE_MODE)
         val routeScore = evaluateNearbyRouteScore(context, peer)
         when (routeMode) {
@@ -68,12 +74,12 @@ object GhalbitCallManager {
             }
             GhalbitRouteMode.FORCE_MESH_ONLY -> {
                 Log.d("GHALBIT-ROUTE-MODE", "force mesh only")
-                return if (routeScore.nearbyDetected) VoipRouteType.NEARBY else if (!peer.routeHint.isNullOrBlank() || !peer.transportIp.isNullOrBlank()) VoipRouteType.LOCAL_MESH else VoipRouteType.FALLBACK_PTT
+                return if (routeScore.nearbyDetected) VoipRouteType.NEARBY else if (hasRouteLock || !peer.routeHint.isNullOrBlank() || !peer.transportIp.isNullOrBlank()) VoipRouteType.LOCAL_MESH else VoipRouteType.FALLBACK_PTT
             }
             GhalbitRouteMode.AUTO_HYBRID -> Log.d("GHALBIT-ROUTE-MODE", "auto hybrid")
         }
 
-        val localCandidate = !peer.routeHint.isNullOrBlank() || !peer.transportIp.isNullOrBlank()
+        val localCandidate = hasRouteLock || !peer.routeHint.isNullOrBlank() || !peer.transportIp.isNullOrBlank()
         if (localCandidate && routeScore.nearbyDetected) {
             Log.d("GHALBIT-ROUTE-SCORE", "nearby detected")
             return VoipRouteType.NEARBY
