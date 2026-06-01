@@ -11,6 +11,9 @@ import com.ghalbitnet.meshx2.diagnostics.ServerTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.recovery.RecoveryReportGenerator
 import com.ghalbitnet.meshx2.diagnostics.recovery.SmartRecoveryEngine
+import com.ghalbitnet.meshx2.diagnostics.virtualcall.OneDeviceIncomingCallDiagnostic
+import com.ghalbitnet.meshx2.diagnostics.virtualcall.VirtualCallReportGenerator
+import com.ghalbitnet.meshx2.diagnostics.virtualcall.VirtualCallScenario
 import com.ghalbitnet.meshx2.online.PendingMessageStore
 
 object AutoDiagnosticOrchestrator {
@@ -29,6 +32,7 @@ object AutoDiagnosticOrchestrator {
         steps += runLoopStep(context)
         steps += runSmartRecoveryStep(context)
         steps += runServerOperatorFullCheckStep(context)
+        steps += runVirtualIncomingCallCheckStep(context)
 
         val total = steps.map { it.score }.average().toInt().coerceIn(0, 100)
         val finalStatus = when {
@@ -40,7 +44,7 @@ object AutoDiagnosticOrchestrator {
         val scoreMap = steps.associateBy { it.name }
         Log.i(
             "GHALBIT-AUTO-DIAG",
-            "SCORE server=${scoreMap["server"]?.score ?: 0} network=${scoreMap["network"]?.score ?: 0} simulation=${scoreMap["simulation"]?.score ?: 0} audio=${scoreMap["audio"]?.score ?: 0} media=${scoreMap["pending"]?.score ?: 0} call=${scoreMap["call_signaling"]?.score ?: 0} loop=${scoreMap["loop_guard"]?.score ?: 0} recovery=${scoreMap["smart_recovery"]?.score ?: 0} serverOperator=${scoreMap["server_operator_full_check"]?.score ?: 0}"
+            "SCORE server=${scoreMap["server"]?.score ?: 0} network=${scoreMap["network"]?.score ?: 0} simulation=${scoreMap["simulation"]?.score ?: 0} audio=${scoreMap["audio"]?.score ?: 0} media=${scoreMap["pending"]?.score ?: 0} call=${scoreMap["call_signaling"]?.score ?: 0} loop=${scoreMap["loop_guard"]?.score ?: 0} recovery=${scoreMap["smart_recovery"]?.score ?: 0} serverOperator=${scoreMap["server_operator_full_check"]?.score ?: 0} virtualCall=${scoreMap["virtual_incoming_call_check"]?.score ?: 0}"
         )
         Log.i("GHALBIT-AUTO-DIAG", "RESULT status=$finalStatus total=$total")
         return AutoDiagnosticResult(steps = steps, totalScore = total, status = finalStatus)
@@ -220,6 +224,44 @@ object AutoDiagnosticOrchestrator {
             notes = notes
         )
         Log.i("GHALBIT-AUTO-DIAG", "STEP name=SERVER_OPERATOR_FULL_CHECK status=${step.status}")
+        return step
+    }
+
+    private fun runVirtualIncomingCallCheckStep(context: Context): AutoDiagnosticStep {
+        val scenario = VirtualCallScenario(
+            callerPeerId = "VIRTUAL_CALLER_PC",
+            callerGlobalId = "GX-VIRTUAL-CALLER",
+            callerDisplayName = "Virtual Caller Tool"
+        )
+        val result = OneDeviceIncomingCallDiagnostic.run(context, scenario)
+        val status = when (result.status) {
+            "PASS" -> AutoDiagnosticStatus.PASS
+            "FAIL_NO_INCOMING" -> AutoDiagnosticStatus.FAIL
+            else -> AutoDiagnosticStatus.PARTIAL
+        }
+        val score = when (result.status) {
+            "PASS" -> 90
+            "PARTIAL_NOT_ACCEPTED" -> 55
+            "PARTIAL_NOT_CONNECTED" -> 50
+            "PARTIAL_RINGTONE_STUCK" -> 45
+            else -> 30
+        }
+        Log.d("GHALBIT-VIRTUAL-CALL", "REPORT ${VirtualCallReportGenerator.toMarkdown(result).take(160)}")
+        val step = AutoDiagnosticStep(
+            name = "virtual_incoming_call_check",
+            status = status,
+            score = score,
+            notes = listOf(
+                "callId=${result.callId}",
+                "incoming=${result.incomingShown}",
+                "accepted=${result.accepted}",
+                "connected=${result.connected}",
+                "speech=${result.speechDetected}",
+                "ringtoneStopped=${result.ringtoneStopped}",
+                "status=${result.status}"
+            )
+        )
+        Log.i("GHALBIT-AUTO-DIAG", "STEP name=VIRTUAL_INCOMING_CALL_CHECK status=${step.status}")
         return step
     }
 }
