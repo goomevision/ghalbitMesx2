@@ -168,7 +168,7 @@ class MyProfileActivity : AppCompatActivity() {
 
     private fun shareCurrentQr() {
         val profile = currentProfile ?: return
-        val model = VerifiedCardPngShareManager.modelFromProfile(profile)
+        val model = VerifiedCardPngShareManager.modelFromProfile(this, profile)
         val shareIntent = VerifiedCardPngShareManager.createSharePngIntent(this, model)
         startActivity(Intent.createChooser(shareIntent, "Bagikan Kartu GHALBIT"))
     }

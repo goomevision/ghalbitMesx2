@@ -31,6 +31,10 @@ object ProfileQrCodec {
             payload.referralLabel,
             payload.communityReputation.toString(),
             payload.contributionSummary,
+            payload.referrerGhalbitId.orEmpty(),
+            payload.sponsorGhalbitId.orEmpty(),
+            payload.inviteCode.orEmpty(),
+            payload.sourceCardId.orEmpty(),
             payload.profileVersion.toString(),
             payload.relayHint.orEmpty(),
             payload.timestamp.toString()
@@ -57,6 +61,10 @@ object ProfileQrCodec {
             .put("referralLabel", payload.referralLabel)
             .put("communityReputation", payload.communityReputation)
             .put("contributionSummary", payload.contributionSummary)
+            .put("referrerGhalbitId", payload.referrerGhalbitId ?: "")
+            .put("sponsorGhalbitId", payload.sponsorGhalbitId ?: "")
+            .put("inviteCode", payload.inviteCode ?: "")
+            .put("sourceCardId", payload.sourceCardId ?: "")
             .put("profileVersion", payload.profileVersion)
             .put("relayHint", payload.relayHint ?: "")
             .put("timestamp", payload.timestamp)
@@ -92,6 +100,10 @@ object ProfileQrCodec {
                 referralLabel = json.optString("referralLabel", "0/0"),
                 communityReputation = json.optInt("communityReputation", 0),
                 contributionSummary = json.optString("contributionSummary", "Reputasi komunitas belum tersedia"),
+                referrerGhalbitId = json.optString("referrerGhalbitId").ifBlank { null },
+                sponsorGhalbitId = json.optString("sponsorGhalbitId").ifBlank { null },
+                inviteCode = json.optString("inviteCode").ifBlank { null },
+                sourceCardId = json.optString("sourceCardId").ifBlank { null },
                 profileVersion = json.optInt("profileVersion", 1),
                 relayHint = json.optString("relayHint").ifBlank { null },
                 timestamp = json.optLong("timestamp", 0L),

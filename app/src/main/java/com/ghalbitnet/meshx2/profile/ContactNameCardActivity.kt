@@ -87,7 +87,22 @@ class ContactNameCardActivity : AppCompatActivity() {
                 if (!scannedPayload.isNullOrBlank()) {
                     val payload = ProfileQrCodec.decode(scannedPayload)
                     if (payload != null) {
-                        ProfileSyncManager.applyScannedQr(this@ContactNameCardActivity, payload)
+                        val applied = ProfileSyncManager.applyScannedQr(this@ContactNameCardActivity, payload)
+                        val sourceId = payload.referrerGhalbitId ?: payload.sponsorGhalbitId ?: payload.globalId
+                        val targetId = ProfileRepository.getOrCreateMyProfile(this@ContactNameCardActivity).globalId
+                        ProfessionalReferralEventRecorder.recordReferralSeen(
+                            context = this@ContactNameCardActivity,
+                            sourceGhalbitId = sourceId,
+                            targetGhalbitId = targetId
+                        )
+                        if (!payload.sponsorGhalbitId.isNullOrBlank() || !payload.referrerGhalbitId.isNullOrBlank() || !payload.inviteCode.isNullOrBlank()) {
+                            ProfessionalReferralEventRecorder.recordReferralJoined(
+                                context = this@ContactNameCardActivity,
+                                sourceGhalbitId = sourceId,
+                                targetGhalbitId = targetId
+                            )
+                        }
+                        applied
                     } else {
                         withContext(Dispatchers.Main) {
                             UiFeedbackManager.showToast(this@ContactNameCardActivity, "Kartu tidak dapat diverifikasi atau data QR rusak.")
@@ -230,6 +245,11 @@ class ContactNameCardActivity : AppCompatActivity() {
                     favorite = favorite.isChecked,
                     pinned = pinned.isChecked
                 )
+                ProfessionalReferralEventRecorder.recordReferralSavedContact(
+                    context = this,
+                    sourceGhalbitId = profile.globalId,
+                    targetGhalbitId = ProfileRepository.getOrCreateMyProfile(this).globalId
+                )
                 render()
             }
             .setNegativeButton("Batal", null)
@@ -246,14 +266,21 @@ class ContactNameCardActivity : AppCompatActivity() {
                     .setMessage(if (verified) "Profil terverifikasi relay." else "Profil belum bisa diverifikasi.")
                     .setPositiveButton("OK", null)
                     .show()
-                if (verified) render()
+                if (verified) {
+                    ProfessionalReferralEventRecorder.recordReferralVerified(
+                        context = this@ContactNameCardActivity,
+                        sourceGhalbitId = profile.globalId,
+                        targetGhalbitId = ProfileRepository.getOrCreateMyProfile(this@ContactNameCardActivity).globalId
+                    )
+                    render()
+                }
             }
         }
     }
 
     private fun shareCardPng() {
         val profile = currentProfile ?: return
-        val model = VerifiedCardPngShareManager.modelFromProfile(profile)
+        val model = VerifiedCardPngShareManager.modelFromProfile(this, profile)
         startActivity(Intent.createChooser(VerifiedCardPngShareManager.createSharePngIntent(this, model), "Bagikan Kartu PNG"))
     }
 

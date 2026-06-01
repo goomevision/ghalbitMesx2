@@ -93,7 +93,8 @@ class ProfessionalCardActivity : AppCompatActivity() {
                     setTextColor(com.ghalbitnet.meshx2.profile.ProfessionalCardTierSystem.themeFor(model.tier).badgeTextColor)
                 }
                 findViewById<TextView>(R.id.txtProfessionalTrustBadge).text = "Trust Score: ${model.trustScore} • Rank: $rankLabel"
-                findViewById<TextView>(R.id.txtProfessionalReferralBadge).text = "Referral: ${model.referralLabel}"
+                findViewById<TextView>(R.id.txtProfessionalReferralBadge).text =
+                    if (model.referralLabel.equals("belum tersedia", true)) "Referral: belum tersedia" else "Referral: ${model.referralLabel}"
                 findViewById<TextView>(R.id.txtProfessionalMentorBadge).text = "Mentor: ${model.mentorStatus}"
                 findViewById<TextView>(R.id.txtProfessionalReputationBadge).text =
                     if (model.communityReputation <= 0 && model.contributionSummary.contains("belum tersedia", ignoreCase = true)) {

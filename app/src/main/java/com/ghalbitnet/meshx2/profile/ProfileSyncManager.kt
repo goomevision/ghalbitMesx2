@@ -118,6 +118,10 @@ object ProfileSyncManager {
 
     fun buildQrPayload(context: Context?, profile: CommunityProfile, relayHint: String?): ProfileQrPayload {
         val mapped = ProfessionalCardDataMapper.fromProfile(context, profile)
+        val referrer = profile.localTags.firstOrNull { it.startsWith("referrer:", true) }?.substringAfter(':')?.trim()?.ifBlank { null }
+        val sponsor = profile.localTags.firstOrNull { it.startsWith("sponsor:", true) }?.substringAfter(':')?.trim()?.ifBlank { null }
+        val inviteCode = profile.localTags.firstOrNull { it.startsWith("invite_code:", true) }?.substringAfter(':')?.trim()?.ifBlank { null }
+        val sourceCardId = profile.localTags.firstOrNull { it.startsWith("source_card:", true) }?.substringAfter(':')?.trim()?.ifBlank { null }
         return ProfileQrPayload(
             globalId = mapped.model.globalId,
             publicKey = profile.publicKeyBase64,
@@ -136,6 +140,10 @@ object ProfileSyncManager {
             referralLabel = mapped.model.referralLabel,
             communityReputation = mapped.model.communityReputation,
             contributionSummary = mapped.model.contributionSummary,
+            referrerGhalbitId = referrer,
+            sponsorGhalbitId = sponsor,
+            inviteCode = inviteCode,
+            sourceCardId = sourceCardId,
             profileVersion = mapped.model.profileVersion,
             relayHint = relayHint,
             timestamp = mapped.model.updatedAt,
