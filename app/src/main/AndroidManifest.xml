@@ -60,6 +60,7 @@
         android:theme="@style/Theme.GhalbitMeshX2">
 
         <activity android:name=".monitor.NetworkActivity" android:exported="false" />
+        <activity android:name=".diagnostics.autodiag.AutoDiagnosticActivity" android:exported="false" />
         <activity android:name=".dashboard.RuntimeDashboardActivity" android:exported="false" />
         <activity android:name=".debug.DebugActivity" android:exported="false" />
         <activity android:name=".MainActivity"

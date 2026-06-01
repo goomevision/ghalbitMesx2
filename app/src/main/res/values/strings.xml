@@ -972,6 +972,7 @@ IP: %2$s</string>
     <string name="runtime_dashboard_copy_summary">COPY RINGKASAN</string>
     <string name="runtime_dashboard_clear_sos">BERSIHKAN SOS READ</string>
     <string name="runtime_dashboard_audio_truth_lab">AUDIO TRUTH LAB</string>
+    <string name="runtime_dashboard_run_full_diagnostic">RUN FULL DIAGNOSTIC</string>
     <string name="runtime_dashboard_refreshed">Snapshot diperbarui.</string>
     <string name="runtime_dashboard_verification_done">Runtime verification dicatat.</string>
     <string name="runtime_dashboard_call_ready_ok">VoIP readiness sudah dicek.</string>

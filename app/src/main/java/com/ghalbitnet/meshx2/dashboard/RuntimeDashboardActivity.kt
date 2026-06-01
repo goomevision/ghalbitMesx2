@@ -17,6 +17,7 @@ import com.ghalbitnet.meshx2.R
 import com.ghalbitnet.meshx2.call.VoipReadinessChecker
 import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
 import com.ghalbitnet.meshx2.chat.ContactListActivity
+import com.ghalbitnet.meshx2.diagnostics.autodiag.AutoDiagnosticActivity
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioReportGenerator
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
 import com.ghalbitnet.meshx2.sos.SosAlertManager
@@ -165,6 +166,10 @@ class RuntimeDashboardActivity : AppCompatActivity() {
                 ).show()
                 Log.d("GHALBIT-DASHBOARD-UI", "audio truth lab finished health=${report.healthScore}")
             }
+        }
+        findViewById<Button>(R.id.btnRunFullDiagnostic).setOnClickListener {
+            startActivity(Intent(this, AutoDiagnosticActivity::class.java))
+            Log.d("GHALBIT-DASHBOARD-UI", "open auto diagnostic center")
         }
     }
 
