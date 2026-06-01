@@ -107,19 +107,27 @@ object OnlinePresenceManager : PresenceApi {
         val response = getJson("${effectivePresenceBaseUrl().trimEnd('/')}/presence/$targetGlobalId")
         return if (response != null && response.optBoolean("ok")) {
             val presenceJson = response.optJSONObject("presence")
+            val authoritativeOnline = presenceJson?.optBoolean("online", true) ?: response.optBoolean("online", true)
+            val authoritativeLastSeen = presenceJson?.optLong("lastSeen", 0L)?.takeIf { it > 0L }
+                ?: response.optLong("lastSeen", 0L).takeIf { it > 0L }
             val presence =
                 OnlinePresence(
                     nodeId = presenceJson?.optString("nodeId").orEmpty(),
                     globalId = targetGlobalId,
                     publicKeyHash = presenceJson?.optString("publicKeyHash").takeIf { !it.isNullOrBlank() },
-                    online = true,
+                    online = authoritativeOnline,
                     route = configuredRoute(targetGlobalId),
-                    lastSeen = presenceJson?.optLong("lastSeen") ?: System.currentTimeMillis()
+                    lastSeen = authoritativeLastSeen ?: System.currentTimeMillis()
                 )
             cachePresence(context, presence)
-            triggerPendingRetryForOnlinePeer(context, presence)
-            Log.d("GHALBIT-PRESENCE-CLIENT", "peer online globalId=$targetGlobalId")
-            presence
+            if (presence.online) {
+                triggerPendingRetryForOnlinePeer(context, presence)
+                Log.d("GHALBIT-PRESENCE-CLIENT", "peer online globalId=$targetGlobalId authoritative=true")
+                presence
+            } else {
+                Log.d("GHALBIT-PRESENCE-CLIENT", "peer offline globalId=$targetGlobalId authoritative=true")
+                null
+            }
         } else {
             Log.d("GHALBIT-PRESENCE-CLIENT", "peer offline globalId=$targetGlobalId")
             all(context).firstOrNull { it.globalId == targetGlobalId }?.also {
@@ -174,10 +182,20 @@ object OnlinePresenceManager : PresenceApi {
                 .put("deviceCapability", "ANDROID")
         val response = postJson("${effectivePresenceBaseUrl().trimEnd('/')}/presence/heartbeat", payload)
         return if (response?.optBoolean("ok") == true) {
-            val updated = presence.copy(online = true, route = configuredRoute(presence.globalId), lastSeen = System.currentTimeMillis())
+            val serverStatus = response.optString("status", "ONLINE_REMOTE")
+            val serverOnline = response.optBoolean("online", true) && !serverStatus.contains("OFFLINE", ignoreCase = true)
+            val serverLastSeen = response.optLong("lastSeen", 0L).takeIf { it > 0L } ?: System.currentTimeMillis()
+            val updated = presence.copy(
+                online = serverOnline,
+                route = configuredRoute(presence.globalId),
+                lastSeen = serverLastSeen
+            )
             cachePresence(context, updated)
-            Log.d("GHALBIT-PRESENCE-CLIENT", "heartbeat sent globalId=${presence.globalId}")
-            RemotePresenceResult(true, response.optString("status", "ONLINE_REMOTE"), updated)
+            Log.d(
+                "GHALBIT-PRESENCE-CLIENT",
+                "heartbeat authoritative globalId=${presence.globalId} status=$serverStatus online=$serverOnline lastSeen=$serverLastSeen"
+            )
+            RemotePresenceResult(serverOnline, serverStatus, updated)
         } else {
             cachePresence(context, presence.copy(online = false))
             Log.w("GHALBIT-PRESENCE-CLIENT", "heartbeat failed globalId=${presence.globalId}")

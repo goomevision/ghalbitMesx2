@@ -684,7 +684,17 @@ object ChatDeliveryManager {
         }
 
         if (!allowRetry) {
-            updateState(context, request.packetId, ChatDeliveryState.FAILED_FINAL)
+            val nextRetryAt = System.currentTimeMillis() + guardedBackoffMs(attempt + 1)
+            schedulePendingState(
+                context = context,
+                request = request,
+                attempt = attempt + 1,
+                state = ChatDeliveryState.FAILED_RETRYING,
+                nextRetryAt = nextRetryAt,
+                reason = "ttlGuardPending"
+            )
+            updateState(context, request.packetId, ChatDeliveryState.FAILED_RETRYING)
+            Log.d("GHALBIT-CHAT-RETRY", "messageId=${request.messageId} ttlGuard pending=true")
             return
         }
 
@@ -810,7 +820,16 @@ object ChatDeliveryManager {
     }
 
     private fun updateState(context: Context, packetId: String, state: ChatDeliveryState) {
-        ChatDatabase.getInstance(context).chatDao().updateStatus(packetId, state.dbValue)
+        val dao = ChatDatabase.getInstance(context).chatDao()
+        val previous = dao.findByPacketId(packetId)?.status.orEmpty()
+        dao.updateStatus(packetId, state.dbValue)
+        if (previous != state.dbValue) {
+            val semantic = DeliverySemanticStage.fromState(state)
+            Log.d(
+                "GHALBIT-DELIVERY-SEMANTIC",
+                "packetId=$packetId stage=${semantic.name} state=${state.dbValue}"
+            )
+        }
     }
 
     private suspend fun syncInternetInbox(context: Context): RelayInboxResult {

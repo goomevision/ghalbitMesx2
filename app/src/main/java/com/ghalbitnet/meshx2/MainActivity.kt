@@ -52,6 +52,7 @@ import com.ghalbitnet.meshx2.core.network.TransportPreference
 import com.ghalbitnet.meshx2.discovery.DiscoveryManager
 import com.ghalbitnet.meshx2.discovery.PeerDiscoveryHandler
 import com.ghalbitnet.meshx2.discovery.UdpDiscovery
+import com.ghalbitnet.meshx2.diagnostics.NetworkTruthProbe
 import com.ghalbitnet.meshx2.economy.MeshEconomyActivity
 import com.ghalbitnet.meshx2.economy.ServicePathRecorder
 import com.ghalbitnet.meshx2.economy.UsageSessionRecorder
@@ -635,6 +636,14 @@ class MainActivity : AppCompatActivity() {
 
             if (packet.type == "PING" || packet.type == "PONG" || packet.type == "ROUTE_CHECK") {
                 ConversationKeepAliveManager.onPacketReceived(applicationContext, packet, payload)
+            }
+
+            val probeReply = NetworkTruthProbe.onIncomingPacket(myPeerId, packet, payload)
+            if (probeReply != null) {
+                val peerIp = keyStore.getPeerAddress(packet.source)
+                if (!peerIp.isNullOrBlank()) {
+                    MeshSocketClient.send(peerIp, probeReply)
+                }
             }
 
             if (packet.type == "SOS") {
@@ -1467,6 +1476,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUI() {
         val nodes = DiscoveryManager.discoverNodes()
+        NetworkTruthProbe.maybeSend(applicationContext, myPeerId, nodes.firstOrNull { it.online })
         val preferredNode =
             nodes.firstOrNull { it.online }
         val connectionSnapshot =
