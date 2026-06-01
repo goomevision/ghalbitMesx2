@@ -12,10 +12,16 @@ import java.util.concurrent.ConcurrentHashMap
 object AdaptiveRouteManager {
     private const val FAILED_ROUTE_COOLDOWN_MS = 30_000L
     private const val HOST_UNHEALTHY_COOLDOWN_MS = 30_000L
+    private const val ROUTE_LOCK_TTL_MS = 20_000L
+    private const val ROUTE_LOCK_MAX_FAILURES = 3
+    private const val SLOT_DIRECT_BOOST = 12
+    private const val SLOT_RELAY_BOOST = 8
     private val lastDecisions = ConcurrentHashMap<String, AdaptiveRouteDecision>()
     private val switchHistory = ConcurrentHashMap<String, ArrayDeque<String>>()
     private val failedRouteCooldowns = ConcurrentHashMap<String, Long>()
     private val unhealthyHosts = ConcurrentHashMap<String, Long>()
+    private val routeLocks = ConcurrentHashMap<String, RouteLock>()
+    private val routeLockFailures = ConcurrentHashMap<String, Int>()
 
     fun evaluate(
         context: Context,
@@ -25,6 +31,27 @@ object AdaptiveRouteManager {
         keepAliveState: ActiveConversationRouteState? = null
     ): AdaptiveRouteDecision {
         val appContext = context.applicationContext
+        val now = System.currentTimeMillis()
+        val activeLock = getActiveRouteLock(chatId, globalId, now)
+        if (activeLock != null && !isInCooldown(now, chatId, globalId, activeLock.nextHop) && !isHostUnhealthy(now, activeLock.nextHop)) {
+            val lockedDecision =
+                AdaptiveRouteDecision(
+                    chatId = chatId,
+                    globalId = globalId,
+                    routeType = activeLock.routeType,
+                    transport = activeLock.transport,
+                    nextHop = activeLock.nextHop,
+                    reason = "routeLock:${activeLock.source.name.lowercase()}",
+                    routeHealth = RouteHealthStatus.STABLE
+                )
+            lastDecisions[chatId] = lockedDecision
+            Log.d(
+                "GHALBIT-ROUTE-LOCK",
+                "peer=${globalId ?: chatId} route=${activeLock.transport} source=${activeLock.source.name} ttlMs=${activeLock.expiresAt - now}"
+            )
+            return lockedDecision
+        }
+
         val candidates = routeCandidates(appContext, chatId, globalId, routeHint, keepAliveState)
         val localHint = candidates.firstOrNull()
         val internetRoute = globalId?.let { OnlinePresenceManager.getOnlineRoute(appContext, it) }
@@ -138,12 +165,22 @@ object AdaptiveRouteManager {
                 failedRouteCooldowns.remove(failureKeyByGlobal(globalId, nextHop))
             }
             unhealthyHosts.remove(nextHop)
+            routeLockFailures[routeLockKey(chatId, globalId)] = 0
+            lockRoute(chatId, globalId, nextHop, RouteEvidenceSource.CHAT)
             Log.d("GHALBIT-PREDICTIVE-ROUTE", "success chatId=$chatId nextHop=$nextHop")
         } else {
             val now = System.currentTimeMillis()
             failedRouteCooldowns[failureKeyByChat(chatId, nextHop)] = now
             if (!globalId.isNullOrBlank()) {
                 failedRouteCooldowns[failureKeyByGlobal(globalId, nextHop)] = now
+            }
+            val lockKey = routeLockKey(chatId, globalId)
+            val failures = (routeLockFailures[lockKey] ?: 0) + 1
+            routeLockFailures[lockKey] = failures
+            if (failures >= ROUTE_LOCK_MAX_FAILURES) {
+                routeLocks.remove(lockKey)
+                routeLockFailures[lockKey] = 0
+                Log.w("GHALBIT-ROUTE-LOCK", "release peer=${globalId ?: chatId} reason=consecutiveFailure count=$failures")
             }
             Log.d("GHALBIT-PREDICTIVE-ROUTE", "cooldown chatId=$chatId nextHop=$nextHop")
         }
@@ -152,6 +189,7 @@ object AdaptiveRouteManager {
     fun markHostTemporarilyUnhealthy(host: String, reason: String) {
         if (host.isBlank()) return
         unhealthyHosts[host] = System.currentTimeMillis()
+        routeLocks.entries.removeIf { it.value.nextHop == host }
         Log.d("GHALBIT-PREDICTIVE-ROUTE", "hostUnhealthy host=$host reason=$reason cooldownMs=$HOST_UNHEALTHY_COOLDOWN_MS")
     }
 
@@ -205,6 +243,9 @@ object AdaptiveRouteManager {
         }
         ids.forEach { id -> candidates += IntelligentRouteMemory.getCandidateHints(context, id) }
         val now = System.currentTimeMillis()
+        val preferredTransport = RouteTimeSlotScheduler.getPreferredTransport(now)
+        val neighborSlots = RouteTimeSlotScheduler.getNeighborSlots(now)
+        val boostApplied = preferredTransport == "LOCAL_MESH_DIRECT" || preferredTransport == "LOCAL_RELAY"
         val filtered = candidates
             .distinctBy { it.nextHopId }
             .filterNot { hint ->
@@ -212,7 +253,16 @@ object AdaptiveRouteManager {
                 if (cooled) Log.d("GHALBIT-PREDICTIVE-ROUTE", "skipCooldown chatId=$chatId nextHop=${hint.nextHopId}")
                 cooled
             }
-            .sortedByDescending { IntelligentRouteMemory.scoreHint(it).score }
+            .sortedByDescending { hint ->
+                val base = IntelligentRouteMemory.scoreHint(hint).score
+                val slotBoost = slotBoostForHint(hint, preferredTransport, neighborSlots)
+                base + slotBoost
+            }
+
+        Log.d(
+            "GHALBIT-ROUTE-SLOT",
+            "peer=${globalId ?: chatId} preferred=$preferredTransport boosted=$boostApplied"
+        )
         Log.d(
             "GHALBIT-PREDICTIVE-ROUTE",
             "candidates chatId=$chatId count=${filtered.size} list=${filtered.joinToString { "${it.nextHopId}:${IntelligentRouteMemory.scoreHint(it).score}" }}"
@@ -245,4 +295,72 @@ object AdaptiveRouteManager {
         if (!active) unhealthyHosts.remove(host)
         return active
     }
+
+    private fun slotBoostForHint(hint: RouteHint, preferredTransport: String, neighborSlots: List<Int>): Int {
+        val isDirect = hint.hopCount <= 1
+        val currentSlot = neighborSlots.firstOrNull() ?: 0
+        val hintSlot = if (isDirect) 0 else 1
+        return when (preferredTransport) {
+            "LOCAL_MESH_DIRECT" -> {
+                when {
+                    isDirect && currentSlot == 0 -> SLOT_DIRECT_BOOST
+                    isDirect && hintSlot in neighborSlots -> SLOT_DIRECT_BOOST / 2
+                    else -> 0
+                }
+            }
+            "LOCAL_RELAY" -> {
+                when {
+                    !isDirect && currentSlot == 1 -> SLOT_RELAY_BOOST
+                    !isDirect && hintSlot in neighborSlots -> SLOT_RELAY_BOOST / 2
+                    else -> 0
+                }
+            }
+            else -> 0
+        }
+    }
+
+    private fun getActiveRouteLock(chatId: String, globalId: String?, now: Long): RouteLock? {
+        val keys = listOf(routeLockKey(chatId, null), routeLockKey(chatId, globalId))
+        keys.forEach { key ->
+            val lock = routeLocks[key] ?: return@forEach
+            if (lock.expiresAt <= now) {
+                routeLocks.remove(key)
+                return@forEach
+            }
+            return lock
+        }
+        return null
+    }
+
+    private fun lockRoute(chatId: String, globalId: String?, nextHop: String, source: RouteEvidenceSource) {
+        val decision = lastDecisions[chatId] ?: return
+        if (decision.routeType == AdaptiveRouteType.PENDING_QUEUE || nextHop.isBlank()) return
+        val now = System.currentTimeMillis()
+        val lock =
+            RouteLock(
+                chatId = chatId,
+                globalId = globalId,
+                nextHop = nextHop,
+                transport = decision.transport,
+                routeType = decision.routeType,
+                source = source,
+                lockedAt = now,
+                expiresAt = now + ROUTE_LOCK_TTL_MS
+            )
+        routeLocks[routeLockKey(chatId, globalId)] = lock
+        Log.d("GHALBIT-ROUTE-LOCK", "peer=${globalId ?: chatId} route=${decision.transport} source=${source.name} ttlMs=$ROUTE_LOCK_TTL_MS")
+    }
+
+    private fun routeLockKey(chatId: String, globalId: String?): String = "${chatId.trim()}|${globalId?.trim().orEmpty()}"
+
+    private data class RouteLock(
+        val chatId: String,
+        val globalId: String?,
+        val nextHop: String,
+        val transport: String,
+        val routeType: AdaptiveRouteType,
+        val source: RouteEvidenceSource,
+        val lockedAt: Long,
+        val expiresAt: Long
+    )
 }
