@@ -17,6 +17,8 @@ import com.ghalbitnet.meshx2.R
 import com.ghalbitnet.meshx2.call.VoipReadinessChecker
 import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
 import com.ghalbitnet.meshx2.chat.ContactListActivity
+import com.ghalbitnet.meshx2.diagnostics.audio.AudioReportGenerator
+import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
 import com.ghalbitnet.meshx2.sos.SosAlertManager
 import com.ghalbitnet.meshx2.sos.SosInboxActivity
 import com.ghalbitnet.meshx2.ui.GhalbitTheme
@@ -149,6 +151,20 @@ class RuntimeDashboardActivity : AppCompatActivity() {
             renderSnapshot()
             Toast.makeText(this, getString(R.string.runtime_dashboard_cleared_sos, removed), Toast.LENGTH_SHORT).show()
             Log.d("GHALBIT-DASHBOARD-UI", "cleared read sos count=$removed")
+        }
+        findViewById<Button>(R.id.btnAudioTruthLab).setOnClickListener {
+            lifecycleScope.launch {
+                val report = withContext(Dispatchers.IO) { AudioTruthProbe.run(this@RuntimeDashboardActivity) }
+                val markdown = AudioReportGenerator.generateMarkdown(report)
+                val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Audio Truth Report", markdown))
+                Toast.makeText(
+                    this@RuntimeDashboardActivity,
+                    "Audio Truth Lab selesai. Health ${report.healthScore}/100 (report disalin).",
+                    Toast.LENGTH_LONG
+                ).show()
+                Log.d("GHALBIT-DASHBOARD-UI", "audio truth lab finished health=${report.healthScore}")
+            }
         }
     }
 
