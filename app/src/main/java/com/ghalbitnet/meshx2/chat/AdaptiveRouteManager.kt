@@ -130,12 +130,18 @@ object AdaptiveRouteManager {
 
     fun markRouteResult(chatId: String, globalId: String?, nextHop: String?, success: Boolean) {
         if (nextHop.isNullOrBlank()) return
-        val key = failureKey(chatId, globalId, nextHop)
         if (success) {
-            failedRouteCooldowns.remove(key)
+            failedRouteCooldowns.remove(failureKeyByChat(chatId, nextHop))
+            if (!globalId.isNullOrBlank()) {
+                failedRouteCooldowns.remove(failureKeyByGlobal(globalId, nextHop))
+            }
             Log.d("GHALBIT-PREDICTIVE-ROUTE", "success chatId=$chatId nextHop=$nextHop")
         } else {
-            failedRouteCooldowns[key] = System.currentTimeMillis()
+            val now = System.currentTimeMillis()
+            failedRouteCooldowns[failureKeyByChat(chatId, nextHop)] = now
+            if (!globalId.isNullOrBlank()) {
+                failedRouteCooldowns[failureKeyByGlobal(globalId, nextHop)] = now
+            }
             Log.d("GHALBIT-PREDICTIVE-ROUTE", "cooldown chatId=$chatId nextHop=$nextHop")
         }
     }
@@ -193,7 +199,7 @@ object AdaptiveRouteManager {
         val filtered = candidates
             .distinctBy { it.nextHopId }
             .filterNot { hint ->
-                val cooled = now - (failedRouteCooldowns[failureKey(chatId, globalId, hint.nextHopId)] ?: 0L) < FAILED_ROUTE_COOLDOWN_MS
+                val cooled = isInCooldown(now, chatId, globalId, hint.nextHopId)
                 if (cooled) Log.d("GHALBIT-PREDICTIVE-ROUTE", "skipCooldown chatId=$chatId nextHop=${hint.nextHopId}")
                 cooled
             }
@@ -213,5 +219,14 @@ object AdaptiveRouteManager {
         }
     }
 
-    private fun failureKey(chatId: String, globalId: String?, nextHop: String): String = "${globalId ?: chatId}@$nextHop"
+    private fun isInCooldown(now: Long, chatId: String, globalId: String?, nextHop: String): Boolean {
+        val chatLast = failedRouteCooldowns[failureKeyByChat(chatId, nextHop)] ?: 0L
+        val globalLast = if (!globalId.isNullOrBlank()) failedRouteCooldowns[failureKeyByGlobal(globalId, nextHop)] ?: 0L else 0L
+        val latest = maxOf(chatLast, globalLast)
+        return now - latest < FAILED_ROUTE_COOLDOWN_MS
+    }
+
+    private fun failureKeyByChat(chatId: String, nextHop: String): String = "chat:$chatId@$nextHop"
+
+    private fun failureKeyByGlobal(globalId: String, nextHop: String): String = "global:$globalId@$nextHop"
 }

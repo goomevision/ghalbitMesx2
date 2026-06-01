@@ -26,6 +26,10 @@ object RouteDiscovery {
         localIp = myIp
     }
 
+    private fun dbOrNull(): RoutingDatabase? {
+        return if (::db.isInitialized) db else null
+    }
+
     suspend fun getBestRoute(destinationIp: String): RoutingTableEntry? {
         // TODO unified identity:
         // route lookup should target canonical globalId and keep destinationIp
@@ -86,7 +90,7 @@ object RouteDiscovery {
             return directRoute
         }
 
-        val entry = withContext(Dispatchers.IO) { db.routingDao().getRoutes(destinationIp).firstOrNull() }
+        val entry = withContext(Dispatchers.IO) { dbOrNull()?.routingDao()?.getRoutes(destinationIp)?.firstOrNull() }
         entry?.let { routeCache[destinationIp] = it }
         return entry
     }
@@ -137,7 +141,12 @@ object RouteDiscovery {
         )
 
         scope.launch {
-            db.routingDao().insertEntry(entry)
+            val dbRef = dbOrNull()
+            if (dbRef == null) {
+                Log.w("GHALBIT-ROUTE-DISCOVERY", "rememberDirectRoute skipped dbNotInitialized destination=$destinationPeerId nextHop=$destinationIp")
+                return@launch
+            }
+            dbRef.routingDao().insertEntry(entry)
         }
     }
 
@@ -200,6 +209,11 @@ object RouteDiscovery {
 
     fun handleRREP(sourceIp: String, destination: String, hopCount: Int) {
         scope.launch {
+            val dbRef = dbOrNull()
+            if (dbRef == null) {
+                Log.w("GHALBIT-ROUTE-DISCOVERY", "handleRREP skipped dbNotInitialized destination=$destination")
+                return@launch
+            }
             val entry = RoutingTableEntry(
                 destinationIp = destination,
                 nextHopIp = sourceIp,
@@ -208,7 +222,7 @@ object RouteDiscovery {
                 trustScore = 50,
                 lastUpdated = System.currentTimeMillis()
             )
-            db.routingDao().insertEntry(entry)
+            dbRef.routingDao().insertEntry(entry)
             routeCache[destination] = entry
             onRouteFoundCallback?.invoke(destination, entry)
         }
@@ -216,8 +230,14 @@ object RouteDiscovery {
 
     fun clearExpiredRoutes(timeoutMs: Long = 60000) {
         scope.launch {
+            val dbRef = dbOrNull()
+            if (dbRef == null) {
+                routeCache.clear()
+                Log.w("GHALBIT-ROUTE-DISCOVERY", "clearExpiredRoutes dbNotInitialized cacheClearedOnly")
+                return@launch
+            }
             val threshold = System.currentTimeMillis() - timeoutMs
-            db.routingDao().deleteOlderThan(threshold)
+            dbRef.routingDao().deleteOlderThan(threshold)
             routeCache.clear()
         }
     }
