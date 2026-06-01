@@ -113,7 +113,11 @@ object ProfileSyncManager {
     }
 
     fun buildQrPayload(profile: CommunityProfile, relayHint: String?): ProfileQrPayload {
-        val mapped = ProfessionalCardDataMapper.fromProfile(profile)
+        return buildQrPayload(null, profile, relayHint)
+    }
+
+    fun buildQrPayload(context: Context?, profile: CommunityProfile, relayHint: String?): ProfileQrPayload {
+        val mapped = ProfessionalCardDataMapper.fromProfile(context, profile)
         return ProfileQrPayload(
             globalId = mapped.model.globalId,
             publicKey = profile.publicKeyBase64,
@@ -131,6 +135,7 @@ object ProfileSyncManager {
             mentorStatus = mapped.model.mentorStatus,
             referralLabel = mapped.model.referralLabel,
             communityReputation = mapped.model.communityReputation,
+            contributionSummary = mapped.model.contributionSummary,
             profileVersion = mapped.model.profileVersion,
             relayHint = relayHint,
             timestamp = mapped.model.updatedAt,
@@ -139,7 +144,7 @@ object ProfileSyncManager {
     }
 
     fun buildSignedQrPayload(context: Context, profile: CommunityProfile, relayHint: String?): ProfileQrPayload {
-        val unsigned = buildQrPayload(profile, relayHint).copy(signature = "")
+        val unsigned = buildQrPayload(context, profile, relayHint).copy(signature = "")
         val signature = NodeSigningIdentityManager.sign(context, ProfileQrCodec.canonicalPayload(unsigned), profile.globalId)
         return unsigned.copy(signature = signature)
     }

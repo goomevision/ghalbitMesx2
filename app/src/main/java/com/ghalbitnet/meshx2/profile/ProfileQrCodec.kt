@@ -30,6 +30,7 @@ object ProfileQrCodec {
             payload.mentorStatus,
             payload.referralLabel,
             payload.communityReputation.toString(),
+            payload.contributionSummary,
             payload.profileVersion.toString(),
             payload.relayHint.orEmpty(),
             payload.timestamp.toString()
@@ -55,6 +56,7 @@ object ProfileQrCodec {
             .put("mentorStatus", payload.mentorStatus)
             .put("referralLabel", payload.referralLabel)
             .put("communityReputation", payload.communityReputation)
+            .put("contributionSummary", payload.contributionSummary)
             .put("profileVersion", payload.profileVersion)
             .put("relayHint", payload.relayHint ?: "")
             .put("timestamp", payload.timestamp)
@@ -89,6 +91,7 @@ object ProfileQrCodec {
                 mentorStatus = json.optString("mentorStatus", "Belum Menjadi Mentor"),
                 referralLabel = json.optString("referralLabel", "0/0"),
                 communityReputation = json.optInt("communityReputation", 0),
+                contributionSummary = json.optString("contributionSummary", "Reputasi komunitas belum tersedia"),
                 profileVersion = json.optInt("profileVersion", 1),
                 relayHint = json.optString("relayHint").ifBlank { null },
                 timestamp = json.optLong("timestamp", 0L),

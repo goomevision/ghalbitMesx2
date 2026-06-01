@@ -78,7 +78,7 @@ class ProfessionalCardActivity : AppCompatActivity() {
                 routeHint = null
             ).mergeFallback(intent)
 
-            val mapped = ProfessionalCardDataMapper.fromProfile(profile)
+            val mapped = ProfessionalCardDataMapper.fromProfile(this@ProfessionalCardActivity, profile)
             val model = mapped.model
             withContext(Dispatchers.Main) {
                 val rankLabel = model.trustRank
@@ -95,9 +95,14 @@ class ProfessionalCardActivity : AppCompatActivity() {
                 findViewById<TextView>(R.id.txtProfessionalTrustBadge).text = "Trust Score: ${model.trustScore} • Rank: $rankLabel"
                 findViewById<TextView>(R.id.txtProfessionalReferralBadge).text = "Referral: ${model.referralLabel}"
                 findViewById<TextView>(R.id.txtProfessionalMentorBadge).text = "Mentor: ${model.mentorStatus}"
-                findViewById<TextView>(R.id.txtProfessionalReputationBadge).text = "Community Reputation: ${model.communityReputation}"
+                findViewById<TextView>(R.id.txtProfessionalReputationBadge).text =
+                    if (model.communityReputation <= 0 && model.contributionSummary.contains("belum tersedia", ignoreCase = true)) {
+                        "Community Reputation: belum tersedia"
+                    } else {
+                        "Community Reputation: ${model.communityReputation}"
+                    }
                 findViewById<TextView>(R.id.txtProfessionalUnifiedSummary).text =
-                    "Global ID: ${model.globalId}\nLokasi: ${model.region}\nVersi: ${model.profileVersion}\nStatus Verifikasi: ${verificationLabel(model.verificationStatus, model.tier.name)}"
+                    "Global ID: ${model.globalId}\nLokasi: ${model.region}\nVersi: ${model.profileVersion}\nKontribusi: ${model.contributionSummary}\nStatus Verifikasi: ${verificationLabel(model.verificationStatus, model.tier.name)}"
                 bindProfilePhoto(model.profilePhotoUri, model.displayName)
                 findViewById<View>(R.id.professionalCardRoot)?.setBackgroundColor(
                     com.ghalbitnet.meshx2.profile.ProfessionalCardTierSystem.themeFor(model.tier).cardGlowColor

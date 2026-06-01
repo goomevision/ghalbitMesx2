@@ -11,7 +11,7 @@ import com.ghalbitnet.meshx2.R
 
 object ContactCardRenderer {
     fun bind(root: View, profile: CommunityProfile, routeBadge: String, qrBitmap: Bitmap?) {
-        val mapped = ProfessionalCardDataMapper.fromProfile(profile)
+        val mapped = ProfessionalCardDataMapper.fromProfile(root.context, profile)
         val model = mapped.model
         val trustSummary = mapped.trustSummary
         val theme = ProfessionalCardTierSystem.themeFor(mapped.tier)
@@ -41,7 +41,11 @@ object ContactCardRenderer {
         root.findViewById<TextView>(R.id.txtCardMentorBadge)?.text = "Mentor: ${trustSummary.mentorLevel}"
         root.findViewById<TextView>(R.id.txtCardReferralBadge)?.text = "Referral: ${trustSummary.referralLabel}"
         root.findViewById<TextView>(R.id.txtCardReputationBadge)?.text =
-            "Community Reputation: ${trustSummary.communityReputation}"
+            if (model.communityReputation <= 0 && model.contributionSummary.contains("belum tersedia", ignoreCase = true)) {
+                "Community Reputation: belum tersedia"
+            } else {
+                "Community Reputation: ${trustSummary.communityReputation}"
+            }
 
         root.findViewById<TextView>(R.id.txtCardNote)?.apply {
             val note = profile.localNote?.takeIf { it.isNotBlank() }

@@ -17,6 +17,7 @@ data class ProfileQrPayload(
     val mentorStatus: String = "Belum Menjadi Mentor",
     val referralLabel: String = "0/0",
     val communityReputation: Int = 0,
+    val contributionSummary: String = "Reputasi komunitas belum tersedia",
     val profileVersion: Int,
     val relayHint: String?,
     val timestamp: Long = 0L,

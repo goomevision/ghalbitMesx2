@@ -19,6 +19,12 @@ object VerifiedCardPngShareManager {
         return mapped.model.copy(qrPayload = qrPayload)
     }
 
+    fun modelFromProfile(context: Context, profile: CommunityProfile): ProfessionalCardUiModel {
+        val mapped = ProfessionalCardDataMapper.fromProfile(context, profile)
+        val qrPayload = ProfileQrCodec.encode(ProfileSyncManager.buildQrPayload(context, profile, profile.routeHint))
+        return mapped.model.copy(qrPayload = qrPayload)
+    }
+
     fun savePngToCache(context: Context, model: ProfessionalCardUiModel): File {
         val dir = File(context.cacheDir, "verified_cards").apply { mkdirs() }
         val safeId = model.globalId.replace(Regex("[^A-Za-z0-9_-]"), "_")

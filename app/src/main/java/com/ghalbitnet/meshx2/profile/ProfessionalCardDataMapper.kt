@@ -1,7 +1,7 @@
 package com.ghalbitnet.meshx2.profile
 
+import android.content.Context
 import com.ghalbitnet.meshx2.verified.trust.CommunityFootprint
-import com.ghalbitnet.meshx2.verified.trust.CommunityReputationEngine
 import com.ghalbitnet.meshx2.verified.trust.IdentityLevel
 import com.ghalbitnet.meshx2.verified.trust.MentorBadgeRenderer
 import com.ghalbitnet.meshx2.verified.trust.ProfessionalCardSummaryFactory
@@ -21,8 +21,12 @@ object ProfessionalCardDataMapper {
         val badges: List<String>
     )
 
-    fun fromProfile(profile: CommunityProfile): Result {
+    fun fromProfile(profile: CommunityProfile): Result = fromProfile(null, profile)
+
+    fun fromProfile(context: Context?, profile: CommunityProfile): Result {
         val verificationStatus = verifyProfile(profile)
+        val mentorResolved = ProfessionalMentorStatusResolver.resolve(profile)
+        val referralResolved = ProfessionalReferralResolver.resolve(context, profile)
         val identity = VerifiedIdentityRecord(
             globalId = profile.globalId,
             publicKeyHash = profile.publicKeyHash,
@@ -40,15 +44,18 @@ object ProfessionalCardDataMapper {
             projectsParticipated = profile.skillTags.size.coerceAtMost(5),
             helpProvidedCount = if (profile.statusMessage.isNotBlank()) 1 else 0
         )
-        val trustScore = RealTrustScoreCalculator.calculate(identity = identity, community = footprint)
-        val mentorCount = 0
-        val referralActive = 0
-        val referralRewarded = 0
-        val reputation = CommunityReputationEngine.calculate(
-            memberCount = 0,
-            activeMentors = mentorCount,
-            successfulReferrals = referralRewarded,
-            contributionPoints = trustScore / 5
+        val trustScore = RealTrustScoreCalculator.calculate(
+            identity = identity,
+            community = footprint
+        )
+        val mentorCount = mentorResolved.mentorCount
+        val referralActive = referralResolved.active
+        val referralRewarded = referralResolved.rewarded
+        val reputationResolved = ProfessionalCommunityReputationResolver.resolve(
+            context = context,
+            profile = profile,
+            mentorCount = mentorCount,
+            referralRewarded = referralRewarded
         )
 
         val summaryRaw = ProfessionalCardSummaryFactory.create(
@@ -56,18 +63,20 @@ object ProfessionalCardDataMapper {
             mentorCount = mentorCount,
             referralActive = referralActive,
             referralRewarded = referralRewarded,
-            reputation = reputation
+            reputation = reputationResolved.reputation
         )
         val summary = summaryRaw.copy(
             trustRank = normalizeRank(summaryRaw.trustRank),
-            mentorLevel = summaryRaw.mentorLevel.ifBlank { MentorBadgeRenderer.level(0) },
-            referralLabel = summaryRaw.referralLabel.ifBlank { "0/0" }
+            mentorLevel = mentorResolved.mentorLabel.ifBlank { summaryRaw.mentorLevel.ifBlank { MentorBadgeRenderer.level(0) } },
+            referralLabel = referralResolved.label.ifBlank { summaryRaw.referralLabel.ifBlank { "0/0" } },
+            communityReputation = reputationResolved.reputation
         )
         val tier = ProfessionalCardTierSystem.resolve(verificationStatus == ProfileVerificationStatus.VALID_SIGNATURE, summary)
         val badges = buildList {
             if (verificationStatus == ProfileVerificationStatus.VALID_SIGNATURE) add("VERIFIED")
             if (summary.trustScore >= 40) add("TRUSTED")
-            if (!summary.mentorLevel.equals("Belum Menjadi Mentor", true)) add("MENTOR")
+            if (mentorResolved.isMentor) add("MENTOR")
+            if (summary.communityReputation >= 60) add("COMMUNITY_LEADER")
         }
 
         val model = ProfessionalCardUiModel(
@@ -88,6 +97,7 @@ object ProfessionalCardDataMapper {
             mentorStatus = summary.mentorLevel,
             referralLabel = summary.referralLabel,
             communityReputation = summary.communityReputation,
+            contributionSummary = reputationResolved.summary,
             tier = tier,
             verificationStatus = verificationStatus,
             badges = badges,

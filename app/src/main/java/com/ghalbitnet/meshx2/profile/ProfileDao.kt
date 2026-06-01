@@ -36,4 +36,19 @@ interface ProfileDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsertPrivacy(privacy: ProfilePrivacyEntity)
+
+    @Query("SELECT * FROM contact_aliases")
+    fun listContactAliases(): List<ContactAliasEntity>
+
+    @Query("SELECT COUNT(*) FROM contact_aliases WHERE (savedAsName IS NOT NULL AND TRIM(savedAsName) != '') OR isFavorite = 1 OR isPinned = 1")
+    fun countSavedContactSignals(): Int
+
+    @Query("SELECT * FROM contact_profiles")
+    fun listContactProfiles(): List<ContactProfileEntity>
+
+    @Query("SELECT COUNT(*) FROM contact_profiles")
+    fun countContactProfiles(): Int
+
+    @Query("SELECT COUNT(*) FROM contact_profiles WHERE verifiedAt IS NOT NULL")
+    fun countVerifiedContactProfiles(): Int
 }

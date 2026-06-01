@@ -25,5 +25,6 @@ data class ProfessionalCardUiModel(
     val profileVersion: Int = 0,
     val signature: String = "",
     val updatedAt: Long = 0L,
+    val contributionSummary: String = "Reputasi komunitas belum tersedia",
     val qrPayload: String? = null
 )
