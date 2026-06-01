@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.ghalbitnet.meshx2.call.VoipReadinessChecker
 import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
+import com.ghalbitnet.meshx2.diagnostics.InternetServerOperatorReadinessProbe
 import com.ghalbitnet.meshx2.diagnostics.ServerTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
 import com.ghalbitnet.meshx2.online.PendingMessageStore
@@ -64,6 +65,27 @@ object SmartRecoveryEngine {
         val urls = ServerTruthProbe.baseUrls()
         if (urls["relayBaseUrl"].isNullOrBlank()) {
             signals += RecoverySignal("server.baseUrl", "")
+        }
+        val serverReadiness = runCatching { kotlinx.coroutines.runBlocking { InternetServerOperatorReadinessProbe.run(context) } }.getOrNull()
+        if (serverReadiness != null) {
+            when {
+                !serverReadiness.configured -> signals += RecoverySignal("server.status", "SERVER_NOT_CONFIGURED")
+                serverReadiness.status == "FAILED" -> signals += RecoverySignal("server.status", "SERVER_DOWN")
+            }
+            serverReadiness.checks.forEach { check ->
+                if (!check.ok) {
+                    when (check.code) {
+                        401, 403 -> signals += RecoverySignal("server.status", "AUTH_REQUIRED")
+                        404 -> signals += RecoverySignal("server.status", "ENDPOINT_MISSING")
+                        500 -> signals += RecoverySignal("server.status", "SERVER_ERROR")
+                    }
+                    val detail = (check.detail.ifBlank { "" } + " " + check.name).uppercase()
+                    if (detail.contains("TIMEOUT")) signals += RecoverySignal("server.error", "TIMEOUT")
+                    if (detail.contains("ECONNREFUSED") || detail.contains("CONNECTION REFUSED")) {
+                        signals += RecoverySignal("server.status", "SERVER_DOWN")
+                    }
+                }
+            }
         }
         val pending = PendingMessageStore.all(context)
         if (pending.size > 50) {

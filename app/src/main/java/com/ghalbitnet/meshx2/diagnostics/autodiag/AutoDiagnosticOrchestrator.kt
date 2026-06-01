@@ -6,6 +6,7 @@ import android.os.SystemClock
 import android.util.Log
 import com.ghalbitnet.meshx2.call.VoipReadinessChecker
 import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
+import com.ghalbitnet.meshx2.diagnostics.InternetServerOperatorReadinessProbe
 import com.ghalbitnet.meshx2.diagnostics.ServerTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.recovery.RecoveryReportGenerator
@@ -27,6 +28,7 @@ object AutoDiagnosticOrchestrator {
         steps += runAudioStep(context)
         steps += runLoopStep(context)
         steps += runSmartRecoveryStep(context)
+        steps += runServerOperatorFullCheckStep(context)
 
         val total = steps.map { it.score }.average().toInt().coerceIn(0, 100)
         val finalStatus = when {
@@ -38,7 +40,7 @@ object AutoDiagnosticOrchestrator {
         val scoreMap = steps.associateBy { it.name }
         Log.i(
             "GHALBIT-AUTO-DIAG",
-            "SCORE server=${scoreMap["server"]?.score ?: 0} network=${scoreMap["network"]?.score ?: 0} simulation=${scoreMap["simulation"]?.score ?: 0} audio=${scoreMap["audio"]?.score ?: 0} media=${scoreMap["pending"]?.score ?: 0} call=${scoreMap["call_signaling"]?.score ?: 0} loop=${scoreMap["loop_guard"]?.score ?: 0} recovery=${scoreMap["smart_recovery"]?.score ?: 0}"
+            "SCORE server=${scoreMap["server"]?.score ?: 0} network=${scoreMap["network"]?.score ?: 0} simulation=${scoreMap["simulation"]?.score ?: 0} audio=${scoreMap["audio"]?.score ?: 0} media=${scoreMap["pending"]?.score ?: 0} call=${scoreMap["call_signaling"]?.score ?: 0} loop=${scoreMap["loop_guard"]?.score ?: 0} recovery=${scoreMap["smart_recovery"]?.score ?: 0} serverOperator=${scoreMap["server_operator_full_check"]?.score ?: 0}"
         )
         Log.i("GHALBIT-AUTO-DIAG", "RESULT status=$finalStatus total=$total")
         return AutoDiagnosticResult(steps = steps, totalScore = total, status = finalStatus)
@@ -190,6 +192,34 @@ object AutoDiagnosticOrchestrator {
             notes = listOf("recovered=${result.recovered}", "pending=${result.pending}", "failed=${result.failed}")
         )
         Log.i("GHALBIT-AUTO-DIAG", "STEP name=${step.name} status=${step.status}")
+        return step
+    }
+
+    private fun runServerOperatorFullCheckStep(context: Context): AutoDiagnosticStep {
+        val result = kotlinx.coroutines.runBlocking { InternetServerOperatorReadinessProbe.run(context) }
+        val status = when {
+            !result.configured -> AutoDiagnosticStatus.FAIL
+            result.status == "READY" -> AutoDiagnosticStatus.PASS
+            result.status == "PARTIAL" -> AutoDiagnosticStatus.PARTIAL
+            else -> AutoDiagnosticStatus.FAIL
+        }
+        val notes = buildList {
+            add("status=${result.status}")
+            add("configured=${result.configured}")
+            add("relay=${result.baseUrl}")
+            add("presence=${result.presenceUrl}")
+            if (!result.configured) {
+                add("SERVER_NOT_CONFIGURED")
+                add("FAKE_SERVER_PASS_ONLY")
+            }
+        }
+        val step = AutoDiagnosticStep(
+            name = "server_operator_full_check",
+            status = status,
+            score = result.score(),
+            notes = notes
+        )
+        Log.i("GHALBIT-AUTO-DIAG", "STEP name=SERVER_OPERATOR_FULL_CHECK status=${step.status}")
         return step
     }
 }

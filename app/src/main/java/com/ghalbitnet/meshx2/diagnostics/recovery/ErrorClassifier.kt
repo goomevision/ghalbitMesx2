@@ -8,6 +8,16 @@ object ErrorClassifier {
         return when {
             key == "server.baseurl" && normalized.isBlank() ->
                 RecoveryIssue(RecoveryErrorType.SERVER_BASE_URL_MISSING, signal.key, "baseUrl missing", RecoverySeverity.HIGH)
+            key == "server.status" && normalized.contains("SERVER_NOT_CONFIGURED") ->
+                RecoveryIssue(RecoveryErrorType.SERVER_BASE_URL_MISSING, signal.key, signal.value, RecoverySeverity.HIGH)
+            key == "server.status" && normalized.contains("AUTH_REQUIRED") ->
+                RecoveryIssue(RecoveryErrorType.SERVER_AUTH, signal.key, signal.value, RecoverySeverity.HIGH)
+            key == "server.status" && normalized.contains("ENDPOINT_MISSING") ->
+                RecoveryIssue(RecoveryErrorType.SERVER_ENDPOINT_MISSING, signal.key, signal.value, RecoverySeverity.HIGH)
+            key == "server.status" && normalized.contains("SERVER_ERROR") ->
+                RecoveryIssue(RecoveryErrorType.SERVER_INTERNAL_ERROR, signal.key, signal.value, RecoverySeverity.HIGH)
+            key == "server.status" && normalized.contains("SERVER_DOWN") ->
+                RecoveryIssue(RecoveryErrorType.ECONNREFUSED, signal.key, signal.value, RecoverySeverity.HIGH)
             key == "server.http" && normalized == "401" ->
                 RecoveryIssue(RecoveryErrorType.SERVER_AUTH, signal.key, "unauthorized", RecoverySeverity.HIGH)
             key == "server.http" && normalized == "403" ->
