@@ -7,5 +7,6 @@ data class ProfessionalCardUiModel(
     val community:String,
     val trustScore:Int,
     val verified:Boolean,
-    val profilePhotoUri:String? = null
+    val profilePhotoUri:String? = null,
+    val qrPayload:String? = null
 )

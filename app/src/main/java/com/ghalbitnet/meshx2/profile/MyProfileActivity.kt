@@ -1,6 +1,7 @@
 package com.ghalbitnet.meshx2.profile
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
@@ -35,6 +36,11 @@ class MyProfileActivity : AppCompatActivity() {
             handleScanResult(result.contents)
         }
 
+    private val importFileLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+            handleImportFile(uri)
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         GhalbitTheme.applyWindow(this, "my-profile")
@@ -63,6 +69,9 @@ class MyProfileActivity : AppCompatActivity() {
                     setOrientationLocked(false)
                 }
             )
+        }
+        findViewById<Button>(R.id.btnImportContactFile).setOnClickListener {
+            importFileLauncher.launch(arrayOf("text/plain", "application/json", "text/*"))
         }
         findViewById<Button>(R.id.btnSyncMyProfile).setOnClickListener {
             lifecycleScope.launch(Dispatchers.IO) {
@@ -173,5 +182,30 @@ class MyProfileActivity : AppCompatActivity() {
                 payload = contents
             )
         )
+    }
+
+    private fun handleImportFile(uri: Uri?) {
+        if (uri == null) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            val payload = ProfileCardFileImporter.readPayloadFromUri(this@MyProfileActivity, uri)
+            withContext(Dispatchers.Main) {
+                if (payload.isNullOrBlank()) {
+                    runtimeSoftBanner.showMessage(
+                        key = "card:import:failed",
+                        title = "File kartu tidak valid",
+                        detail = "Pastikan file berisi data kartu QR GHALBITNET",
+                        priority = 3
+                    )
+                    return@withContext
+                }
+                Log.d("GHALBIT-CARD-QR", "file imported")
+                startActivity(
+                    ContactNameCardActivity.createScannedIntent(
+                        context = this@MyProfileActivity,
+                        payload = payload
+                    )
+                )
+            }
+        }
     }
 }

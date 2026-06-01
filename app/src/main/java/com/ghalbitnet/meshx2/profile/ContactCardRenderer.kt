@@ -2,7 +2,6 @@ package com.ghalbitnet.meshx2.profile
 
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.net.Uri
 import android.util.Log
 import android.view.View
 import android.widget.ImageView
@@ -69,8 +68,8 @@ object ContactCardRenderer {
         root.findViewById<ImageView>(R.id.imgCardAvatar)?.apply {
             val avatar = profile.avatarUri?.takeIf { it.isNotBlank() }
             if (avatar != null) {
-                runCatching { setImageURI(Uri.parse(avatar)) }
-                    .onFailure { setImageDrawable(null) }
+                val loaded = SafeAvatarLoader.loadInto(this, avatar)
+                if (!loaded) setImageDrawable(null)
             } else {
                 setImageDrawable(null)
             }

@@ -103,6 +103,13 @@
                     android:text="Scan Kartu Nama" />
 
                 <Button
+                    android:id="@+id/btnImportContactFile"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:text="Import Kartu dari File" />
+
+                <Button
                     android:id="@+id/btnSyncMyProfile"
                     android:layout_width="match_parent"
                     android:layout_height="52dp"

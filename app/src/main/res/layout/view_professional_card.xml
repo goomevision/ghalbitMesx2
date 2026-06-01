@@ -5,6 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_margin="12dp"
+    app:cardBackgroundColor="#112F5E"
     app:cardCornerRadius="20dp"
     app:cardElevation="8dp">
 
@@ -19,6 +20,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="GHALBIT VERIFIED CARD"
+            android:textColor="#F1F7FF"
             android:textStyle="bold"
             android:textSize="16sp" />
 
@@ -55,6 +57,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
             android:text="Display Name"
+            android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:textSize="22sp" />
 
@@ -63,6 +66,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Role"
+            android:textColor="#F1C55D"
             android:textSize="15sp" />
 
         <TextView
@@ -71,6 +75,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
             android:text="Community"
+            android:textColor="#DFECFB"
             android:textSize="14sp" />
 
         <TextView
@@ -79,6 +84,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:text="Global ID"
+            android:textColor="#BCD3EE"
             android:textSize="12sp" />
 
         <TextView
@@ -87,6 +93,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="VERIFIED ✓"
+            android:textColor="#FFF8E7"
             android:textStyle="bold" />
 
         <TextView
@@ -94,27 +101,31 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="Trust Score: 0" />
+            android:text="Trust Score: 0"
+            android:textColor="#DDEBFB" />
 
         <TextView
             android:id="@+id/txtProfessionalReferralBadge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="Referral: 0" />
+            android:text="Referral: 0"
+            android:textColor="#DDEBFB" />
 
         <TextView
             android:id="@+id/txtProfessionalMentorBadge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="Mentor: 0" />
+            android:text="Mentor: 0"
+            android:textColor="#DDEBFB" />
 
         <TextView
             android:id="@+id/txtProfessionalReputationBadge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="Community Reputation: 0" />
+            android:text="Community Reputation: 0"
+            android:textColor="#DDEBFB" />
     </LinearLayout>
 </androidx.cardview.widget.CardView>

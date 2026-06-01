@@ -1,6 +1,5 @@
 package com.ghalbitnet.meshx2.profile
 
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.ArrayAdapter
@@ -21,9 +20,15 @@ class EditMyProfileActivity : AppCompatActivity() {
     private var selectedAvatarUri: String? = null
 
     private val avatarPicker =
-        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             selectedAvatarUri = uri?.toString()
             if (uri != null) {
+                runCatching {
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                }
                 Log.d("GHALBIT-PROFILE", "avatar changed")
             }
         }
@@ -52,7 +57,7 @@ class EditMyProfileActivity : AppCompatActivity() {
         )
 
         findViewById<Button>(R.id.btnPickAvatar).setOnClickListener {
-            avatarPicker.launch("image/*")
+            avatarPicker.launch(arrayOf("image/*"))
         }
         findViewById<Button>(R.id.btnSaveMyProfile).setOnClickListener {
             saveProfile()

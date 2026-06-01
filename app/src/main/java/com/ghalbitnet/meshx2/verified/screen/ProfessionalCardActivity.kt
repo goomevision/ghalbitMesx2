@@ -2,7 +2,6 @@ package com.ghalbitnet.meshx2.verified.screen
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.ImageView
@@ -10,14 +9,17 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.ghalbitnet.meshx2.R
+import com.ghalbitnet.meshx2.profile.SafeAvatarLoader
 import com.ghalbitnet.meshx2.profile.ProfessionalCardTierSystem
 import com.ghalbitnet.meshx2.ui.GhalbitTheme
+import com.ghalbitnet.meshx2.verified.share.VerifiedCardPngShareManager
 import com.ghalbitnet.meshx2.verified.trust.CommunityReputationEngine
 import com.ghalbitnet.meshx2.verified.trust.IdentityLevel
 import com.ghalbitnet.meshx2.verified.trust.ProfessionalCardSummaryFactory
 import com.ghalbitnet.meshx2.verified.trust.RealTrustScoreCalculator
 import com.ghalbitnet.meshx2.verified.trust.UnifiedProfessionalIdentityCard
 import com.ghalbitnet.meshx2.verified.trust.VerifiedIdentityRecord
+import com.ghalbitnet.meshx2.verified.ui.ProfessionalCardUiModel
 
 /**
  * PHASE 282B-282E
@@ -118,11 +120,17 @@ class ProfessionalCardActivity : AppCompatActivity() {
         playQrGlowLite()
 
         findViewById<Button>(R.id.btnShareProfessionalCard).setOnClickListener {
-            val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_SUBJECT, "GHALBIT Verified Card")
-                putExtra(Intent.EXTRA_TEXT, "$unifiedText\n\nGlobal ID: $globalId")
-            }
+            val shareModel = ProfessionalCardUiModel(
+                globalId = globalId,
+                displayName = displayName,
+                role = role,
+                community = community,
+                trustScore = summary.trustScore,
+                verified = verified,
+                profilePhotoUri = profilePhotoUri,
+                qrPayload = globalId
+            )
+            val shareIntent = VerifiedCardPngShareManager.createSharePngIntent(this, shareModel)
             startActivity(Intent.createChooser(shareIntent, "Bagikan Kartu"))
         }
     }
@@ -137,7 +145,10 @@ class ProfessionalCardActivity : AppCompatActivity() {
             initial.visibility = View.VISIBLE
             return
         }
-        runCatching { img.setImageURI(Uri.parse(photoUri)) }.onFailure { img.setImageDrawable(null) }
+        val loaded = SafeAvatarLoader.loadInto(img, photoUri)
+        if (!loaded) {
+            img.setImageDrawable(null)
+        }
         initial.visibility = if (img.drawable != null) View.GONE else View.VISIBLE
     }
 
