@@ -28,5 +28,16 @@ data class ProfessionalCardUiModel(
     val signature: String = "",
     val updatedAt: Long = 0L,
     val contributionSummary: String = "Reputasi komunitas belum tersedia",
+    val careerHeadline: String = "Anggota Komunitas",
+    val visionStatement: String = "Belum diisi",
+    val missionStatement: String = "Belum diisi",
+    val activeProjects: List<String> = emptyList(),
+    val skillsOffered: List<String> = emptyList(),
+    val skillsWanted: List<String> = emptyList(),
+    val helpOffered: List<String> = emptyList(),
+    val helpNeeded: List<String> = emptyList(),
+    val portfolioLinks: List<String> = emptyList(),
+    val communityRoles: List<String> = emptyList(),
+    val availabilityStatus: String = "Belum tersedia",
     val qrPayload: String? = null
 )

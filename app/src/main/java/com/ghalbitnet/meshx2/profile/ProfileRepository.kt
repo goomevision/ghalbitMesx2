@@ -5,6 +5,10 @@ import android.util.Log
 import com.ghalbitnet.meshx2.security.NodeSigningIdentityManager
 
 object ProfileRepository {
+    fun saveProfessionalExtras(context: Context, globalId: String, extras: ProfessionalProfileExtras) {
+        ProfessionalProfileExtrasStore.save(context, globalId, extras)
+    }
+
     fun contactKey(globalId: String?, chatId: String?): String {
         return globalId?.takeIf { it.isNotBlank() }
             ?: chatId?.takeIf { it.isNotBlank() }
@@ -16,6 +20,7 @@ object ProfileRepository {
         val existing = dao.getMyProfile()
         if (existing != null) {
             return existing.toDomain(
+                context = context,
                 privacy = dao.getPrivacy() ?: ProfilePrivacyEntity()
             )
         }
@@ -64,7 +69,7 @@ object ProfileRepository {
             )
         )
         Log.d("GHALBIT-PROFILE", "signed")
-        return signed.toDomain(dao.getPrivacy() ?: ProfilePrivacyEntity())
+        return signed.toDomain(context, dao.getPrivacy() ?: ProfilePrivacyEntity())
     }
 
     fun updateMyProfile(context: Context, mutate: (MyProfileEntity) -> MyProfileEntity): CommunityProfile {
@@ -90,7 +95,7 @@ object ProfileRepository {
             )
         )
         Log.d("GHALBIT-PROFILE", "edited")
-        return signed.toDomain(dao.getPrivacy() ?: ProfilePrivacyEntity())
+        return signed.toDomain(context, dao.getPrivacy() ?: ProfilePrivacyEntity())
     }
 
     fun saveLocalAlias(
@@ -147,7 +152,7 @@ object ProfileRepository {
                 ?: fallbackDisplayName
         val profile =
             if (remoteProfile != null) {
-                remoteProfile.toDomain(alias)
+                remoteProfile.toDomain(context, alias)
             } else {
                 CommunityProfile(
                     globalId = globalId ?: contactKey(globalId, chatId),
@@ -185,7 +190,18 @@ object ProfileRepository {
                     isPinned = alias?.isPinned == true,
                     lastProfileSyncAt = alias?.lastProfileSyncAt ?: 0L,
                     routeHint = routeHint,
-                    verifiedAt = null
+                    verifiedAt = null,
+                    careerHeadline = null,
+                    visionStatement = null,
+                    missionStatement = null,
+                    activeProjects = emptyList(),
+                    skillsOffered = emptyList(),
+                    skillsWanted = emptyList(),
+                    helpOffered = emptyList(),
+                    helpNeeded = emptyList(),
+                    portfolioLinks = emptyList(),
+                    communityRoles = emptyList(),
+                    availabilityStatus = null
                 )
             }
         Log.d("GHALBIT-CONTACT-ALIAS", "displayed id=${contactKey(globalId, chatId)}")
@@ -206,7 +222,8 @@ object ProfileRepository {
         return entity.copy(signature = signature)
     }
 
-    private fun MyProfileEntity.toDomain(privacy: ProfilePrivacyEntity): CommunityProfile {
+    private fun MyProfileEntity.toDomain(context: Context, privacy: ProfilePrivacyEntity): CommunityProfile {
+        val extras = ProfessionalProfileExtrasStore.load(context, globalId).withFallback()
         return CommunityProfile(
             globalId = globalId,
             publicKeyBase64 = publicKeyBase64,
@@ -233,11 +250,23 @@ object ProfileRepository {
             isRelayDiscoveryEnabled = privacy.relayDiscoveryEnabled,
             isStatusVisible = privacy.showStatusPublicly,
             isRegionVisible = privacy.showRegionPublicly,
-            isAvatarSyncEnabled = privacy.avatarSyncEnabled
+            isAvatarSyncEnabled = privacy.avatarSyncEnabled,
+            careerHeadline = extras.careerHeadline,
+            visionStatement = extras.visionStatement,
+            missionStatement = extras.missionStatement,
+            activeProjects = extras.activeProjects,
+            skillsOffered = extras.skillsOffered,
+            skillsWanted = extras.skillsWanted,
+            helpOffered = extras.helpOffered,
+            helpNeeded = extras.helpNeeded,
+            portfolioLinks = extras.portfolioLinks,
+            communityRoles = extras.communityRoles,
+            availabilityStatus = extras.availabilityStatus
         )
     }
 
-    private fun ContactProfileEntity.toDomain(alias: ContactAliasEntity?): CommunityProfile {
+    private fun ContactProfileEntity.toDomain(context: Context, alias: ContactAliasEntity?): CommunityProfile {
+        val extras = ProfessionalProfileExtrasStore.load(context, globalId).withFallback()
         return CommunityProfile(
             globalId = globalId,
             publicKeyBase64 = publicKeyBase64,
@@ -274,7 +303,18 @@ object ProfileRepository {
             isPinned = alias?.isPinned == true,
             lastProfileSyncAt = alias?.lastProfileSyncAt ?: 0L,
             routeHint = routeHint,
-            verifiedAt = verifiedAt
+            verifiedAt = verifiedAt,
+            careerHeadline = extras.careerHeadline,
+            visionStatement = extras.visionStatement,
+            missionStatement = extras.missionStatement,
+            activeProjects = extras.activeProjects,
+            skillsOffered = extras.skillsOffered,
+            skillsWanted = extras.skillsWanted,
+            helpOffered = extras.helpOffered,
+            helpNeeded = extras.helpNeeded,
+            portfolioLinks = extras.portfolioLinks,
+            communityRoles = extras.communityRoles,
+            availabilityStatus = extras.availabilityStatus
         )
     }
 

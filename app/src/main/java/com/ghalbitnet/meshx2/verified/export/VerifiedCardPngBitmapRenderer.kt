@@ -185,16 +185,36 @@ object VerifiedCardPngBitmapRenderer {
         val startY = 1510f
 
         canvas.drawText("TENTANG SAYA", col1X, startY, sectionTitle)
-        drawWrappedText(canvas, "Saya membangun ekosistem komunikasi mesh dan jaringan komunitas yang aman.", col1X, startY + 60f, 500f, sectionBody, 3)
+        val aboutText = model.bio.ifBlank {
+            listOfNotNull(
+                model.careerHeadline.takeIf { it.isNotBlank() },
+                model.visionStatement.takeIf { it.isNotBlank() && !it.equals("Belum diisi", true) },
+                model.missionStatement.takeIf { it.isNotBlank() && !it.equals("Belum diisi", true) }
+            ).joinToString(". ")
+        }.ifBlank { "Profil profesional belum diisi." }
+        drawWrappedText(canvas, aboutText, col1X, startY + 60f, 500f, sectionBody, 4)
+        if (model.activeProjects.isNotEmpty()) {
+            val projectSummary = "Proyek: ${model.activeProjects.take(3).joinToString(", ")}"
+            drawWrappedText(canvas, projectSummary, col1X, startY + 250f, 500f, sectionBody, 2)
+        }
 
         canvas.drawText("STATISTIK", col2X, startY, sectionTitle)
         canvas.drawText("Koneksi: 128", col2X, startY + 62f, sectionBody)
         canvas.drawText("Komunitas: 15", col2X, startY + 114f, sectionBody)
         canvas.drawText("Trust: ${model.trustScore}/100", col2X, startY + 166f, sectionBody)
+        if (model.skillsOffered.isNotEmpty()) {
+            drawWrappedText(canvas, "Keahlian: ${model.skillsOffered.take(5).joinToString(", ")}", col2X, startY + 228f, 320f, sectionBody, 3)
+        }
 
         canvas.drawText("KONTAK PUBLIK", col3X, startY, sectionTitle)
-        canvas.drawText("WA/CHAT: Tersedia", col3X, startY + 62f, sectionBody)
+        val availability = if (model.availabilityStatus.isNotBlank()) model.availabilityStatus else "Tersedia"
+        canvas.drawText("WA/CHAT: $availability", col3X, startY + 62f, sectionBody)
         drawSingleLineTrimmed(canvas, "Lokasi: ${model.region}", col3X, startY + 114f, 440f, sectionBody)
+        if (model.helpNeeded.isNotEmpty()) {
+            drawWrappedText(canvas, "Butuh Bantuan: ${model.helpNeeded.take(3).joinToString(", ")}", col3X, startY + 176f, 440f, sectionBody, 2)
+        } else if (model.helpOffered.isNotEmpty()) {
+            drawWrappedText(canvas, "Siap Membantu: ${model.helpOffered.take(3).joinToString(", ")}", col3X, startY + 176f, 440f, sectionBody, 2)
+        }
 
         val footer = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#D4A94E")

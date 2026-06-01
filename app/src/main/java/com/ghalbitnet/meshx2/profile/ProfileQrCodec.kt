@@ -31,6 +31,13 @@ object ProfileQrCodec {
             payload.referralLabel,
             payload.communityReputation.toString(),
             payload.contributionSummary,
+            payload.careerHeadline,
+            payload.skillsOffered.joinToString(","),
+            payload.skillsWanted.joinToString(","),
+            payload.communityRoles.joinToString(","),
+            payload.visionStatement.orEmpty(),
+            payload.missionStatement.orEmpty(),
+            payload.activeProjects.joinToString(","),
             payload.referralPendingCount.toString(),
             payload.referralRewardedCount.toString(),
             payload.referrerGhalbitId.orEmpty(),
@@ -63,6 +70,13 @@ object ProfileQrCodec {
             .put("referralLabel", payload.referralLabel)
             .put("communityReputation", payload.communityReputation)
             .put("contributionSummary", payload.contributionSummary)
+            .put("careerHeadline", payload.careerHeadline)
+            .put("skillsOffered", JSONArray(payload.skillsOffered))
+            .put("skillsWanted", JSONArray(payload.skillsWanted))
+            .put("communityRoles", JSONArray(payload.communityRoles))
+            .put("visionStatement", payload.visionStatement ?: "")
+            .put("missionStatement", payload.missionStatement ?: "")
+            .put("activeProjects", JSONArray(payload.activeProjects))
             .put("referralPendingCount", payload.referralPendingCount)
             .put("referralRewardedCount", payload.referralRewardedCount)
             .put("referrerGhalbitId", payload.referrerGhalbitId ?: "")
@@ -104,6 +118,13 @@ object ProfileQrCodec {
                 referralLabel = json.optString("referralLabel", "0/0"),
                 communityReputation = json.optInt("communityReputation", 0),
                 contributionSummary = json.optString("contributionSummary", "Reputasi komunitas belum tersedia"),
+                careerHeadline = json.optString("careerHeadline", "Anggota Komunitas"),
+                skillsOffered = json.optJSONArray("skillsOffered").toList(),
+                skillsWanted = json.optJSONArray("skillsWanted").toList(),
+                communityRoles = json.optJSONArray("communityRoles").toList(),
+                visionStatement = json.optString("visionStatement").ifBlank { null },
+                missionStatement = json.optString("missionStatement").ifBlank { null },
+                activeProjects = json.optJSONArray("activeProjects").toList(),
                 referralPendingCount = json.optInt("referralPendingCount", 0),
                 referralRewardedCount = json.optInt("referralRewardedCount", 0),
                 referrerGhalbitId = json.optString("referrerGhalbitId").ifBlank { null },
@@ -120,6 +141,16 @@ object ProfileQrCodec {
         }.onFailure {
             Log.w("GHALBIT-CARD-QR", "QR decode failed safely")
         }.getOrNull()
+    }
+
+    private fun JSONArray?.toList(): List<String> {
+        if (this == null) return emptyList()
+        return buildList {
+            for (i in 0 until length()) {
+                val v = optString(i).trim()
+                if (v.isNotBlank()) add(v)
+            }
+        }
     }
 
     fun renderBitmap(raw: String, sizePx: Int = 320): Bitmap {

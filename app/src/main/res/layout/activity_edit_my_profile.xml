@@ -300,6 +300,146 @@
                 android:text="Izinkan avatar tampil di profil publik" />
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_ghalbit_card"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Profil Profesional Hidup"
+                android:textColor="#F5FBFF"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/edtCareerHeadline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Career Headline"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtVisionStatement"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Visi"
+                android:minLines="2"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtMissionStatement"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Misi"
+                android:minLines="2"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtActiveProjects"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Proyek aktif (pisahkan dengan koma)"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtSkillsOffered"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Keahlian ditawarkan (koma)"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtSkillsWanted"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Keahlian dicari (koma)"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtHelpOffered"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Bantuan ditawarkan (koma)"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtHelpNeeded"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Bantuan dibutuhkan (koma)"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtPortfolioLinks"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Link portofolio (koma)"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtCommunityRoles"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Peran komunitas (koma)"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+
+            <EditText
+                android:id="@+id/edtAvailabilityStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_ghalbit_log"
+                android:hint="Status ketersediaan"
+                android:padding="12dp"
+                android:textColor="#F5FBFF"
+                android:textColorHint="#88A8C8" />
+        </LinearLayout>
+
         <Button
             android:id="@+id/btnSaveMyProfile"
             android:layout_width="match_parent"

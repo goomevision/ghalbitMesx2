@@ -29,13 +29,40 @@ object ContactCardRenderer {
         root.findViewById<TextView>(R.id.txtCardRole)?.text =
             listOfNotNull(profile.communityLabel?.takeIf { it.isNotBlank() }, model.role.takeIf { it.isNotBlank() })
                 .joinToString(" • ").ifBlank { "Anggota Komunitas" }
-        root.findViewById<TextView>(R.id.txtCardBio)?.text = model.bio.ifBlank { "Belum ada bio." }
-        root.findViewById<TextView>(R.id.txtCardStatus)?.text = profile.statusMessage.ifBlank { defaultStatus(profile.statusType) }
+        val bioParts = mutableListOf<String>()
+        if (model.careerHeadline.isNotBlank()) bioParts += model.careerHeadline
+        if (model.bio.isNotBlank()) bioParts += model.bio
+        if (!model.visionStatement.equals("Belum diisi", true) && model.visionStatement.isNotBlank()) {
+            bioParts += "Visi: ${model.visionStatement}"
+        }
+        if (!model.missionStatement.equals("Belum diisi", true) && model.missionStatement.isNotBlank()) {
+            bioParts += "Misi: ${model.missionStatement}"
+        }
+        if (model.activeProjects.isNotEmpty()) {
+            bioParts += "Proyek: ${model.activeProjects.joinToString(" • ")}"
+        }
+        root.findViewById<TextView>(R.id.txtCardBio)?.text = bioParts.joinToString("\n").ifBlank { "Belum ada bio." }
+
+        val statusParts = mutableListOf<String>()
+        statusParts += profile.statusMessage.ifBlank { defaultStatus(profile.statusType) }
+        if (model.availabilityStatus.isNotBlank()) statusParts += "Ketersediaan: ${model.availabilityStatus}"
+        if (model.helpOffered.isNotEmpty()) statusParts += "Bantuan: ${model.helpOffered.joinToString(" • ")}"
+        if (model.helpNeeded.isNotEmpty()) statusParts += "Butuh Bantuan: ${model.helpNeeded.joinToString(" • ")}"
+        root.findViewById<TextView>(R.id.txtCardStatus)?.text = statusParts.joinToString("\n")
         root.findViewById<TextView>(R.id.txtCardLocation)?.text = model.region
         root.findViewById<TextView>(R.id.txtCardCommunity)?.text = model.community
         root.findViewById<TextView>(R.id.txtCardOrganization)?.text = profile.organization?.ifBlank { "Organisasi belum diisi" } ?: "Organisasi belum diisi"
+        val skillsParts = mutableListOf<String>()
+        if (model.skillsOffered.isNotEmpty()) skillsParts += "Ditawarkan: ${model.skillsOffered.joinToString(" • ")}"
+        if (model.skillsWanted.isNotEmpty()) skillsParts += "Dicari: ${model.skillsWanted.joinToString(" • ")}"
+        if (skillsParts.isEmpty() && profile.skillTags.isNotEmpty()) {
+            skillsParts += profile.skillTags.joinToString(" • ")
+        }
+        if (model.communityRoles.isNotEmpty()) {
+            skillsParts += "Peran: ${model.communityRoles.joinToString(" • ")}"
+        }
         root.findViewById<TextView>(R.id.txtCardSkills)?.text =
-            profile.skillTags.takeIf { it.isNotEmpty() }?.joinToString("  •  ") ?: "Belum ada tag keahlian"
+            skillsParts.joinToString("\n").ifBlank { "Belum ada tag keahlian" }
         root.findViewById<TextView>(R.id.txtCardTrust)?.text =
             "Trust Score: ${trustSummary.trustScore} • Rank: ${trustSummary.trustRank}"
         root.findViewById<TextView>(R.id.txtCardMentorBadge)?.text = "Mentor: ${trustSummary.mentorLevel}"

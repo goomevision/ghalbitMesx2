@@ -110,8 +110,7 @@ class ProfessionalCardActivity : AppCompatActivity() {
                     } else {
                         "Community Reputation: ${model.communityReputation}"
                     }
-                findViewById<TextView>(R.id.txtProfessionalUnifiedSummary).text =
-                    "Global ID: ${model.globalId}\nLokasi: ${model.region}\nVersi: ${model.profileVersion}\nKontribusi: ${model.contributionSummary}\nStatus Verifikasi: ${verificationLabel(model.verificationStatus, model.tier.name)}"
+                findViewById<TextView>(R.id.txtProfessionalUnifiedSummary).text = buildProfessionalSummary(model)
                 if (BuildConfig.DEBUG) {
                     val debugText =
                         "\n\n[REFERRAL DEBUG]\nseen=${referralDebug.seen} saved=${referralDebug.savedContact} verified=${referralDebug.verified} joined=${referralDebug.joined} pending=${referralDebug.pending} rewarded=${referralDebug.rewarded} total=${referralDebug.total}\nsource=${referralDebug.source}\nfallback=${referralDebug.fallbackUsed}\n" +
@@ -160,6 +159,45 @@ class ProfessionalCardActivity : AppCompatActivity() {
             ProfileVerificationStatus.UNKNOWN -> "UNKNOWN"
         }
         return "$statusText • $tier"
+    }
+
+    private fun buildProfessionalSummary(model: com.ghalbitnet.meshx2.verified.ui.ProfessionalCardUiModel): String {
+        val lines = mutableListOf<String>()
+        lines += "Global ID: ${model.globalId}"
+        lines += "Lokasi: ${model.region}"
+        lines += "Status Ketersediaan: ${model.availabilityStatus}"
+        lines += "Karier: ${model.careerHeadline}"
+        if (model.visionStatement.isNotBlank() && !model.visionStatement.equals("Belum diisi", true)) {
+            lines += "Visi: ${model.visionStatement}"
+        }
+        if (model.missionStatement.isNotBlank() && !model.missionStatement.equals("Belum diisi", true)) {
+            lines += "Misi: ${model.missionStatement}"
+        }
+        if (model.activeProjects.isNotEmpty()) {
+            lines += "Proyek Aktif: ${model.activeProjects.joinToString(" • ")}"
+        }
+        if (model.skillsOffered.isNotEmpty()) {
+            lines += "Keahlian Ditawarkan: ${model.skillsOffered.joinToString(" • ")}"
+        }
+        if (model.skillsWanted.isNotEmpty()) {
+            lines += "Keahlian Dicari: ${model.skillsWanted.joinToString(" • ")}"
+        }
+        if (model.helpOffered.isNotEmpty()) {
+            lines += "Bantuan Ditawarkan: ${model.helpOffered.joinToString(" • ")}"
+        }
+        if (model.helpNeeded.isNotEmpty()) {
+            lines += "Bantuan Dibutuhkan: ${model.helpNeeded.joinToString(" • ")}"
+        }
+        if (model.communityRoles.isNotEmpty()) {
+            lines += "Peran Komunitas: ${model.communityRoles.joinToString(" • ")}"
+        }
+        if (model.portfolioLinks.isNotEmpty()) {
+            lines += "Portofolio: ${model.portfolioLinks.joinToString(" • ")}"
+        }
+        lines += "Versi: ${model.profileVersion}"
+        lines += "Kontribusi: ${model.contributionSummary}"
+        lines += "Status Verifikasi: ${verificationLabel(model.verificationStatus, model.tier.name)}"
+        return lines.joinToString("\n")
     }
 
     private fun bindProfilePhoto(photoUri: String?, displayName: String) {

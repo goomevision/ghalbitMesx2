@@ -140,6 +140,13 @@ object ProfileSyncManager {
             referralLabel = mapped.model.referralLabel,
             communityReputation = mapped.model.communityReputation,
             contributionSummary = mapped.model.contributionSummary,
+            careerHeadline = mapped.model.careerHeadline,
+            skillsOffered = mapped.model.skillsOffered,
+            skillsWanted = mapped.model.skillsWanted,
+            communityRoles = mapped.model.communityRoles,
+            visionStatement = mapped.model.visionStatement,
+            missionStatement = mapped.model.missionStatement,
+            activeProjects = mapped.model.activeProjects,
             referralPendingCount = mapped.model.referralPendingCount,
             referralRewardedCount = mapped.model.referralRewardedCount,
             referrerGhalbitId = referrer,
@@ -191,6 +198,23 @@ object ProfileSyncManager {
             verifiedAt = if (verificationStatus == ProfileVerificationStatus.VALID_SIGNATURE) System.currentTimeMillis() else null
         )
         ProfileRepository.upsertRemoteProfile(context, remote)
+        ProfileRepository.saveProfessionalExtras(
+            context,
+            payload.globalId,
+            ProfessionalProfileExtras(
+                careerHeadline = payload.careerHeadline,
+                visionStatement = payload.visionStatement,
+                missionStatement = payload.missionStatement,
+                activeProjects = payload.activeProjects,
+                skillsOffered = payload.skillsOffered,
+                skillsWanted = payload.skillsWanted,
+                helpOffered = emptyList(),
+                helpNeeded = emptyList(),
+                portfolioLinks = emptyList(),
+                communityRoles = payload.communityRoles,
+                availabilityStatus = null
+            )
+        )
         Log.d("GHALBIT-CARD-QR", "saved")
         return ProfileRepository.getResolvedContact(
             context = context,

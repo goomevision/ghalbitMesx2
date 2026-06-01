@@ -36,7 +36,18 @@ data class CommunityProfile(
     val isPinned: Boolean = false,
     val lastProfileSyncAt: Long = 0L,
     val routeHint: String? = null,
-    val verifiedAt: Long? = null
+    val verifiedAt: Long? = null,
+    val careerHeadline: String? = null,
+    val visionStatement: String? = null,
+    val missionStatement: String? = null,
+    val activeProjects: List<String> = emptyList(),
+    val skillsOffered: List<String> = emptyList(),
+    val skillsWanted: List<String> = emptyList(),
+    val helpOffered: List<String> = emptyList(),
+    val helpNeeded: List<String> = emptyList(),
+    val portfolioLinks: List<String> = emptyList(),
+    val communityRoles: List<String> = emptyList(),
+    val availabilityStatus: String? = null
 ) {
     val primaryName: String
         get() = localAlias?.takeIf { it.isNotBlank() } ?: displayName

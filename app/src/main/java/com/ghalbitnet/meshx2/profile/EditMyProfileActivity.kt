@@ -91,6 +91,17 @@ class EditMyProfileActivity : AppCompatActivity() {
         findViewById<CheckBox>(R.id.checkShowStatus).isChecked = profile.isStatusVisible
         findViewById<CheckBox>(R.id.checkRelayDiscovery).isChecked = profile.isRelayDiscoveryEnabled
         findViewById<CheckBox>(R.id.checkAvatarSync).isChecked = profile.isAvatarSyncEnabled
+        findViewById<EditText>(R.id.edtCareerHeadline).setText(profile.careerHeadline ?: "Anggota Komunitas")
+        findViewById<EditText>(R.id.edtVisionStatement).setText(profile.visionStatement ?: "Belum diisi")
+        findViewById<EditText>(R.id.edtMissionStatement).setText(profile.missionStatement ?: "Belum diisi")
+        findViewById<EditText>(R.id.edtActiveProjects).setText(profile.activeProjects.joinToString(", "))
+        findViewById<EditText>(R.id.edtSkillsOffered).setText(profile.skillsOffered.joinToString(", "))
+        findViewById<EditText>(R.id.edtSkillsWanted).setText(profile.skillsWanted.joinToString(", "))
+        findViewById<EditText>(R.id.edtHelpOffered).setText(profile.helpOffered.joinToString(", "))
+        findViewById<EditText>(R.id.edtHelpNeeded).setText(profile.helpNeeded.joinToString(", "))
+        findViewById<EditText>(R.id.edtPortfolioLinks).setText(profile.portfolioLinks.joinToString(", "))
+        findViewById<EditText>(R.id.edtCommunityRoles).setText(profile.communityRoles.joinToString(", "))
+        findViewById<EditText>(R.id.edtAvailabilityStatus).setText(profile.availabilityStatus ?: "Belum tersedia")
         selectedAvatarUri = profile.avatarUri
     }
 
@@ -120,6 +131,23 @@ class EditMyProfileActivity : AppCompatActivity() {
                         relaySyncEnabled = findViewById<CheckBox>(R.id.checkRelayDiscovery).isChecked
                     )
                 }
+            ProfileRepository.saveProfessionalExtras(
+                context = this@EditMyProfileActivity,
+                globalId = updated.globalId,
+                extras = ProfessionalProfileExtras(
+                    careerHeadline = findViewById<EditText>(R.id.edtCareerHeadline).text.toString().trim().ifBlank { "Anggota Komunitas" },
+                    visionStatement = findViewById<EditText>(R.id.edtVisionStatement).text.toString().trim().ifBlank { "Belum diisi" },
+                    missionStatement = findViewById<EditText>(R.id.edtMissionStatement).text.toString().trim().ifBlank { "Belum diisi" },
+                    activeProjects = parseCsv(findViewById<EditText>(R.id.edtActiveProjects).text.toString()),
+                    skillsOffered = parseCsv(findViewById<EditText>(R.id.edtSkillsOffered).text.toString()),
+                    skillsWanted = parseCsv(findViewById<EditText>(R.id.edtSkillsWanted).text.toString()),
+                    helpOffered = parseCsv(findViewById<EditText>(R.id.edtHelpOffered).text.toString()),
+                    helpNeeded = parseCsv(findViewById<EditText>(R.id.edtHelpNeeded).text.toString()),
+                    portfolioLinks = parseCsv(findViewById<EditText>(R.id.edtPortfolioLinks).text.toString()),
+                    communityRoles = parseCsv(findViewById<EditText>(R.id.edtCommunityRoles).text.toString()),
+                    availabilityStatus = findViewById<EditText>(R.id.edtAvailabilityStatus).text.toString().trim().ifBlank { "Belum tersedia" }
+                )
+            )
             Log.d("GHALBIT-PROFILE", "theme changed")
             Log.d("GHALBIT-PROFILE-PRIVACY", "updated")
             withContext(Dispatchers.Main) {
@@ -127,5 +155,12 @@ class EditMyProfileActivity : AppCompatActivity() {
                 finish()
             }
         }
+    }
+
+    private fun parseCsv(value: String): List<String> {
+        return value.split(',', '\n')
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinct()
     }
 }
