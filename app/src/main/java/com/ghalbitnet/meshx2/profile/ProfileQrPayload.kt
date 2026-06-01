@@ -18,6 +18,8 @@ data class ProfileQrPayload(
     val referralLabel: String = "0/0",
     val communityReputation: Int = 0,
     val contributionSummary: String = "Reputasi komunitas belum tersedia",
+    val referralPendingCount: Int = 0,
+    val referralRewardedCount: Int = 0,
     val referrerGhalbitId: String? = null,
     val sponsorGhalbitId: String? = null,
     val inviteCode: String? = null,

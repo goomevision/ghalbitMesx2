@@ -15,6 +15,8 @@ data class ProfessionalCardUiModel(
     val trustRank: String = "Baru",
     val mentorStatus: String = "Belum Menjadi Mentor",
     val referralLabel: String = "0/0",
+    val referralPendingCount: Int = 0,
+    val referralRewardedCount: Int = 0,
     val communityReputation: Int = 0,
     val verified: Boolean,
     val verificationStatus: ProfileVerificationStatus = ProfileVerificationStatus.UNKNOWN,

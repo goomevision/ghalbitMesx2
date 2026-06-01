@@ -11,6 +11,7 @@ object ProfessionalReferralEventRecorder {
         SAVED_CONTACT("referral_saved_contact"),
         VERIFIED("referral_verified"),
         JOINED("referral_joined"),
+        REWARD_PENDING("referral_reward_pending"),
         REWARDED("referral_rewarded")
     }
 
@@ -34,7 +35,21 @@ object ProfessionalReferralEventRecorder {
         record(context, EventType.REWARDED, sourceGhalbitId, targetGhalbitId)
     }
 
-    private fun record(context: Context, type: EventType, sourceGhalbitId: String?, targetGhalbitId: String?) {
+    fun recordReferralRewardPending(context: Context, sourceGhalbitId: String?, targetGhalbitId: String?, txId: String?) {
+        record(context, EventType.REWARD_PENDING, sourceGhalbitId, targetGhalbitId, txId)
+    }
+
+    fun recordReferralRewarded(context: Context, sourceGhalbitId: String?, targetGhalbitId: String?, txId: String?) {
+        record(context, EventType.REWARDED, sourceGhalbitId, targetGhalbitId, txId)
+    }
+
+    private fun record(
+        context: Context,
+        type: EventType,
+        sourceGhalbitId: String?,
+        targetGhalbitId: String?,
+        txId: String? = null
+    ) {
         val source = normalizeId(sourceGhalbitId)
         val target = normalizeId(targetGhalbitId)
         if (source == null || target == null || source == target) {
@@ -50,7 +65,8 @@ object ProfessionalReferralEventRecorder {
         val oldTags = profile.localTags.map { it.trim() }.filter { it.isNotBlank() }.toMutableSet()
         oldTags.add("referral:$source")
         oldTags.add("sponsor:$source")
-        val eventTag = "${type.key}:$target"
+        val txSuffix = txId?.trim().orEmpty().takeIf { it.isNotBlank() }?.let { ":tx:$it" }.orEmpty()
+        val eventTag = "${type.key}:$target$txSuffix"
         if (!oldTags.add(eventTag)) {
             Log.d(TAG, "referral event skipped duplicate type=${type.key} source=$source target=$target")
             return
@@ -77,4 +93,3 @@ object ProfessionalReferralEventRecorder {
         return id.takeIf { it.isNotBlank() }
     }
 }
-

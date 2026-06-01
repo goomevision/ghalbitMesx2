@@ -9,11 +9,13 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.ghalbitnet.meshx2.BuildConfig
 import com.ghalbitnet.meshx2.R
 import com.ghalbitnet.meshx2.profile.CommunityProfile
 import com.ghalbitnet.meshx2.profile.CommunityStatusType
 import com.ghalbitnet.meshx2.profile.ContactCardTheme
 import com.ghalbitnet.meshx2.profile.ProfessionalCardDataMapper
+import com.ghalbitnet.meshx2.profile.ProfessionalReferralResolver
 import com.ghalbitnet.meshx2.profile.ProfileRepository
 import com.ghalbitnet.meshx2.profile.ProfileVerificationStatus
 import com.ghalbitnet.meshx2.profile.SafeAvatarLoader
@@ -80,6 +82,7 @@ class ProfessionalCardActivity : AppCompatActivity() {
 
             val mapped = ProfessionalCardDataMapper.fromProfile(this@ProfessionalCardActivity, profile)
             val model = mapped.model
+            val referralDebug = ProfessionalReferralResolver.resolve(this@ProfessionalCardActivity, profile)
             withContext(Dispatchers.Main) {
                 val rankLabel = model.trustRank
                 findViewById<TextView>(R.id.txtProfessionalCardTitle).text = "GHALBIT VERIFIED CARD"
@@ -94,7 +97,12 @@ class ProfessionalCardActivity : AppCompatActivity() {
                 }
                 findViewById<TextView>(R.id.txtProfessionalTrustBadge).text = "Trust Score: ${model.trustScore} • Rank: $rankLabel"
                 findViewById<TextView>(R.id.txtProfessionalReferralBadge).text =
-                    if (model.referralLabel.equals("belum tersedia", true)) "Referral: belum tersedia" else "Referral: ${model.referralLabel}"
+                    when {
+                        model.referralRewardedCount > 0 -> "Referral: ${model.referralLabel} (rewarded)"
+                        model.referralPendingCount > 0 -> "Referral: ${model.referralLabel} (pending reward)"
+                        model.referralLabel.equals("belum tersedia", true) -> "Referral: belum tersedia"
+                        else -> "Referral: ${model.referralLabel}"
+                    }
                 findViewById<TextView>(R.id.txtProfessionalMentorBadge).text = "Mentor: ${model.mentorStatus}"
                 findViewById<TextView>(R.id.txtProfessionalReputationBadge).text =
                     if (model.communityReputation <= 0 && model.contributionSummary.contains("belum tersedia", ignoreCase = true)) {
@@ -104,6 +112,12 @@ class ProfessionalCardActivity : AppCompatActivity() {
                     }
                 findViewById<TextView>(R.id.txtProfessionalUnifiedSummary).text =
                     "Global ID: ${model.globalId}\nLokasi: ${model.region}\nVersi: ${model.profileVersion}\nKontribusi: ${model.contributionSummary}\nStatus Verifikasi: ${verificationLabel(model.verificationStatus, model.tier.name)}"
+                if (BuildConfig.DEBUG) {
+                    val debugText =
+                        "\n\n[REFERRAL DEBUG]\nseen=${referralDebug.seen} saved=${referralDebug.savedContact} verified=${referralDebug.verified} joined=${referralDebug.joined} pending=${referralDebug.pending} rewarded=${referralDebug.rewarded} total=${referralDebug.total}\nsource=${referralDebug.source}\nfallback=${referralDebug.fallbackUsed}\n" +
+                            if (referralDebug.debugEvents.isEmpty()) "events=(empty)" else "events=${referralDebug.debugEvents.joinToString(" | ")}"
+                    findViewById<TextView>(R.id.txtProfessionalUnifiedSummary).append(debugText)
+                }
                 bindProfilePhoto(model.profilePhotoUri, model.displayName)
                 findViewById<View>(R.id.professionalCardRoot)?.setBackgroundColor(
                     com.ghalbitnet.meshx2.profile.ProfessionalCardTierSystem.themeFor(model.tier).cardGlowColor

@@ -140,6 +140,8 @@ object ProfileSyncManager {
             referralLabel = mapped.model.referralLabel,
             communityReputation = mapped.model.communityReputation,
             contributionSummary = mapped.model.contributionSummary,
+            referralPendingCount = mapped.model.referralPendingCount,
+            referralRewardedCount = mapped.model.referralRewardedCount,
             referrerGhalbitId = referrer,
             sponsorGhalbitId = sponsor,
             inviteCode = inviteCode,

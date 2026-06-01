@@ -40,7 +40,12 @@ object ContactCardRenderer {
             "Trust Score: ${trustSummary.trustScore} • Rank: ${trustSummary.trustRank}"
         root.findViewById<TextView>(R.id.txtCardMentorBadge)?.text = "Mentor: ${trustSummary.mentorLevel}"
         root.findViewById<TextView>(R.id.txtCardReferralBadge)?.text =
-            if (trustSummary.referralLabel.equals("belum tersedia", true)) "Referral: belum tersedia" else "Referral: ${trustSummary.referralLabel}"
+            when {
+                model.referralRewardedCount > 0 -> "Referral: ${trustSummary.referralLabel} (rewarded)"
+                model.referralPendingCount > 0 -> "Referral: ${trustSummary.referralLabel} (pending reward)"
+                trustSummary.referralLabel.equals("belum tersedia", true) -> "Referral: belum tersedia"
+                else -> "Referral: ${trustSummary.referralLabel}"
+            }
         root.findViewById<TextView>(R.id.txtCardReputationBadge)?.text =
             if (model.communityReputation <= 0 && model.contributionSummary.contains("belum tersedia", ignoreCase = true)) {
                 "Community Reputation: belum tersedia"

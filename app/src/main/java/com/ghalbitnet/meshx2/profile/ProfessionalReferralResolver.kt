@@ -12,9 +12,11 @@ object ProfessionalReferralResolver {
         val verified: Int,
         val joined: Int,
         val active: Int,
+        val pending: Int,
         val rewarded: Int,
         val total: Int,
         val label: String,
+        val debugEvents: List<String>,
         val source: String,
         val fallbackUsed: Boolean
     )
@@ -22,7 +24,7 @@ object ProfessionalReferralResolver {
     fun resolve(context: Context?, profile: CommunityProfile): Result {
         if (context == null) {
             Log.d("GHALBIT-CARD-TRUST", "referral fallback used source=noContext")
-            return Result(0, 0, 0, 0, 0, 0, 0, "belum tersedia", "fallback-no-context", true)
+            return Result(0, 0, 0, 0, 0, 0, 0, 0, "belum tersedia", emptyList(), "fallback-no-context", true)
         }
         val dao = ProfileDatabase.getInstance(context.applicationContext).profileDao()
         val aliases = dao.listContactAliases()
@@ -35,6 +37,7 @@ object ProfessionalReferralResolver {
             "referral_saved_contact" to mutableSetOf<String>(),
             "referral_verified" to mutableSetOf<String>(),
             "referral_joined" to mutableSetOf<String>(),
+            "referral_reward_pending" to mutableSetOf<String>(),
             "referral_rewarded" to mutableSetOf<String>()
         )
         markers.forEach { tag ->
@@ -78,12 +81,13 @@ object ProfessionalReferralResolver {
         val savedContact = targetByType["referral_saved_contact"]?.size ?: 0
         val verified = targetByType["referral_verified"]?.size ?: 0
         val joined = targetByType["referral_joined"]?.size ?: 0
+        val pending = targetByType["referral_reward_pending"]?.size ?: 0
         val rewarded = targetByType["referral_rewarded"]?.size ?: 0
         val active = (savedContact + verified + joined).coerceAtLeast(seen)
-        val total = (seen + savedContact + verified + joined + rewarded)
+        val total = (seen + savedContact + verified + joined + pending + rewarded)
         val fallback = total == 0
         val source = if (fallback) "fallback-no-referral-records" else "contact_alias_tags"
-        Log.d("GHALBIT-CARD-TRUST", "referral source resolved source=$source seen=$seen saved=$savedContact verified=$verified joined=$joined rewarded=$rewarded total=$total")
+        Log.d("GHALBIT-CARD-TRUST", "referral source resolved source=$source seen=$seen saved=$savedContact verified=$verified joined=$joined pending=$pending rewarded=$rewarded total=$total")
         if (fallback) {
             Log.d("GHALBIT-CARD-TRUST", "referral fallback used")
         }
@@ -93,6 +97,11 @@ object ProfessionalReferralResolver {
             ReferralBadgeRenderer.label(ReferralBadge(activeReferrals = active, rewardedReferrals = rewarded))
                 .removePrefix("Referral ")
         }
-        return Result(seen, savedContact, verified, joined, active, rewarded, total, label, source, fallback)
+        val debugEvents = sourceAliasMarkers
+            .map { it.trim() }
+            .filter { it.startsWith("referral_", true) || it.startsWith("referral:", true) || it.startsWith("sponsor:", true) }
+            .distinct()
+            .sorted()
+        return Result(seen, savedContact, verified, joined, active, pending, rewarded, total, label, debugEvents, source, fallback)
     }
 }

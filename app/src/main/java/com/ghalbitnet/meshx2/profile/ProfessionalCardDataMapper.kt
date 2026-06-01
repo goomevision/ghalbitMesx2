@@ -96,6 +96,8 @@ object ProfessionalCardDataMapper {
             trustRank = summary.trustRank,
             mentorStatus = summary.mentorLevel,
             referralLabel = summary.referralLabel,
+            referralPendingCount = referralResolved.pending,
+            referralRewardedCount = referralResolved.rewarded,
             communityReputation = summary.communityReputation,
             contributionSummary = reputationResolved.summary,
             tier = tier,
