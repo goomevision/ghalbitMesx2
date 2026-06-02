@@ -186,6 +186,9 @@ class CallSessionActivity : AppCompatActivity() {
             endpointProvider = { peerEndpoint },
             onRealtimeFailure = { reason ->
                 mainHandler.post {
+                    if (handleVirtualDiagnosticRealtimeIssue(reason)) {
+                        return@post
+                    }
                     realtimeFailed = true
                     btnTalk.visibility = View.VISIBLE
                     setCallStatus(reason)
@@ -207,6 +210,42 @@ class CallSessionActivity : AppCompatActivity() {
                             details = details
                         )
                     }
+                    "capture_ready" -> {
+                        Log.d("GHALBIT-CALL-AUDIO-BRIDGE", "CAPTURE_READY $details callId=$callId")
+                        RuntimeEvidenceCollector.record(
+                            this,
+                            RuntimeEvidenceTags.CALL_AUDIO_CAPTURE_READY,
+                            source = "FullDuplexCallEngine",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "capture_ready",
+                            details = details
+                        )
+                    }
+                    "encode_ok" -> {
+                        Log.d("GHALBIT-CALL-AUDIO-BRIDGE", "ENCODE_OK $details callId=$callId")
+                        RuntimeEvidenceCollector.record(
+                            this,
+                            RuntimeEvidenceTags.CALL_AUDIO_ENCODE_OK,
+                            source = "FullDuplexCallEngine",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "encode_ok",
+                            details = details
+                        )
+                    }
+                    "tx_attempt" -> {
+                        Log.d("GHALBIT-CALL-AUDIO-BRIDGE", "TX_ATTEMPT $details callId=$callId")
+                        RuntimeEvidenceCollector.record(
+                            this,
+                            RuntimeEvidenceTags.CALL_AUDIO_TX_ATTEMPT,
+                            source = "FullDuplexCallEngine",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "tx_attempt",
+                            details = details
+                        )
+                    }
                     "tx" -> {
                         Log.d("GHALBIT-CALL-AUDIO-TRUTH", "stage=tx $details callId=$callId")
                         RuntimeEvidenceCollector.record(
@@ -216,6 +255,18 @@ class CallSessionActivity : AppCompatActivity() {
                             callId = callId,
                             peerId = peerName,
                             status = "tx",
+                            details = details
+                        )
+                    }
+                    "tx_fail" -> {
+                        Log.w("GHALBIT-CALL-AUDIO-BRIDGE", "TX_FAIL $details callId=$callId")
+                        RuntimeEvidenceCollector.record(
+                            this,
+                            RuntimeEvidenceTags.CALL_AUDIO_TX_FAIL,
+                            source = "FullDuplexCallEngine",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "tx_fail",
                             details = details
                         )
                     }
@@ -240,6 +291,18 @@ class CallSessionActivity : AppCompatActivity() {
                             callId = callId,
                             peerId = peerName,
                             status = "play",
+                            details = details
+                        )
+                    }
+                    "capture_stop" -> {
+                        Log.d("GHALBIT-CALL-AUDIO-BRIDGE", "CAPTURE_STOP $details callId=$callId")
+                        RuntimeEvidenceCollector.record(
+                            this,
+                            RuntimeEvidenceTags.CALL_AUDIO_CAPTURE_STOP,
+                            source = "FullDuplexCallEngine",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "capture_stop",
                             details = details
                         )
                     }
@@ -1043,6 +1106,12 @@ class CallSessionActivity : AppCompatActivity() {
                 consecutiveLostQualitySamples = 0
                 val relayValidation = lastRelayValidation ?: RelayConfigValidator.validate(applicationContext, force = false)
                 val routeScore = GhalbitCallManager.evaluateNearbyRouteScore(applicationContext, peer)
+                if (!virtualDiagnosticRoute) {
+                    Log.d(
+                        "GHALBIT-CALL-REAL-TRANSPORT-PREP",
+                        "peer=${peer.nodeId} route=${peer.routeHint ?: peer.transportIp ?: "-"} nearby=${routeScore.nearbyDetected} relay=${relayValidation.state}"
+                    )
+                }
                 if (
                     ContextCompat.checkSelfPermission(this@CallSessionActivity, Manifest.permission.RECORD_AUDIO) !=
                     PackageManager.PERMISSION_GRANTED
@@ -1314,13 +1383,11 @@ class CallSessionActivity : AppCompatActivity() {
                                 AdaptiveVoiceMode.VOICE_CAPACITOR -> setCallStatus("Mode kapasitor suara")
                                 AdaptiveVoiceMode.AI_RECONSTRUCTED_SPEECH -> setCallStatus("AI menyambungkan suara karena jaringan buruk")
                                 AdaptiveVoiceMode.PTT_STORE_FORWARD -> {
-                                    val fallbackMessage =
-                                        if (voiceActivationVirtualRoute) {
-                                            "Mode diagnostik virtual belum menerima audio balik."
-                                        } else {
-                                            getString(R.string.call_realtime_unstable)
-                                        }
-                                    showPttFallback(fallbackMessage)
+                                    if (voiceActivationVirtualRoute) {
+                                        holdVirtualDiagnosticVoice("Mode diagnostik virtual aktif, audio balik virtual sedang diverifikasi.")
+                                    } else {
+                                        showPttFallback(getString(R.string.call_realtime_unstable))
+                                    }
                                 }
                                 AdaptiveVoiceMode.LIVE_VOICE -> setCallStatus("Suara aktif")
                             }
@@ -1940,6 +2007,33 @@ class CallSessionActivity : AppCompatActivity() {
         setCallStatus(message)
         Log.d("GHALBIT-VOICE-AUDIT", "fallback=PTT")
         Log.d("GHALBIT-PTT-FALLBACK", "ui shown")
+    }
+
+    private fun holdVirtualDiagnosticVoice(message: String) {
+        realtimeFailed = false
+        routeSearchingAnimator.stop()
+        callSearchingToneManager.stop()
+        applyVoiceMode(AdaptiveVoiceMode.LIVE_VOICE, "virtual diagnostic hold")
+        updateState(CallState.VOICE_STREAM_ACTIVE, message)
+        setCallStatus(message)
+        Log.d("GHALBIT-CALL-AUDIO-TOLERANCE", "hold virtual route message=$message")
+    }
+
+    private fun handleVirtualDiagnosticRealtimeIssue(reason: String): Boolean {
+        if (!voiceActivationVirtualRoute) return false
+        val detail =
+            when {
+                reason.contains("Sesi suara belum siap", ignoreCase = true) ->
+                    "Mode diagnostik virtual sedang menyiapkan sesi suara."
+                reason.contains("Jalur suara belum siap", ignoreCase = true) ->
+                    "Mode diagnostik virtual sedang menyiapkan jalur suara."
+                reason.contains("Realtime call tidak stabil", ignoreCase = true) ->
+                    "Mode diagnostik virtual aktif, audio balik virtual sedang diverifikasi."
+                else -> "Mode diagnostik virtual aktif. ${reason.trim()}"
+            }
+        holdVirtualDiagnosticVoice(detail)
+        Log.d("GHALBIT-CALL-RTC-SOFTEN", "reason=$reason detail=$detail state=$callState")
+        return true
     }
 
     private fun attemptRouteRecovery(
