@@ -10,6 +10,9 @@ enum class PeerMode {
 data class FakePeer(
     val peerId: String,
     var online: Boolean = true,
-    var mode: PeerMode = PeerMode.HYBRID
+    var mode: PeerMode = PeerMode.HYBRID,
+    var autoAcceptCalls: Boolean = true,
+    var autoReadMessages: Boolean = true,
+    var autoReplyPayload: String? = null,
+    var toneHz: Int? = null
 )
-
