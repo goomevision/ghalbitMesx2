@@ -61,8 +61,10 @@ import com.ghalbitnet.meshx2.ui.RuntimeLoadingOverlay
 import com.ghalbitnet.meshx2.ui.RuntimeSoftBannerManager
 import com.ghalbitnet.meshx2.ui.RuntimeUiStateManager
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -74,6 +76,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
 class CallSessionActivity : AppCompatActivity() {
+    private val detachedIoScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     companion object {
         const val EXTRA_PEER_NAME = "peerName"
@@ -1389,7 +1392,7 @@ class CallSessionActivity : AppCompatActivity() {
                                         showPttFallback(getString(R.string.call_realtime_unstable))
                                     }
                                 }
-                                AdaptiveVoiceMode.LIVE_VOICE -> setCallStatus("Suara aktif")
+                                AdaptiveVoiceMode.LIVE_VOICE -> restoreRealtimeVoiceState("Suara aktif")
                             }
                         }
                     }
@@ -1962,7 +1965,7 @@ class CallSessionActivity : AppCompatActivity() {
             endSignalSent = true
             val peer = peerEndpoint
             if (peer != null) {
-                lifecycleScope.launch(Dispatchers.IO) {
+                detachedIoScope.launch {
                     GhalbitCallManager.endCall(
                         context = this@CallSessionActivity,
                         callId = callId,
@@ -2034,6 +2037,15 @@ class CallSessionActivity : AppCompatActivity() {
         holdVirtualDiagnosticVoice(detail)
         Log.d("GHALBIT-CALL-RTC-SOFTEN", "reason=$reason detail=$detail state=$callState")
         return true
+    }
+
+    private fun restoreRealtimeVoiceState(message: String) {
+        realtimeFailed = false
+        if (callState == CallState.PTT_FALLBACK) {
+            updateState(CallState.VOICE_STREAM_ACTIVE, message)
+            Log.d("GHALBIT-CALL-RTC-RECOVER", "ptt_to_voice callId=$callId message=$message")
+        }
+        setCallStatus(message)
     }
 
     private fun attemptRouteRecovery(
