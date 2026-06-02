@@ -1,4 +1,4 @@
-
+import java.util.Properties
 
 plugins {
     id 'com.android.application'
@@ -7,6 +7,25 @@ plugins {
     id 'com.google.gms.google-services'
 }
 
+def loadLocalProperties() {
+    def props = new Properties()
+    def file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.withInputStream { stream -> props.load(stream) }
+    }
+    return props
+}
+
+def localProps = loadLocalProperties()
+def resolveBuildValue = { String key, String fallback = "" ->
+    def fromProject = project.findProperty(key)
+    if (fromProject != null && fromProject.toString().trim()) return fromProject.toString().trim()
+    def fromLocal = localProps.getProperty(key)
+    if (fromLocal != null && fromLocal.toString().trim()) return fromLocal.toString().trim()
+    def fromEnv = System.getenv(key)
+    if (fromEnv != null && fromEnv.toString().trim()) return fromEnv.toString().trim()
+    return fallback
+}
 
 android {
     namespace 'com.ghalbitnet.meshx2'
@@ -18,9 +37,9 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0.1"
-        def relayUrl = (project.findProperty("GHALBIT_RELAY_URL") ?: "").toString()
-        def presenceUrl = (project.findProperty("GHALBIT_PRESENCE_URL") ?: relayUrl).toString()
-        def routeMode = (project.findProperty("GHALBIT_ROUTE_MODE") ?: "AUTO_HYBRID").toString()
+        def relayUrl = resolveBuildValue("GHALBIT_RELAY_URL", "")
+        def presenceUrl = resolveBuildValue("GHALBIT_PRESENCE_URL", relayUrl)
+        def routeMode = resolveBuildValue("GHALBIT_ROUTE_MODE", "AUTO_HYBRID")
         buildConfigField "String", "BASE_RELAY_URL", "\"${relayUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         buildConfigField "String", "BASE_PRESENCE_URL", "\"${presenceUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         buildConfigField "boolean", "INTERNET_RELAY_CONFIGURED", relayUrl.isBlank() ? "false" : "true"
