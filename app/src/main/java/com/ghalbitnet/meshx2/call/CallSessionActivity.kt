@@ -24,6 +24,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.ghalbitnet.meshx2.BuildConfig
 import com.ghalbitnet.meshx2.MainActivity
 import com.ghalbitnet.meshx2.R
 import com.ghalbitnet.meshx2.chat.ChatDatabase
@@ -179,7 +180,12 @@ class CallSessionActivity : AppCompatActivity() {
     private var voiceActivationVirtualRoute = false
     private var consecutiveLostQualitySamples = 0
     private var toneDiagnosticLabEnabled = false
+    private var pendingToneDiagnosticLabEnable = false
+    private var toneDiagnosticLabAutoTriggered = false
     private var preparedRouteStatusLabel: String = ""
+    private var lastRenderedCallStatusBody: String? = null
+    private var cachedStatusHintRouteKey: String? = null
+    private var cachedStatusHint: String? = null
     private lateinit var callSearchingToneManager: CallSearchingToneManager
     private lateinit var routeSearchingAnimator: RouteSearchingAnimator
     private val signalAckWaiters = ConcurrentHashMap<String, CompletableDeferred<Boolean>>()
@@ -616,11 +622,7 @@ class CallSessionActivity : AppCompatActivity() {
             toggleSpeaker()
         }
         btnSpeaker.setOnLongClickListener {
-            if (!isVoiceRealtimeState(callState) && callState != CallState.ROUTE_READY && callState != CallState.VOICE_TRANSPORT_READY) {
-                UiFeedbackManager.showToast(this, "Aktifkan setelah jalur suara siap.")
-                return@setOnLongClickListener true
-            }
-            toggleToneDiagnosticLab()
+            toggleToneDiagnosticLab("speaker_long_press")
             true
         }
         btnVideo.setOnClickListener {
@@ -1823,6 +1825,21 @@ class CallSessionActivity : AppCompatActivity() {
         if (state == CallState.PTT_FALLBACK) {
             Log.d("GHALBIT-CALL-STATE", "ptt fallback")
         }
+        if (state == CallState.VOICE_STREAM_ACTIVE) {
+            if (shouldAutoStartToneDiagnosticLab() && !toneDiagnosticLabAutoTriggered && !toneDiagnosticLabEnabled) {
+                toneDiagnosticLabAutoTriggered = true
+                requestToneDiagnosticLabEnable("auto_voice_stream_active")
+            } else {
+                maybeStartToneDiagnosticLab("state_voice_stream_active")
+            }
+        }
+        if (isTerminalCallState(state) || state == CallState.IDLE) {
+            pendingToneDiagnosticLabEnable = false
+            toneDiagnosticLabAutoTriggered = false
+            cachedStatusHintRouteKey = null
+            cachedStatusHint = null
+            lastRenderedCallStatusBody = null
+        }
         setCallStatus(message)
         updateButtons()
     }
@@ -1852,22 +1869,7 @@ class CallSessionActivity : AppCompatActivity() {
 
     private fun setCallStatus(baseStatus: String) {
         postUi {
-            val hint =
-                IdentityDisplayFormatter.secondaryLabel(
-                    primaryLabel = IdentityDisplayFormatter.primaryLabel(
-                        canonicalDisplayName = peerDisplayName,
-                        walletAddress = peerWalletAddress,
-                        globalId = peerGlobalId,
-                        publicKey = peerPublicKey,
-                        legacyName = peerName,
-                        ipAddress = peerEndpoint?.routeHint ?: peerIp
-                    ),
-                    legacyName = peerName,
-                    walletAddress = peerWalletAddress,
-                    globalId = peerGlobalId,
-                    publicKey = peerPublicKey,
-                    ipAddress = peerEndpoint?.routeHint ?: peerIp
-                )
+            val hint = currentCallStatusHint()
             val routeLine = preparedRouteStatusLabel.takeIf { it.isNotBlank() }
             val voiceModeLine = humanVoiceModeLabel()
             val technicalLine = technicalVoiceDetailLine()
@@ -1891,37 +1893,123 @@ class CallSessionActivity : AppCompatActivity() {
                         append(it)
                     }
                 }
+            if (body == lastRenderedCallStatusBody) {
+                return@postUi
+            }
+            lastRenderedCallStatusBody = body
             txtCallStatus.text = body
             Log.d("GHALBIT-UX", "call state=$callState status=${baseStatus.trim()}")
         }
     }
 
-    private fun toggleToneDiagnosticLab() {
-        toneDiagnosticLabEnabled = !toneDiagnosticLabEnabled
+    private fun currentCallStatusHint(): String? {
+        val routeKey = peerEndpoint?.routeHint ?: peerIp
+        if (cachedStatusHintRouteKey == routeKey && cachedStatusHint != null) {
+            return cachedStatusHint
+        }
+        val primary =
+            IdentityDisplayFormatter.primaryLabel(
+                canonicalDisplayName = peerDisplayName,
+                walletAddress = peerWalletAddress,
+                globalId = peerGlobalId,
+                publicKey = peerPublicKey,
+                legacyName = peerName,
+                ipAddress = routeKey
+            )
+        cachedStatusHint =
+            IdentityDisplayFormatter.secondaryLabel(
+                primaryLabel = primary,
+                legacyName = peerName,
+                walletAddress = peerWalletAddress,
+                globalId = peerGlobalId,
+                publicKey = peerPublicKey,
+                ipAddress = routeKey
+            )
+        cachedStatusHintRouteKey = routeKey
+        return cachedStatusHint
+    }
+
+    private fun shouldAutoStartToneDiagnosticLab(): Boolean =
+        BuildConfig.DEBUG && DeveloperModeManager.isEnabled(this)
+
+    private fun toggleToneDiagnosticLab(source: String = "manual") {
+        if (toneDiagnosticLabEnabled) {
+            disableToneDiagnosticLab(source)
+        } else {
+            requestToneDiagnosticLabEnable(source)
+        }
+    }
+
+    private fun requestToneDiagnosticLabEnable(source: String) {
+        pendingToneDiagnosticLabEnable = true
+        Log.d("GHALBIT-CALL-LAB", "TRIGGER_RECEIVED source=$source state=$callState enabled=$toneDiagnosticLabEnabled")
+        maybeStartToneDiagnosticLab(source)
+        if (pendingToneDiagnosticLabEnable && !isVoiceRealtimeState(callState) && callState != CallState.ROUTE_READY && callState != CallState.VOICE_TRANSPORT_READY) {
+            UiFeedbackManager.showToast(this, "Mode uji dijadwalkan setelah jalur suara siap.")
+        }
+    }
+
+    private fun maybeStartToneDiagnosticLab(source: String) {
+        if (!pendingToneDiagnosticLabEnable || toneDiagnosticLabEnabled) {
+            return
+        }
+        if (!isVoiceRealtimeState(callState) && callState != CallState.ROUTE_READY && callState != CallState.VOICE_TRANSPORT_READY) {
+            return
+        }
+        pendingToneDiagnosticLabEnable = false
+        val role = if (incoming) CallToneDiagnosticLab.Role.CALLEE else CallToneDiagnosticLab.Role.CALLER
+        try {
+            Log.d("GHALBIT-CALL-LAB", "STEP_START source=$source state=$callState callId=$callId")
+            toneDiagnosticLabEnabled = true
+            fullDuplexEngine.setToneDiagnosticLab(
+                enabled = true,
+                role = role,
+                callId = callId,
+                peerId = peerName
+            )
+            val message = "Mode uji panggilan aktif. Tone ping-pong otomatis sedang berjalan."
+            setCallStatus(message)
+            if (!source.startsWith("auto_")) {
+                UiFeedbackManager.showToast(this, message)
+            }
+            Log.d("GHALBIT-CALL-LAB", "START source=$source role=$role callId=$callId peer=$peerName")
+            RuntimeEvidenceCollector.record(
+                this,
+                RuntimeEvidenceTags.CALL_TONE_LAB_ENABLED,
+                source = "CallSessionActivity",
+                callId = callId,
+                peerId = peerName,
+                status = "enabled",
+                details = "role=$role incoming=$incoming source=$source"
+            )
+        } catch (t: Throwable) {
+            toneDiagnosticLabEnabled = false
+            Log.e("GHALBIT-CALL-LAB", "FAIL_STAGE stage=start source=$source reason=${t.message}", t)
+        }
+    }
+
+    private fun disableToneDiagnosticLab(source: String) {
+        pendingToneDiagnosticLabEnable = false
+        toneDiagnosticLabEnabled = false
         val role = if (incoming) CallToneDiagnosticLab.Role.CALLEE else CallToneDiagnosticLab.Role.CALLER
         fullDuplexEngine.setToneDiagnosticLab(
-            enabled = toneDiagnosticLabEnabled,
-            role = if (toneDiagnosticLabEnabled) role else null,
-            callId = if (toneDiagnosticLabEnabled) callId else null,
-            peerId = if (toneDiagnosticLabEnabled) peerName else null
+            enabled = false,
+            role = null,
+            callId = null,
+            peerId = null
         )
-        val message =
-            if (toneDiagnosticLabEnabled) {
-                "Mode uji panggilan aktif. Tone ping-pong otomatis sedang berjalan."
-            } else {
-                "Mode uji panggilan dimatikan."
-            }
+        val message = "Mode uji panggilan dimatikan."
         setCallStatus(message)
         UiFeedbackManager.showToast(this, message)
-        Log.d("GHALBIT-CALL-LAB", "MODE enabled=$toneDiagnosticLabEnabled role=$role callId=$callId peer=$peerName")
+        Log.d("GHALBIT-CALL-LAB", "MODE enabled=false source=$source role=$role callId=$callId peer=$peerName")
         RuntimeEvidenceCollector.record(
             this,
-            if (toneDiagnosticLabEnabled) RuntimeEvidenceTags.CALL_TONE_LAB_ENABLED else RuntimeEvidenceTags.CALL_TONE_LAB_DISABLED,
+            RuntimeEvidenceTags.CALL_TONE_LAB_DISABLED,
             source = "CallSessionActivity",
             callId = callId,
             peerId = peerName,
-            status = if (toneDiagnosticLabEnabled) "enabled" else "disabled",
-            details = "role=$role incoming=$incoming"
+            status = "disabled",
+            details = "role=$role incoming=$incoming source=$source"
         )
     }
 
