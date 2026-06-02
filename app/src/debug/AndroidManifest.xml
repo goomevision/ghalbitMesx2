@@ -15,6 +15,7 @@
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CHAT_READ" />
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_START" />
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_END" />
+                <action android:name="com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_PEER_INBOX_CHECK" />
             </intent-filter>
         </receiver>
     </application>

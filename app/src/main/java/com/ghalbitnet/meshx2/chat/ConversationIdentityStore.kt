@@ -62,6 +62,16 @@ object ConversationIdentityStore {
         }.getOrNull()
     }
 
+    fun findChatIdByGlobalId(
+        context: Context,
+        globalId: String?
+    ): String? {
+        val normalized = globalId?.trim()?.takeIf { it.isNotBlank() } ?: return null
+        return all(context)
+            .firstOrNull { it.globalId.equals(normalized, ignoreCase = true) }
+            ?.chatId
+    }
+
     fun upsert(
         context: Context,
         chatId: String,

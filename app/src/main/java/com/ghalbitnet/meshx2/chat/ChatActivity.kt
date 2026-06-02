@@ -386,22 +386,7 @@ class ChatActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_chat)
         GhalbitTheme.applyWindow(this, "ChatActivity")
-
-        peerIp =
-            intent.getStringExtra("peerIp") ?: ""
-
-        peerName =
-            intent.getStringExtra("peerName")
-                ?: intent.getStringExtra(GhalbitDeepLinkRouter.EXTRA_CONVERSATION_ID)
-                ?: "UNKNOWN"
-        peerGlobalId =
-            intent.getStringExtra("peerGlobalId")
-        peerPublicKey =
-            intent.getStringExtra("peerPublicKey")
-        peerWalletAddress =
-            intent.getStringExtra("peerWalletAddress")
-        peerDisplayName =
-            intent.getStringExtra("peerDisplayName")
+        applyConversationIntent(intent)
 
         val persistedConversationIdentity =
             ConversationIdentityStore.get(
@@ -1769,11 +1754,36 @@ class ChatActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        val conversationId = intent.getStringExtra(GhalbitDeepLinkRouter.EXTRA_CONVERSATION_ID).orEmpty()
+        applyConversationIntent(intent)
+        val conversationId = peerName
         if (conversationId.isNotBlank()) {
             GhalbitDeepLinkRouter.logChatOpen(conversationId)
             Log.d("GHALBIT-NOTIFY", "message clicked id=${intent.getStringExtra(GhalbitDeepLinkRouter.EXTRA_MESSAGE_ID).orEmpty()}")
+            lifecycleScope.launch {
+                renderHistory()
+            }
         }
+    }
+
+    private fun applyConversationIntent(intent: Intent) {
+        val incomingGlobalId =
+            intent.getStringExtra("peerGlobalId")
+                ?: intent.getStringExtra(GhalbitDeepLinkRouter.EXTRA_CALLER_GLOBAL_ID)
+        val incomingConversationId =
+            intent.getStringExtra("peerName")
+                ?: intent.getStringExtra(GhalbitDeepLinkRouter.EXTRA_CONVERSATION_ID)
+                ?: ConversationIdentityStore.findChatIdByGlobalId(this, incomingGlobalId)
+                ?: "UNKNOWN"
+
+        peerIp = intent.getStringExtra("peerIp") ?: peerIp
+        peerName = incomingConversationId
+        peerGlobalId = incomingGlobalId ?: peerGlobalId
+        peerPublicKey = intent.getStringExtra("peerPublicKey") ?: peerPublicKey
+        peerWalletAddress = intent.getStringExtra("peerWalletAddress") ?: peerWalletAddress
+        peerDisplayName = intent.getStringExtra("peerDisplayName") ?: peerDisplayName
+
+        activePeerName = peerName
+        Log.d("GHALBIT-NOTIFY", "open conversation peer=$peerName globalId=${peerGlobalId.orEmpty()}")
     }
 
     private fun buildVoiceLabel(durationMs: Long): String {

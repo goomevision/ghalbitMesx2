@@ -7,6 +7,7 @@ import android.util.Log
 import com.ghalbitnet.meshx2.BuildConfig
 import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
 import com.ghalbitnet.meshx2.diagnostics.VirtualPeerCallSignalProbe
+import com.ghalbitnet.meshx2.diagnostics.VirtualPeerInboxProbe
 import com.ghalbitnet.meshx2.diagnostics.VirtualPeerPresenceProbe
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.autodiag.AutoDiagnosticOrchestrator
@@ -28,6 +29,7 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
         const val ACTION_RUN_VIRTUAL_CHAT_READ = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CHAT_READ"
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_START = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_START"
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_END = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_END"
+        const val ACTION_RUN_VIRTUAL_PEER_INBOX_CHECK = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_PEER_INBOX_CHECK"
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
@@ -110,6 +112,19 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
                         Log.i(
                             "GHALBIT-DEBUG-TRIGGER",
                             "RESULT status=${result.status} callId=${result.callId} code=${result.httpCode} inboxMessages=${result.syncMessages} inboxReceipts=${result.syncReceipts}"
+                        )
+                    }
+                    ACTION_RUN_VIRTUAL_PEER_INBOX_CHECK -> {
+                        Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=virtual_peer_inbox")
+                        val result = VirtualPeerInboxProbe.run(
+                            context.applicationContext,
+                            targetGlobalId = intent?.getStringExtra("targetGlobalId").orEmpty().ifBlank {
+                                "GX-VIRTUAL-HP-B"
+                            }
+                        )
+                        Log.i(
+                            "GHALBIT-DEBUG-TRIGGER",
+                            "RESULT status=virtual_peer_inbox globalId=${result.globalId} messages=${result.messages} receipts=${result.receipts} callSignals=${result.callSignals}"
                         )
                     }
                     else -> {
