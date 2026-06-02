@@ -88,6 +88,11 @@ class CallSessionActivity : AppCompatActivity() {
         private const val OUTGOING_TIMEOUT_MS = 20_000L
         private const val RINGING_TIMEOUT_MS = 30_000L
         private const val NO_AUDIO_TIMEOUT_MS = 10_000L
+        private const val REALTIME_AUDIO_GRACE_MS = 15_000L
+        private const val VIRTUAL_DIAGNOSTIC_GRACE_MS = 45_000L
+        private const val REALTIME_AUDIO_TIMEOUT_MS = 18_000L
+        private const val VIRTUAL_DIAGNOSTIC_TIMEOUT_MS = 60_000L
+        private const val LOST_QUALITY_STREAK_FOR_PTT = 3
 
         fun createIntent(
             context: Context,
@@ -167,6 +172,9 @@ class CallSessionActivity : AppCompatActivity() {
     private var lastVoiceModeSwitchAt = 0L
     private var safePlaybackModeActive = false
     private var safePlaybackTriggeredAt = 0L
+    private var voiceActivationStartedAt = 0L
+    private var voiceActivationVirtualRoute = false
+    private var consecutiveLostQualitySamples = 0
     private var preparedRouteStatusLabel: String = ""
     private lateinit var callSearchingToneManager: CallSearchingToneManager
     private lateinit var routeSearchingAnimator: RouteSearchingAnimator
@@ -1030,6 +1038,9 @@ class CallSessionActivity : AppCompatActivity() {
                 stopStateTimeout()
                 val peer = peerEndpoint ?: return@launch
                 val virtualDiagnosticRoute = isVirtualDiagnosticRoute(peer)
+                voiceActivationStartedAt = System.currentTimeMillis()
+                voiceActivationVirtualRoute = virtualDiagnosticRoute
+                consecutiveLostQualitySamples = 0
                 val relayValidation = lastRelayValidation ?: RelayConfigValidator.validate(applicationContext, force = false)
                 val routeScore = GhalbitCallManager.evaluateNearbyRouteScore(applicationContext, peer)
                 if (
@@ -1198,12 +1209,18 @@ class CallSessionActivity : AppCompatActivity() {
         lastAudioPacketAt = System.currentTimeMillis()
         safePlaybackModeActive = false
         safePlaybackTriggeredAt = 0L
+        consecutiveLostQualitySamples = 0
         fullDuplexEngine.enableSafePlaybackMode(false)
         audioWatchdogJob =
             lifecycleScope.launch {
                 while (isVoiceRealtimeState(callState) && !finishedSafely) {
                     delay(1000)
                     val gapMs = System.currentTimeMillis() - lastAudioPacketAt
+                    val activationAgeMs = System.currentTimeMillis() - voiceActivationStartedAt
+                    val graceMs =
+                        if (voiceActivationVirtualRoute) VIRTUAL_DIAGNOSTIC_GRACE_MS else REALTIME_AUDIO_GRACE_MS
+                    val timeoutMs =
+                        if (voiceActivationVirtualRoute) VIRTUAL_DIAGNOSTIC_TIMEOUT_MS else REALTIME_AUDIO_TIMEOUT_MS
                     val audioMetrics = fullDuplexEngine.audioMetricsSnapshot()
                     Log.d(
                         "GHALBIT-CALL-AUDIO",
@@ -1243,10 +1260,10 @@ class CallSessionActivity : AppCompatActivity() {
                     val snapshot =
                         VoiceQualityMonitor.evaluate(
                             packetLoss = when {
-                                gapMs >= 8_000L -> 100
-                                gapMs >= 5_000L -> 50
-                                gapMs >= 2_500L -> 22
-                                else -> 4
+                                gapMs >= 12_000L -> 100
+                                gapMs >= 8_000L -> 45
+                                gapMs >= 4_000L -> 18
+                                else -> 2
                             },
                             jitterMs = (gapMs / 20L).toInt().coerceAtMost(180),
                             audioGapMs = gapMs,
@@ -1260,20 +1277,56 @@ class CallSessionActivity : AppCompatActivity() {
                             routeStability = (100 - snapshot.packetLoss).coerceAtLeast(5)
                         )
                     Log.d("GHALBIT-VOICE-QUALITY", "bandwidthKbps=${lastBandwidthSnapshot?.estimatedKbps}")
-                    val nextMode = VoiceModeDecisionEngine.decide(currentVoiceMode, snapshot)
+                    val nextMode =
+                        when {
+                            voiceActivationVirtualRoute && audioMetrics.rxFrames == 0L -> {
+                                Log.d(
+                                    "GHALBIT-CALL-AUDIO-TOLERANCE",
+                                    "hold virtual route activationAgeMs=$activationAgeMs txFail=${audioMetrics.txFailedFrames}"
+                                )
+                                currentVoiceMode
+                            }
+                            activationAgeMs < graceMs &&
+                                audioMetrics.capturedFrames > 0L &&
+                                audioMetrics.rxFrames == 0L -> {
+                                Log.d(
+                                    "GHALBIT-CALL-AUDIO-TOLERANCE",
+                                    "hold grace activationAgeMs=$activationAgeMs graceMs=$graceMs tx=${audioMetrics.txFrames} txFail=${audioMetrics.txFailedFrames}"
+                                )
+                                currentVoiceMode
+                            }
+                            else -> VoiceModeDecisionEngine.decide(currentVoiceMode, snapshot)
+                        }
+                    consecutiveLostQualitySamples =
+                        if (snapshot.score == VoiceQualityScore.LOST) consecutiveLostQualitySamples + 1 else 0
                     if (nextMode != currentVoiceMode) {
+                        if (nextMode == AdaptiveVoiceMode.PTT_STORE_FORWARD && consecutiveLostQualitySamples < LOST_QUALITY_STREAK_FOR_PTT) {
+                            Log.d(
+                                "GHALBIT-CALL-AUDIO-TOLERANCE",
+                                "defer ptt fallback streak=$consecutiveLostQualitySamples required=$LOST_QUALITY_STREAK_FOR_PTT activationAgeMs=$activationAgeMs"
+                            )
+                            continue
+                        }
                         postUi {
                             applyVoiceMode(nextMode, "audio_watchdog")
                             when (nextMode) {
                                 AdaptiveVoiceMode.BUFFERED_VOICE -> setCallStatus("Suara tertunda")
                                 AdaptiveVoiceMode.VOICE_CAPACITOR -> setCallStatus("Mode kapasitor suara")
                                 AdaptiveVoiceMode.AI_RECONSTRUCTED_SPEECH -> setCallStatus("AI menyambungkan suara karena jaringan buruk")
-                                AdaptiveVoiceMode.PTT_STORE_FORWARD -> showPttFallback(getString(R.string.call_realtime_unstable))
+                                AdaptiveVoiceMode.PTT_STORE_FORWARD -> {
+                                    val fallbackMessage =
+                                        if (voiceActivationVirtualRoute) {
+                                            "Mode diagnostik virtual belum menerima audio balik."
+                                        } else {
+                                            getString(R.string.call_realtime_unstable)
+                                        }
+                                    showPttFallback(fallbackMessage)
+                                }
                                 AdaptiveVoiceMode.LIVE_VOICE -> setCallStatus("Suara aktif")
                             }
                         }
                     }
-                    if (gapMs > NO_AUDIO_TIMEOUT_MS) {
+                    if (gapMs > timeoutMs) {
                         attemptRouteRecovery(
                             statusMessage = "Jalur putus, mencari ulang...",
                             fallbackMessage = "Belum menemukan jalur. Pencarian tetap berjalan."
