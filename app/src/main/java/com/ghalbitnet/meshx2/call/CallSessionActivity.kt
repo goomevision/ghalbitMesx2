@@ -238,7 +238,64 @@ class CallSessionActivity : AppCompatActivity() {
                 }
             }
         )
-    private val voiceAudioEngine by lazy { VoiceAudioEngine(this, audioManager, fullDuplexEngine) }
+    private val voiceAudioEngine by lazy {
+        VoiceAudioEngine(
+            this,
+            audioManager,
+            fullDuplexEngine
+        ) { stage, details ->
+            when (stage) {
+                "start" -> {
+                    Log.d("GHALBIT-CALL-AUDIO-ENGINE", "START callId=$callId $details")
+                    RuntimeEvidenceCollector.record(
+                        this,
+                        RuntimeEvidenceTags.CALL_AUDIO_ENGINE_START,
+                        source = "VoiceAudioEngine",
+                        callId = callId,
+                        peerId = peerName,
+                        status = "START",
+                        details = details
+                    )
+                }
+                "ready" -> {
+                    Log.d("GHALBIT-CALL-AUDIO-ENGINE", "READY callId=$callId $details")
+                    RuntimeEvidenceCollector.record(
+                        this,
+                        RuntimeEvidenceTags.CALL_AUDIO_ENGINE_READY,
+                        source = "VoiceAudioEngine",
+                        callId = callId,
+                        peerId = peerName,
+                        status = "READY",
+                        details = details
+                    )
+                }
+                "fail" -> {
+                    Log.w("GHALBIT-CALL-AUDIO-ENGINE", "FAIL callId=$callId $details")
+                    RuntimeEvidenceCollector.record(
+                        this,
+                        RuntimeEvidenceTags.CALL_AUDIO_ENGINE_FAIL,
+                        source = "VoiceAudioEngine",
+                        callId = callId,
+                        peerId = peerName,
+                        status = "FAIL",
+                        details = details
+                    )
+                }
+                "stop" -> {
+                    Log.d("GHALBIT-CALL-AUDIO-ENGINE", "STOP callId=$callId $details")
+                    RuntimeEvidenceCollector.record(
+                        this,
+                        RuntimeEvidenceTags.CALL_AUDIO_ENGINE_STOP,
+                        source = "VoiceAudioEngine",
+                        callId = callId,
+                        peerId = peerName,
+                        status = "STOP",
+                        details = details
+                    )
+                }
+            }
+        }
+    }
     private val codecAdapter: CodecAdapter by lazy { SpeechOptimizedCodecAdapter() }
     private val voicePlaybackScheduler by lazy { VoicePlaybackScheduler() }
     private val adaptiveJitterBuffer by lazy { AdaptiveJitterBuffer() }
@@ -969,6 +1026,7 @@ class CallSessionActivity : AppCompatActivity() {
         pendingVoiceHandshakeJob?.cancel()
         pendingVoiceHandshakeJob =
             lifecycleScope.launch(Dispatchers.IO) {
+                Log.d("GHALBIT-CALL-AUDIO-ENGINE", "ACTIVATION_START callId=$callId reason=$reason")
                 stopStateTimeout()
                 val peer = peerEndpoint ?: return@launch
                 val relayValidation = lastRelayValidation ?: RelayConfigValidator.validate(applicationContext, force = false)
@@ -978,6 +1036,16 @@ class CallSessionActivity : AppCompatActivity() {
                     PackageManager.PERMISSION_GRANTED
                 ) {
                     Log.d("GHALBIT-PERMISSION", "mic requested")
+                    Log.w("GHALBIT-CALL-AUDIO-ENGINE", "FAIL callId=$callId stage=permission reason=record_audio_missing")
+                    RuntimeEvidenceCollector.record(
+                        this@CallSessionActivity,
+                        RuntimeEvidenceTags.CALL_AUDIO_ENGINE_FAIL,
+                        source = "CallSessionActivity",
+                        callId = callId,
+                        peerId = peerName,
+                        status = "PERMISSION",
+                        details = "record_audio_missing"
+                    )
                     postUi {
                         updateState(CallState.WAITING_FOR_AUDIO_PATH, "GhalbitNet memerlukan mikrofon untuk panggilan suara.")
                         audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -995,16 +1063,46 @@ class CallSessionActivity : AppCompatActivity() {
                     val probeOk = voiceProbeManager.probeNearbyVoice()
                     if (!probeOk) {
                         Log.w("GHALBIT-VOICE-FALLBACK", "after probe failed")
+                        Log.w("GHALBIT-CALL-AUDIO-ENGINE", "FAIL callId=$callId stage=probe reason=nearby_probe_failed")
+                        RuntimeEvidenceCollector.record(
+                            this@CallSessionActivity,
+                            RuntimeEvidenceTags.CALL_AUDIO_ENGINE_FAIL,
+                            source = "CallSessionActivity",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "PROBE_FAILED",
+                            details = "nearby_probe_failed"
+                        )
                         postUi { showPttFallback("Jalur suara tidak stabil. Gunakan PTT.") }
                         return@launch
                     }
                     postUi { updateState(CallState.ROUTE_READY, "Suara lokal siap") }
                 } else if (relayValidation.state != RelayConfigValidation.State.INTERNET_RELAY_READY) {
+                    Log.w("GHALBIT-CALL-AUDIO-ENGINE", "FAIL callId=$callId stage=relay reason=${relayValidation.state}")
+                    RuntimeEvidenceCollector.record(
+                        this@CallSessionActivity,
+                        RuntimeEvidenceTags.CALL_AUDIO_ENGINE_FAIL,
+                        source = "CallSessionActivity",
+                        callId = callId,
+                        peerId = peerName,
+                        status = "RELAY_UNAVAILABLE",
+                        details = relayValidation.state.name
+                    )
                     postUi { showPttFallback(relayValidation.detail.ifBlank { "Relay suara belum tersedia" }) }
                     Log.w("GHALBIT-VOICE-RELAY", "config missing")
                     return@launch
                 } else {
                     Log.w("GHALBIT-VOICE-RELAY", "not implemented fallback ptt")
+                    Log.w("GHALBIT-CALL-AUDIO-ENGINE", "FAIL callId=$callId stage=relay reason=not_implemented")
+                    RuntimeEvidenceCollector.record(
+                        this@CallSessionActivity,
+                        RuntimeEvidenceTags.CALL_AUDIO_ENGINE_FAIL,
+                        source = "CallSessionActivity",
+                        callId = callId,
+                        peerId = peerName,
+                        status = "RELAY_NOT_IMPLEMENTED",
+                        details = "relay_voice_not_implemented"
+                    )
                     postUi { showPttFallback("Relay suara belum tersedia. Gunakan PTT.") }
                     return@launch
                 }
@@ -1012,6 +1110,16 @@ class CallSessionActivity : AppCompatActivity() {
                 val handshakeOk = voiceProbeManager.handshakeVoiceTransport()
                 if (!handshakeOk) {
                     Log.w("GHALBIT-VOICE-HANDSHAKE", "fallback ptt")
+                    Log.w("GHALBIT-CALL-AUDIO-ENGINE", "FAIL callId=$callId stage=handshake reason=voice_transport_failed")
+                    RuntimeEvidenceCollector.record(
+                        this@CallSessionActivity,
+                        RuntimeEvidenceTags.CALL_AUDIO_ENGINE_FAIL,
+                        source = "CallSessionActivity",
+                        callId = callId,
+                        peerId = peerName,
+                        status = "HANDSHAKE_FAILED",
+                        details = "voice_transport_failed"
+                    )
                     postUi { showPttFallback("Suara langsung belum tersedia. Gunakan pesan suara singkat / PTT.") }
                     return@launch
                 }

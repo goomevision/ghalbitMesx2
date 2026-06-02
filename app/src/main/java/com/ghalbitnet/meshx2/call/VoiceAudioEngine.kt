@@ -7,7 +7,8 @@ import android.util.Log
 class VoiceAudioEngine(
     private val context: Context,
     private val audioManager: AudioManager,
-    private val duplexEngine: FullDuplexCallEngine
+    private val duplexEngine: FullDuplexCallEngine,
+    private val onEngineEvent: ((stage: String, details: String) -> Unit)? = null
 ) {
     private var audioFocusGranted = false
     private var captureActive = false
@@ -35,12 +36,18 @@ class VoiceAudioEngine(
 
     fun start(speakerEnabled: Boolean): Boolean {
         if (!audioFocusGranted && !prepare(speakerEnabled)) {
+            Log.w("GHALBIT-CALL-AUDIO-ENGINE", "FAIL stage=prepare reason=audio_focus")
+            onEngineEvent?.invoke("fail", "stage=prepare reason=audio_focus")
             return false
         }
+        Log.d("GHALBIT-CALL-AUDIO-ENGINE", "START speaker=$speakerEnabled")
+        onEngineEvent?.invoke("start", "speaker=$speakerEnabled")
         return runCatching {
             duplexEngine.start()
             captureActive = true
             playbackActive = true
+            Log.d("GHALBIT-CALL-AUDIO-ENGINE", "READY capture=$captureActive playback=$playbackActive")
+            onEngineEvent?.invoke("ready", "capture=$captureActive playback=$playbackActive")
             Log.d("GHALBIT-VOICE-AUDIT", "socket=local-duplex")
             Log.d("GHALBIT-VOICE-AUDIT", "recorder=$captureActive")
             Log.d("GHALBIT-VOICE-AUDIT", "player=$playbackActive")
@@ -50,6 +57,8 @@ class VoiceAudioEngine(
         }.getOrElse { error ->
             captureActive = false
             playbackActive = false
+            Log.e("GHALBIT-CALL-AUDIO-ENGINE", "FAIL stage=start reason=${error.message}", error)
+            onEngineEvent?.invoke("fail", "stage=start reason=${error.message}")
             Log.e("GHALBIT-AUDIO", "recorder failed", error)
             Log.e("GHALBIT-AUDIO", "player failed", error)
             false
@@ -64,6 +73,8 @@ class VoiceAudioEngine(
             runCatching { audioManager.abandonAudioFocus(null) }
             audioFocusGranted = false
         }
+        Log.d("GHALBIT-CALL-AUDIO-ENGINE", "STOP capture=$captureActive playback=$playbackActive")
+        onEngineEvent?.invoke("stop", "capture=$captureActive playback=$playbackActive")
         Log.d("GHALBIT-AUDIO", "stopped")
     }
 
