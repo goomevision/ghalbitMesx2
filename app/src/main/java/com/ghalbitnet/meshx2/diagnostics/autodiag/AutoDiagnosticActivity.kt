@@ -12,6 +12,9 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.ghalbitnet.meshx2.R
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceCollector
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceReportGenerator
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceStore
 import com.ghalbitnet.meshx2.diagnostics.virtualcall.OneDeviceIncomingCallDiagnostic
 import com.ghalbitnet.meshx2.diagnostics.virtualcall.VirtualCallScenario
 import com.ghalbitnet.meshx2.ui.GhalbitTheme
@@ -38,6 +41,18 @@ class AutoDiagnosticActivity : AppCompatActivity() {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             clipboard.setPrimaryClip(ClipData.newPlainText("Auto Diagnostic", current))
             Toast.makeText(this, "Laporan disalin.", Toast.LENGTH_SHORT).show()
+        }
+        findViewById<Button>(R.id.btnExportRuntimeEvidence).setOnClickListener {
+            val summary = RuntimeEvidenceReportGenerator.toHumanSummary(this)
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("Runtime Evidence", summary))
+            txtResult.text = summary
+            Toast.makeText(this, "Runtime evidence diekspor.", Toast.LENGTH_SHORT).show()
+        }
+        findViewById<Button>(R.id.btnClearRuntimeEvidence).setOnClickListener {
+            RuntimeEvidenceCollector.clear(this)
+            txtResult.text = "Runtime evidence dibersihkan.\nfile=${RuntimeEvidenceStore.file(this).absolutePath}"
+            Toast.makeText(this, "Runtime evidence dibersihkan.", Toast.LENGTH_SHORT).show()
         }
 
         maybeHandleExternalTrigger(intent)
@@ -82,7 +97,8 @@ class AutoDiagnosticActivity : AppCompatActivity() {
                         callerPeerId = "VIRTUAL_CALLER_PC",
                         callerGlobalId = "GX-VIRTUAL-CALLER",
                         callerDisplayName = "Virtual Caller Tool"
-                    )
+                    ),
+                    triggerSource = source
                 )
             }
             txtResult.text =

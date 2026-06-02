@@ -33,6 +33,20 @@
             android:layout_marginTop="8dp"
             android:text="COPY DIAGNOSTIC REPORT" />
 
+        <Button
+            android:id="@+id/btnExportRuntimeEvidence"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="EXPORT RUNTIME EVIDENCE" />
+
+        <Button
+            android:id="@+id/btnClearRuntimeEvidence"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="CLEAR RUNTIME EVIDENCE" />
+
         <TextView
             android:id="@+id/txtAutoDiagnosticResult"
             android:layout_width="match_parent"
@@ -46,4 +60,3 @@
             android:textSize="13sp" />
     </LinearLayout>
 </ScrollView>
-

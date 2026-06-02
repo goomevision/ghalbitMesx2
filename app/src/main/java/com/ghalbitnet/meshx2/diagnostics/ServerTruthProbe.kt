@@ -2,6 +2,8 @@ package com.ghalbitnet.meshx2.diagnostics
 
 import android.content.Context
 import com.ghalbitnet.meshx2.BuildConfig
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceCollector
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceTags
 import com.ghalbitnet.meshx2.online.OnlineFallbackTransport
 import com.ghalbitnet.meshx2.util.LogThrottle
 
@@ -43,6 +45,13 @@ object ServerTruthProbe {
     fun logSnapshot(context: Context) {
         val configured = BuildConfig.INTERNET_RELAY_CONFIGURED
         val urls = baseUrls()
+        RuntimeEvidenceCollector.record(
+            context,
+            if (configured) RuntimeEvidenceTags.SERVER_BASE_URL_CONFIGURED else RuntimeEvidenceTags.SERVER_NOT_CONFIGURED,
+            source = "ServerTruthProbe",
+            status = configured.toString(),
+            details = "relay=${urls["relayBaseUrl"]} presence=${urls["presenceBaseUrl"]}"
+        )
         LogThrottle.d(
             "GHALBIT-SERVER-TRUTH",
             "base-url",
@@ -52,4 +61,3 @@ object ServerTruthProbe {
         )
     }
 }
-

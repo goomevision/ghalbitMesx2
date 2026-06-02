@@ -8,6 +8,8 @@ import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.util.Log
 import androidx.core.content.ContextCompat
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceCollector
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceTags
 
 data class AudioTruthReport(
     val healthScore: Int,
@@ -29,6 +31,12 @@ data class AudioTruthReport(
 object AudioTruthProbe {
     fun run(context: Context): AudioTruthReport {
         val notes = mutableListOf<String>()
+        RuntimeEvidenceCollector.record(
+            context,
+            RuntimeEvidenceTags.AUDIO_CAPTURE_STARTED,
+            source = "AudioTruthProbe",
+            status = "STARTED"
+        )
         val micPerm = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.RECORD_AUDIO
@@ -73,6 +81,15 @@ object AudioTruthProbe {
             notes = notes
         )
         Log.d("GHALBIT-AUDIO-TRUTH", "healthScore=${report.healthScore} notes=${report.notes.joinToString()}")
+        if (report.speechDetected) {
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.AUDIO_SPEECH_DETECTED,
+                source = "AudioTruthProbe",
+                status = "SPEECH",
+                details = "rms=${"%.2f".format(report.rms)} peak=${report.peak}"
+            )
+        }
         return report
     }
 

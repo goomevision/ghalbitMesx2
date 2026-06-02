@@ -7,16 +7,18 @@ import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
 import com.ghalbitnet.meshx2.diagnostics.InternetServerOperatorReadinessProbe
 import com.ghalbitnet.meshx2.diagnostics.ServerTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceCollector
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceTags
 import com.ghalbitnet.meshx2.online.PendingMessageStore
 
 object SmartRecoveryEngine {
 
     fun run(context: Context): RecoveryRunResult {
         val signals = collectSignals(context)
-        return runWithSignals(signals)
+        return runWithSignals(context, signals)
     }
 
-    fun runWithSignals(signals: List<RecoverySignal>): RecoveryRunResult {
+    fun runWithSignals(context: Context? = null, signals: List<RecoverySignal>): RecoveryRunResult {
         val issues = signals.mapNotNull {
             val issue = ErrorClassifier.classify(it)
             if (issue != null) {
@@ -30,6 +32,15 @@ object SmartRecoveryEngine {
             val action = RecoveryPolicy.decide(issue)
             if (action.applied) {
                 safeLog { Log.i("GHALBIT-RECOVERY", "ACTION name=${action.name} result=${action.result}") }
+                context?.let {
+                    RuntimeEvidenceCollector.record(
+                        it,
+                        RuntimeEvidenceTags.RECOVERY_ACTION_APPLIED,
+                        source = "SmartRecoveryEngine",
+                        status = action.name.name,
+                        details = action.result
+                    )
+                }
             } else {
                 safeLog { Log.i("GHALBIT-RECOVERY", "SKIP reason=${issue.type}") }
             }

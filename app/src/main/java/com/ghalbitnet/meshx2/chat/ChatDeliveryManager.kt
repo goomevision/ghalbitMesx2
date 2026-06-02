@@ -14,6 +14,8 @@ import com.ghalbitnet.meshx2.identity.CentralIdentityResolver
 import com.ghalbitnet.meshx2.model.MeshPacket
 import com.ghalbitnet.meshx2.network.MeshSocketClient
 import com.ghalbitnet.meshx2.core.utils.AppNotificationManager
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceCollector
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceTags
 import com.ghalbitnet.meshx2.online.OnlinePresenceManager
 import com.ghalbitnet.meshx2.online.DeliveryStatus
 import com.ghalbitnet.meshx2.online.OnlineFallbackTransport
@@ -206,6 +208,14 @@ object ChatDeliveryManager {
         request: ChatDeliveryRequest
     ) {
         bind(context)
+        RuntimeEvidenceCollector.record(
+            context,
+            RuntimeEvidenceTags.MESSAGE_CREATED,
+            source = "ChatDeliveryManager",
+            messageId = request.messageId,
+            peerId = request.chatId,
+            status = "CREATED"
+        )
         scope.launch {
             upsertOutgoingMessage(
                 context = context,
@@ -267,6 +277,15 @@ object ChatDeliveryManager {
         bind(context)
         val state = if (waitingForPeer) ChatDeliveryState.WAITING_FOR_PEER else ChatDeliveryState.PENDING
         updateState(context, packetId, state)
+        RuntimeEvidenceCollector.record(
+            context,
+            RuntimeEvidenceTags.MEDIA_PENDING,
+            source = "ChatDeliveryManager",
+            messageId = messageId,
+            peerId = chatId,
+            status = state.name,
+            details = lastErrorReason ?: if (waitingForPeer) "peerOffline" else "noRoute"
+        )
         PendingMessageStore.upsert(
             context,
             PendingMessage(
@@ -694,6 +713,15 @@ object ChatDeliveryManager {
                 reason = "ttlGuardPending"
             )
             updateState(context, request.packetId, ChatDeliveryState.FAILED_RETRYING)
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.FAILED_BEFORE_TTL_BLOCKED,
+                source = "ChatDeliveryManager",
+                messageId = request.messageId,
+                peerId = request.chatId,
+                status = "BLOCKED_TO_PENDING",
+                details = "ttlGuardPending"
+            )
             Log.d("GHALBIT-CHAT-RETRY", "messageId=${request.messageId} ttlGuard pending=true")
             return
         }
@@ -723,6 +751,15 @@ object ChatDeliveryManager {
                 )
             )
             updateState(context, request.packetId, ChatDeliveryState.PENDING)
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.MESSAGE_PENDING,
+                source = "ChatDeliveryManager",
+                messageId = request.messageId,
+                peerId = request.chatId,
+                status = "PENDING",
+                details = "noRoute"
+            )
             Log.d("GHALBIT-CHAT-PENDING", "id=${request.messageId} reason=noRoute")
             return
         }
@@ -746,12 +783,26 @@ object ChatDeliveryManager {
     fun handleAck(context: Context, packetId: String) {
         updateState(context, packetId, ChatDeliveryState.DELIVERED)
         PendingMessageStore.remove(context, packetId)
+        RuntimeEvidenceCollector.record(
+            context,
+            RuntimeEvidenceTags.MESSAGE_DELIVERED,
+            source = "ChatDeliveryManager",
+            messageId = packetId,
+            status = "DELIVERED"
+        )
         Log.d("GHALBIT-CHAT-ACK", "id=$packetId delivered=true")
     }
 
     fun handleRead(context: Context, packetId: String) {
         updateState(context, packetId, ChatDeliveryState.READ)
         PendingMessageStore.remove(context, packetId)
+        RuntimeEvidenceCollector.record(
+            context,
+            RuntimeEvidenceTags.MESSAGE_READ,
+            source = "ChatDeliveryManager",
+            messageId = packetId,
+            status = "READ"
+        )
         Log.d("GHALBIT-CHAT-ACK", "id=$packetId read=true")
     }
 

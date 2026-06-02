@@ -3,6 +3,8 @@ package com.ghalbitnet.meshx2.diagnostics
 import android.content.Context
 import android.util.Log
 import com.ghalbitnet.meshx2.BuildConfig
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceCollector
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceTags
 import com.ghalbitnet.meshx2.online.InternetRoute
 import com.ghalbitnet.meshx2.online.OnlineFallbackTransport
 import com.ghalbitnet.meshx2.online.OnlinePresenceManager
@@ -47,6 +49,13 @@ object InternetServerOperatorReadinessProbe {
             Log.w("GHALBIT-SERVER-PRESENCE", "HEARTBEAT_FAIL reason=SERVER_NOT_CONFIGURED")
             Log.w("GHALBIT-SERVER-CHAT", "SEND_FAIL reason=SERVER_NOT_CONFIGURED")
             Log.w("GHALBIT-SERVER-CALL", "START_FAIL reason=SERVER_NOT_CONFIGURED")
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.SERVER_NOT_CONFIGURED,
+                source = "InternetServerOperatorReadinessProbe",
+                status = "SERVER_NOT_CONFIGURED",
+                details = "relay=$relayBase presence=$presenceBase"
+            )
             return ServerOperatorReadinessResult(
                 configured = false,
                 baseUrl = relayBase,
@@ -60,12 +69,12 @@ object InternetServerOperatorReadinessProbe {
         val route = InternetRoute(identity.globalId, relayBase)
         val checks = mutableListOf<ServerOperatorCheckItem>()
 
-        checks += checkHealth(relayBase)
+        checks += checkHealth(context, relayBase)
         checks += checkRegisterHeartbeatAndPresence(context, identity.nodeId, identity.globalId, identity.publicKeyHash)
         checks += checkRelayChat(context, route, identity.nodeId, identity.globalId, identity.publicKeyHash, identity.publicKeyBase64)
         checks += checkRelayInbox(context, identity.globalId)
         checks += checkReceipts(context, identity.globalId)
-        checks += checkSessionEndpoints(relayBase, identity.globalId)
+        checks += checkSessionEndpoints(context, relayBase, identity.globalId)
 
         val proven = checks.count { it.ok }
         val status = when {
@@ -83,14 +92,28 @@ object InternetServerOperatorReadinessProbe {
         )
     }
 
-    private suspend fun checkHealth(baseUrl: String): ServerOperatorCheckItem {
+    private suspend fun checkHealth(context: Context, baseUrl: String): ServerOperatorCheckItem {
         Log.i("GHALBIT-SERVER-TRUTH", "PING_START")
         val health = request("GET", "${baseUrl.trimEnd('/')}/health")
         val ping = if (!health.ok) request("GET", "${baseUrl.trimEnd('/')}/ping") else health
         if (ping.ok) {
             Log.i("GHALBIT-SERVER-TRUTH", "PING_OK code=${ping.code} latencyMs=${ping.latencyMs}")
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.SERVER_HEALTH_OK,
+                source = "InternetServerOperatorReadinessProbe",
+                status = ping.code.toString(),
+                details = "latencyMs=${ping.latencyMs}"
+            )
         } else {
             Log.w("GHALBIT-SERVER-TRUTH", "PING_FAIL reason=${ping.error ?: "unknown"}")
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.SERVER_HEALTH_FAIL,
+                source = "InternetServerOperatorReadinessProbe",
+                status = ping.code.toString(),
+                details = ping.error ?: "unknown"
+            )
         }
         return ServerOperatorCheckItem("health_ping", ping.ok, ping.code, ping.latencyMs, ping.error.orEmpty())
     }
@@ -102,8 +125,18 @@ object InternetServerOperatorReadinessProbe {
         publicKeyHash: String
     ): List<ServerOperatorCheckItem> {
         val registerOk = OnlinePresenceManager.registerOnline(context, nodeId, globalId, publicKeyHash)
-        if (registerOk) Log.i("GHALBIT-SERVER-PRESENCE", "REGISTER_OK")
-        else Log.w("GHALBIT-SERVER-PRESENCE", "REGISTER_FAIL")
+        if (registerOk) {
+            Log.i("GHALBIT-SERVER-PRESENCE", "REGISTER_OK")
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.SERVER_REGISTER_OK,
+                source = "InternetServerOperatorReadinessProbe",
+                peerId = globalId,
+                status = "REGISTER_OK"
+            )
+        } else {
+            Log.w("GHALBIT-SERVER-PRESENCE", "REGISTER_FAIL")
+        }
 
         val heartbeat = OnlinePresenceManager.heartbeat(
             com.ghalbitnet.meshx2.online.OnlinePresence(
@@ -115,8 +148,18 @@ object InternetServerOperatorReadinessProbe {
                 lastSeen = System.currentTimeMillis()
             )
         )
-        if (heartbeat.online) Log.i("GHALBIT-SERVER-PRESENCE", "HEARTBEAT_OK status=${heartbeat.status}")
-        else Log.w("GHALBIT-SERVER-PRESENCE", "HEARTBEAT_FAIL status=${heartbeat.status} error=${heartbeat.error}")
+        if (heartbeat.online) {
+            Log.i("GHALBIT-SERVER-PRESENCE", "HEARTBEAT_OK status=${heartbeat.status}")
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.SERVER_HEARTBEAT_OK,
+                source = "InternetServerOperatorReadinessProbe",
+                peerId = globalId,
+                status = heartbeat.status
+            )
+        } else {
+            Log.w("GHALBIT-SERVER-PRESENCE", "HEARTBEAT_FAIL status=${heartbeat.status} error=${heartbeat.error}")
+        }
 
         val selfPresence = OnlinePresenceManager.checkPeerOnline(context, globalId)
         if (selfPresence != null) {
@@ -156,8 +199,25 @@ object InternetServerOperatorReadinessProbe {
             message = "{\"kind\":\"DIAG\",\"message\":\"server-operator-check\"}",
             contentType = "DIAG"
         )
-        if (send.successful) Log.i("GHALBIT-SERVER-CHAT", "SEND_OK status=${send.status}")
-        else Log.w("GHALBIT-SERVER-CHAT", "SEND_FAIL status=${send.status} error=${send.error}")
+        if (send.successful) {
+            Log.i("GHALBIT-SERVER-CHAT", "SEND_OK status=${send.status}")
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.MESSAGE_SENT_TO_SERVER,
+                source = "InternetServerOperatorReadinessProbe",
+                peerId = globalId,
+                status = send.status
+            )
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.SERVER_RELAY_OK,
+                source = "InternetServerOperatorReadinessProbe",
+                peerId = globalId,
+                status = send.status
+            )
+        } else {
+            Log.w("GHALBIT-SERVER-CHAT", "SEND_FAIL status=${send.status} error=${send.error}")
+        }
         return ServerOperatorCheckItem("relay_send", send.successful, detail = send.status)
     }
 
@@ -185,26 +245,58 @@ object InternetServerOperatorReadinessProbe {
         )
     }
 
-    private suspend fun checkSessionEndpoints(baseUrl: String, globalId: String): List<ServerOperatorCheckItem> {
+    private suspend fun checkSessionEndpoints(context: Context, baseUrl: String, globalId: String): List<ServerOperatorCheckItem> {
         val startPayload = JSONObject().put("callId", "diag-call-${System.currentTimeMillis()}").put("targetGlobalId", globalId).toString()
         val start = request("POST", "${baseUrl.trimEnd('/')}/session/start", startPayload)
-        if (start.ok) Log.i("GHALBIT-SERVER-CALL", "START_OK")
-        else Log.w("GHALBIT-SERVER-CALL", "START_FAIL code=${start.code} error=${start.error.orEmpty()}")
+        if (start.ok) {
+            Log.i("GHALBIT-SERVER-CALL", "START_OK")
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.SERVER_SESSION_OK,
+                source = "InternetServerOperatorReadinessProbe",
+                peerId = globalId,
+                status = "START_OK"
+            )
+        } else Log.w("GHALBIT-SERVER-CALL", "START_FAIL code=${start.code} error=${start.error.orEmpty()}")
 
         Log.i("GHALBIT-SERVER-CALL", "RINGING")
         val ringing = request("POST", "${baseUrl.trimEnd('/')}/session/ringing", startPayload)
 
         val accept = request("POST", "${baseUrl.trimEnd('/')}/session/accept", startPayload)
-        if (accept.ok) Log.i("GHALBIT-SERVER-CALL", "ACCEPT_OK")
-        else Log.w("GHALBIT-SERVER-CALL", "ACCEPT_FAIL code=${accept.code} error=${accept.error.orEmpty()}")
+        if (accept.ok) {
+            Log.i("GHALBIT-SERVER-CALL", "ACCEPT_OK")
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.SERVER_SESSION_OK,
+                source = "InternetServerOperatorReadinessProbe",
+                peerId = globalId,
+                status = "ACCEPT_OK"
+            )
+        } else Log.w("GHALBIT-SERVER-CALL", "ACCEPT_FAIL code=${accept.code} error=${accept.error.orEmpty()}")
 
         val reject = request("POST", "${baseUrl.trimEnd('/')}/session/reject", startPayload)
-        if (reject.ok) Log.i("GHALBIT-SERVER-CALL", "REJECT_OK")
-        else Log.w("GHALBIT-SERVER-CALL", "REJECT_FAIL code=${reject.code} error=${reject.error.orEmpty()}")
+        if (reject.ok) {
+            Log.i("GHALBIT-SERVER-CALL", "REJECT_OK")
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.SERVER_SESSION_OK,
+                source = "InternetServerOperatorReadinessProbe",
+                peerId = globalId,
+                status = "REJECT_OK"
+            )
+        } else Log.w("GHALBIT-SERVER-CALL", "REJECT_FAIL code=${reject.code} error=${reject.error.orEmpty()}")
 
         val end = request("POST", "${baseUrl.trimEnd('/')}/session/end", startPayload)
-        if (end.ok) Log.i("GHALBIT-SERVER-CALL", "END_OK")
-        else Log.w("GHALBIT-SERVER-CALL", "END_FAIL code=${end.code} error=${end.error.orEmpty()}")
+        if (end.ok) {
+            Log.i("GHALBIT-SERVER-CALL", "END_OK")
+            RuntimeEvidenceCollector.record(
+                context,
+                RuntimeEvidenceTags.SERVER_SESSION_OK,
+                source = "InternetServerOperatorReadinessProbe",
+                peerId = globalId,
+                status = "END_OK"
+            )
+        } else Log.w("GHALBIT-SERVER-CALL", "END_FAIL code=${end.code} error=${end.error.orEmpty()}")
 
         return listOf(
             ServerOperatorCheckItem("session_start", start.ok, start.code, start.latencyMs, start.error.orEmpty()),

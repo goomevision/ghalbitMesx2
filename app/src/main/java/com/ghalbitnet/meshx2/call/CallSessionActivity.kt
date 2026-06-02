@@ -36,6 +36,8 @@ import com.ghalbitnet.meshx2.core.log.MeshLogger
 import com.ghalbitnet.meshx2.core.utils.AppNotificationManager
 import com.ghalbitnet.meshx2.core.utils.GhalbitDeepLinkRouter
 import com.ghalbitnet.meshx2.core.utils.UiFeedbackManager
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceCollector
+import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceTags
 import com.ghalbitnet.meshx2.file.FileTransferManager
 import com.ghalbitnet.meshx2.core.network.GlobalMeshIdentityManager
 import com.ghalbitnet.meshx2.identity.CentralIdentityResolver
@@ -463,7 +465,23 @@ class CallSessionActivity : AppCompatActivity() {
                 state = CallState.INCOMING
             )
             Log.d("GHALBIT-CALL", "incoming received callId=$callId")
+            RuntimeEvidenceCollector.record(
+                this,
+                RuntimeEvidenceTags.INCOMING_CALL_SCREEN_OPENED,
+                source = "CallSessionActivity",
+                callId = callId,
+                peerId = peerName,
+                status = "INCOMING"
+            )
             CallRingtoneManager.startIncoming(this, callId)
+            RuntimeEvidenceCollector.record(
+                this,
+                RuntimeEvidenceTags.RINGING_STARTED,
+                source = "CallSessionActivity",
+                callId = callId,
+                peerId = peerName,
+                status = "STARTED"
+            )
             startStateTimeout(RINGING_TIMEOUT_MS)
         } else {
             updateState(CallState.OUTGOING, getString(R.string.call_state_outgoing))
@@ -718,10 +736,26 @@ class CallSessionActivity : AppCompatActivity() {
         waitingForRoute = false
         Log.d("GHALBIT-CALL-RUNTIME", "acceptPressed callId=$callId")
         Log.d("GHALBIT-CALL-ACTION", "accept clicked callId=$callId")
+        RuntimeEvidenceCollector.record(
+            this,
+            RuntimeEvidenceTags.ACCEPT_PRESSED,
+            source = "CallSessionActivity",
+            callId = callId,
+            peerId = peerName,
+            status = "PRESSED"
+        )
         Log.d("GHALBIT-CALL-ACTION", "ui immediate state=CONNECTING_CALL")
         val clickAt = System.currentTimeMillis()
         CallRingtoneManager.stopIfCall(callId, "accept_clicked")
         Log.d("GHALBIT-CALL-RUNTIME", "ringtoneStop callId=$callId")
+        RuntimeEvidenceCollector.record(
+            this,
+            RuntimeEvidenceTags.RINGTONE_STOPPED,
+            source = "CallSessionActivity",
+            callId = callId,
+            peerId = peerName,
+            status = "accept_clicked"
+        )
         Log.d("GHALBIT-CALL-RING", "stop before network reason=accept_clicked")
         Log.d("GHALBIT-CALL-RING", "stop on accept")
         updateState(CallState.ACCEPT_CLICKED, "Menghubungkan...")
@@ -793,6 +827,14 @@ class CallSessionActivity : AppCompatActivity() {
     private fun endCall() {
         if (finishedSafely) return
         updateState(CallState.CALL_ENDED, getString(R.string.call_state_ended))
+        RuntimeEvidenceCollector.record(
+            this,
+            RuntimeEvidenceTags.CALL_ENDED,
+            source = "CallSessionActivity",
+            callId = callId,
+            peerId = peerName,
+            status = "LOCAL_END"
+        )
         cleanupCall(sendEndIfNeeded = true)
         finishSafely()
     }
@@ -801,6 +843,14 @@ class CallSessionActivity : AppCompatActivity() {
         if (CallManager.extractCallId(payload) != callId) return
         CallRingtoneManager.stopIfCall(callId, "connected-remote")
         Log.d("GHALBIT-CALL-RING", "stop on connected")
+        RuntimeEvidenceCollector.record(
+            this,
+            RuntimeEvidenceTags.CALL_CONNECTED,
+            source = "CallSessionActivity",
+            callId = callId,
+            peerId = peerName,
+            status = "REMOTE_ACCEPT"
+        )
         updateState(CallState.CALL_CONNECTED_SIGNAL_ONLY, "Sinyal panggilan diterima")
         beginVoiceActivation("remote_accept")
     }
@@ -819,6 +869,14 @@ class CallSessionActivity : AppCompatActivity() {
         if (finishedSafely) return
         CallRingtoneManager.stopIfCall(callId, "ended-remote")
         Log.d("GHALBIT-CALL-RING", "stop on ended")
+        RuntimeEvidenceCollector.record(
+            this,
+            RuntimeEvidenceTags.CALL_ENDED,
+            source = "CallSessionActivity",
+            callId = callId,
+            peerId = peerName,
+            status = "REMOTE_END"
+        )
         updateState(CallState.CALL_ENDED, getString(R.string.call_state_ended))
         cleanupCall(sendEndIfNeeded = false)
         finishSafely()

@@ -39,11 +39,15 @@ object CallRingtoneManager {
             }
             vibrator = context.getSystemService(Vibrator::class.java)
             vibrator?.let { vib ->
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vib.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 350, 250, 350), 0))
-                } else {
-                    @Suppress("DEPRECATION")
-                    vib.vibrate(longArrayOf(0, 350, 250, 350), 0)
+                runCatching {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vib.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 350, 250, 350), 0))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        vib.vibrate(longArrayOf(0, 350, 250, 350), 0)
+                    }
+                }.onFailure {
+                    Log.w("GHALBIT-CALL-RING", "vibrate skipped callId=$callId reason=${it.message}")
                 }
             }
             activeCallId = callId

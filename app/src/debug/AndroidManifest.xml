@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <receiver
+            android:name=".diagnostics.debug.DiagnosticDebugReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_CHECK" />
+                <action android:name="com.ghalbitnet.meshx2.debug.RUN_FULL_DIAGNOSTIC" />
+                <action android:name="com.ghalbitnet.meshx2.debug.RUN_AUDIO_TRUTH" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+</manifest>
