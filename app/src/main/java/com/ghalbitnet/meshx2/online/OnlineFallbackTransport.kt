@@ -249,11 +249,12 @@ object OnlineFallbackTransport : MessageRelayApi {
                 connection.disconnect()
                 RelayRegistryManager.markSuccess(relayUrl, System.currentTimeMillis() - startedAt)
                 val body = JSONObject(text)
-                val messagesArray = body.optJSONArray("messages") ?: JSONArray()
-                val receiptsArray = body.optJSONArray("receipts") ?: JSONArray()
-                val messages =
-                    buildList {
-                        for (i in 0 until messagesArray.length()) {
+                  val messagesArray = body.optJSONArray("messages") ?: JSONArray()
+                  val receiptsArray = body.optJSONArray("receipts") ?: JSONArray()
+                  val callSignalsArray = body.optJSONArray("callSignals") ?: JSONArray()
+                  val messages =
+                      buildList {
+                          for (i in 0 until messagesArray.length()) {
                             val item = messagesArray.getJSONObject(i)
                             add(
                                 RelayInboxMessage(
@@ -272,9 +273,30 @@ object OnlineFallbackTransport : MessageRelayApi {
                                     createdAt = item.optLong("createdAt"),
                                     expiresAt = item.optLong("expiresAt")
                                 )
-                            )
-                        }
-                    }
+                              )
+                          }
+                          for (i in 0 until callSignalsArray.length()) {
+                              val item = callSignalsArray.getJSONObject(i)
+                              add(
+                                  RelayInboxMessage(
+                                      messageId = item.optString("eventId"),
+                                      packetId = item.optString("eventId", item.optString("callId")),
+                                      senderGlobalId = item.optString("sourceGlobalId"),
+                                      senderNodeId = item.optString("sourceNodeId", item.optString("sourceGlobalId")),
+                                      senderPublicKeyHash = item.optString("sourcePublicKeyHash").ifBlank { null },
+                                      senderPublicKey = item.optString("sourcePublicKey").ifBlank { null },
+                                      senderDisplayName = item.optString("sourceDisplayName").ifBlank { null },
+                                      targetGlobalId = item.optString("targetGlobalId"),
+                                      payload = JSONObject(item.toString()).put("signalType", item.optString("type")).toString(),
+                                      contentType = item.optString("type", "CALL_START"),
+                                      mimeType = null,
+                                      fileSize = 0L,
+                                      createdAt = item.optLong("createdAt"),
+                                      expiresAt = item.optLong("expiresAt")
+                                  )
+                              )
+                          }
+                      }
                 val receipts =
                     buildList {
                         for (i in 0 until receiptsArray.length()) {
@@ -292,8 +314,8 @@ object OnlineFallbackTransport : MessageRelayApi {
                             )
                         }
                     }
-                Log.d("GHALBIT-ANDROID-RELAY", "pull inbox count=${messages.size + receipts.size}")
-                RelayInboxResult(messages, receipts)
+                  Log.d("GHALBIT-ANDROID-RELAY", "pull inbox count=${messages.size + receipts.size}")
+                  RelayInboxResult(messages, receipts)
             }.getOrElse {
                 RelayRegistryManager.current(context)?.url?.let { RelayRegistryManager.markFailure(it) }
                 Log.e("GHALBIT-INTERNET-RX", "pull inbox failed", it)

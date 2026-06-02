@@ -12,6 +12,9 @@
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_AUDIO_TRUTH" />
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_SERVER_PRESENCE_CHECK" />
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_RELAY_INBOX_SYNC" />
+                <action android:name="com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CHAT_READ" />
+                <action android:name="com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_START" />
+                <action android:name="com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_END" />
             </intent-filter>
         </receiver>
     </application>

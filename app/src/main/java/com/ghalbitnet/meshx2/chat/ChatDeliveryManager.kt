@@ -1129,6 +1129,26 @@ object ChatDeliveryManager {
         }
     }
 
+    fun markAnyChatReadRemotely(context: Context, chatIds: List<String>, targetGlobalId: String?) {
+        if (targetGlobalId.isNullOrBlank() || !OnlineFallbackTransport.isConfigured()) return
+        val aliases = chatIds.map { it.trim() }.filter { it.isNotBlank() }.distinct()
+        if (aliases.isEmpty()) return
+        bind(context)
+        scope.launch {
+            val dao = ChatDatabase.getInstance(context).chatDao()
+            val unread = aliases
+                .flatMap { dao.getUnreadIncoming(it) }
+                .distinctBy { it.packetId }
+            if (unread.isEmpty()) return@launch
+            val localGlobalId = com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId()
+            unread.forEach { message ->
+                OnlineFallbackTransport.sendRead(context, localGlobalId, targetGlobalId, message.packetId)
+                updateState(context, message.packetId, ChatDeliveryState.READ_REMOTE)
+                Log.d("GHALBIT-READ", "remote receipt sent id=${message.packetId}")
+            }
+        }
+    }
+
     private suspend fun attemptMediaDelivery(
         context: Context,
         keyStore: KeyStoreManager,
