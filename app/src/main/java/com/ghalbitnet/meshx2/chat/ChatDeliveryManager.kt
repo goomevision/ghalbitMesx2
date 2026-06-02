@@ -982,7 +982,12 @@ object ChatDeliveryManager {
                     status = if (message.contentType.uppercase() == "MEDIA") ChatDeliveryState.MEDIA_DELIVERED_REMOTE.dbValue else ChatDeliveryState.DELIVERED_REMOTE.dbValue
                 )
             chatDb.chatDao().insertMessage(nextMessage)
-            if (!ChatActivity.isViewingChatWith(chatId) && nextMessage.visibilityType != MessageVisibility.HIDDEN.name) {
+            val shouldNotify =
+                nextMessage.visibilityType != MessageVisibility.HIDDEN.name &&
+                    (
+                        !ChatActivity.isForegroundViewingChatWith(chatId)
+                    )
+            if (shouldNotify) {
                 AppNotificationManager.notifyChatMessage(
                     context = context,
                     peerName = chatId,

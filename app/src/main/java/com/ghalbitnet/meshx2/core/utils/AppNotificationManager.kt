@@ -7,11 +7,13 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.os.Build
 import android.util.Log
-import androidx.core.app.Person
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import androidx.core.content.ContextCompat
 import com.ghalbitnet.meshx2.R
@@ -25,7 +27,7 @@ import com.ghalbitnet.meshx2.sos.SosInboxActivity
 import java.util.concurrent.ConcurrentHashMap
 
 object AppNotificationManager {
-    private const val MESSAGE_CHANNEL_ID = "GHALBIT_CHAT_CHANNEL"
+    private const val MESSAGE_CHANNEL_ID = "GHALBIT_CHAT_CHANNEL_V2"
     private const val ALERT_CHANNEL_ID = "GHALBIT_ALERT_CHANNEL"
     private const val CALL_CHANNEL_ID = "GHALBIT_CALL_CHANNEL"
     private const val CHAT_GROUP_KEY = "ghalbit_chat_group"
@@ -166,6 +168,7 @@ object AppNotificationManager {
                 .setGroup(CHAT_GROUP_KEY)
                 .setGroupSummary(false)
                 .setNumber(history.size)
+                .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                 .addAction(
                     0,
                     context.getString(R.string.notification_action_open_chat),
@@ -187,7 +190,10 @@ object AppNotificationManager {
                     if (isSilent) NotificationCompat.PRIORITY_DEFAULT
                     else NotificationCompat.PRIORITY_HIGH
                 )
-                .setOnlyAlertOnce(true)
+                .setDefaults(
+                    if (isSilent || isChatQuiet(context)) 0 else NotificationCompat.DEFAULT_ALL
+                )
+                .setOnlyAlertOnce(false)
 
         if (isSilent || isChatQuiet(context)) {
             builder.setSilent(true)
@@ -472,6 +478,7 @@ object AppNotificationManager {
             .setGroup(CHAT_GROUP_KEY)
             .setGroupSummary(true)
             .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .build()
     }
 
@@ -488,12 +495,18 @@ object AppNotificationManager {
                 NotificationChannel(
                     MESSAGE_CHANNEL_ID,
                     "Pesan Ghalbit Mesh",
-                    NotificationManager.IMPORTANCE_DEFAULT
+                    NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "Notifikasi pesan dan media masuk"
+                    description = "Notifikasi pesan dan media masuk saat aplikasi aktif maupun di latar belakang"
                     enableVibration(true)
                     vibrationPattern = longArrayOf(0, 120, 80, 120)
-                    setSound(null, null)
+                    setSound(
+                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_INSTANT)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
                 },
                 NotificationChannel(
                     ALERT_CHANNEL_ID,

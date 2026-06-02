@@ -99,8 +99,15 @@ class ChatActivity : AppCompatActivity() {
         @Volatile
         private var activePeerName: String? = null
 
+        @Volatile
+        private var isChatActivityForeground: Boolean = false
+
         fun isViewingChatWith(peerName: String): Boolean {
             return activePeerName == peerName
+        }
+
+        fun isForegroundViewingChatWith(peerName: String): Boolean {
+            return isChatActivityForeground && activePeerName == peerName
         }
     }
 
@@ -698,6 +705,7 @@ class ChatActivity : AppCompatActivity() {
         super.onResume()
         runtimeLoadingOverlay.onHostResume()
         runtimeSoftBanner.onHostResume()
+        isChatActivityForeground = true
         activePeerName = peerName
         OnlinePresenceManager.bind(this)
         RuntimeUiStateManager.setTransientState(
@@ -786,6 +794,7 @@ class ChatActivity : AppCompatActivity() {
         runtimeLoadingOverlay.onHostPause()
         runtimeSoftBanner.onHostPause()
         super.onPause()
+        isChatActivityForeground = false
         if (activePeerName == peerName) {
             activePeerName = null
         }

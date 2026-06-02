@@ -7,6 +7,7 @@ import android.util.Log
 import com.ghalbitnet.meshx2.BuildConfig
 import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
 import com.ghalbitnet.meshx2.diagnostics.VirtualPeerCallSignalProbe
+import com.ghalbitnet.meshx2.diagnostics.VirtualPeerChatProbe
 import com.ghalbitnet.meshx2.diagnostics.VirtualPeerInboxProbe
 import com.ghalbitnet.meshx2.diagnostics.VirtualPeerPresenceProbe
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
@@ -26,6 +27,7 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
         const val ACTION_RUN_AUDIO_TRUTH = "com.ghalbitnet.meshx2.debug.RUN_AUDIO_TRUTH"
         const val ACTION_RUN_SERVER_PRESENCE_CHECK = "com.ghalbitnet.meshx2.debug.RUN_SERVER_PRESENCE_CHECK"
         const val ACTION_RUN_RELAY_INBOX_SYNC = "com.ghalbitnet.meshx2.debug.RUN_RELAY_INBOX_SYNC"
+        const val ACTION_RUN_VIRTUAL_CHAT_SERVER_SEND = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CHAT_SERVER_SEND"
         const val ACTION_RUN_VIRTUAL_CHAT_READ = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CHAT_READ"
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_START = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_START"
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_END = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_END"
@@ -87,6 +89,17 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
                         Log.i(
                             "GHALBIT-DEBUG-TRIGGER",
                             "RESULT status=relay_inbox_sync inboxMessages=${result.inboxMessages} inboxReceipts=${result.inboxReceipts} pendingMessagesRetried=${result.pendingMessagesRetried} pendingMediaRetried=${result.pendingMediaRetried}"
+                        )
+                    }
+                    ACTION_RUN_VIRTUAL_CHAT_SERVER_SEND -> {
+                        Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=virtual_chat_server_send")
+                        val result = VirtualPeerChatProbe.send(
+                            context.applicationContext,
+                            message = intent?.getStringExtra("message").orEmpty().ifBlank { "Halo dari Virtual HP B" }
+                        )
+                        Log.i(
+                            "GHALBIT-DEBUG-TRIGGER",
+                            "RESULT status=${result.status} packetId=${result.packetId} http=${result.httpCode} inboxMessages=${result.syncMessages} inboxReceipts=${result.syncReceipts}"
                         )
                     }
                     ACTION_RUN_VIRTUAL_CHAT_READ -> {
