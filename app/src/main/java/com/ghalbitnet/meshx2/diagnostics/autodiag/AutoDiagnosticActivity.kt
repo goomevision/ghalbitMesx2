@@ -3,13 +3,17 @@ package com.ghalbitnet.meshx2.diagnostics.autodiag
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.ghalbitnet.meshx2.R
+import com.ghalbitnet.meshx2.diagnostics.virtualcall.OneDeviceIncomingCallDiagnostic
+import com.ghalbitnet.meshx2.diagnostics.virtualcall.VirtualCallScenario
 import com.ghalbitnet.meshx2.ui.GhalbitTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -35,6 +39,14 @@ class AutoDiagnosticActivity : AppCompatActivity() {
             clipboard.setPrimaryClip(ClipData.newPlainText("Auto Diagnostic", current))
             Toast.makeText(this, "Laporan disalin.", Toast.LENGTH_SHORT).show()
         }
+
+        maybeHandleExternalTrigger(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        maybeHandleExternalTrigger(intent)
     }
 
     private fun runDiagnostic() {
@@ -52,5 +64,41 @@ class AutoDiagnosticActivity : AppCompatActivity() {
             ).show()
         }
     }
-}
 
+    private fun maybeHandleExternalTrigger(intent: Intent?) {
+        val action = intent?.action.orEmpty()
+        if (action != OneDeviceIncomingCallDiagnostic.ACTION_RUN_VIRTUAL_CALL_CHECK) return
+        Log.i("GHALBIT-VIRTUAL-CALL", "TRIGGER_RECEIVED source=AutoDiagnosticActivity")
+        runVirtualIncomingCheck("intent_action")
+    }
+
+    private fun runVirtualIncomingCheck(source: String) {
+        txtResult.text = "Running virtual incoming call check..."
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                OneDeviceIncomingCallDiagnostic.run(
+                    this@AutoDiagnosticActivity,
+                    VirtualCallScenario(
+                        callerPeerId = "VIRTUAL_CALLER_PC",
+                        callerGlobalId = "GX-VIRTUAL-CALLER",
+                        callerDisplayName = "Virtual Caller Tool"
+                    )
+                )
+            }
+            txtResult.text =
+                "VIRTUAL_INCOMING_CALL_CHECK\n" +
+                    "source=$source\n" +
+                    "status=${result.status}\n" +
+                    "callId=${result.callId}\n" +
+                    "incoming=${result.incomingShown}\n" +
+                    "accepted=${result.accepted}\n" +
+                    "connected=${result.connected}\n" +
+                    "speech=${result.speechDetected}\n" +
+                    "rms=${"%.2f".format(result.audioRms)} peak=${result.audioPeak}\n" +
+                    "ringtoneStopped=${result.ringtoneStopped}\n" +
+                    "ended=${result.ended}\n" +
+                    result.notes.joinToString(prefix = "notes=", separator = " | ")
+            Log.i("GHALBIT-VIRTUAL-CALL", "RESULT status=${result.status}")
+        }
+    }
+}

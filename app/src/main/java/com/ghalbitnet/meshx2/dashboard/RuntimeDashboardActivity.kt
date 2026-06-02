@@ -20,6 +20,7 @@ import com.ghalbitnet.meshx2.chat.ContactListActivity
 import com.ghalbitnet.meshx2.diagnostics.autodiag.AutoDiagnosticActivity
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioReportGenerator
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
+import com.ghalbitnet.meshx2.diagnostics.virtualcall.OneDeviceIncomingCallDiagnostic
 import com.ghalbitnet.meshx2.sos.SosAlertManager
 import com.ghalbitnet.meshx2.sos.SosInboxActivity
 import com.ghalbitnet.meshx2.ui.GhalbitTheme
@@ -170,6 +171,15 @@ class RuntimeDashboardActivity : AppCompatActivity() {
         findViewById<Button>(R.id.btnRunFullDiagnostic).setOnClickListener {
             startActivity(Intent(this, AutoDiagnosticActivity::class.java))
             Log.d("GHALBIT-DASHBOARD-UI", "open auto diagnostic center")
+        }
+        findViewById<Button>(R.id.btnRunFullDiagnostic).setOnLongClickListener {
+            Log.i("GHALBIT-VIRTUAL-CALL", "TRIGGER_RECEIVED source=RuntimeDashboardActivity")
+            val intent = Intent(this, AutoDiagnosticActivity::class.java).apply {
+                action = OneDeviceIncomingCallDiagnostic.ACTION_RUN_VIRTUAL_CALL_CHECK
+            }
+            startActivity(intent)
+            Toast.makeText(this, "Virtual Incoming Call Check dijalankan.", Toast.LENGTH_SHORT).show()
+            true
         }
     }
 

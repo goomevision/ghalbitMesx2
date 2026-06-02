@@ -12,11 +12,34 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 
 object OneDeviceIncomingCallDiagnostic {
+    const val ACTION_RUN_VIRTUAL_CALL_CHECK = "com.ghalbitnet.meshx2.action.RUN_VIRTUAL_CALL_CHECK"
+
     fun run(context: Context, scenario: VirtualCallScenario): VirtualCallResult = runBlocking {
         val notes = mutableListOf<String>()
         Log.i("GHALBIT-VIRTUAL-CALL", "START caller=${scenario.callerPeerId}")
 
-        val callId = VirtualCallerTool.triggerIncomingCall(context, scenario)
+        Log.i("GHALBIT-VIRTUAL-CALL", "STEP_START")
+        val trigger = VirtualCallerTool.run(context, scenario)
+        val callId = trigger.callId
+        if (!trigger.success) {
+            Log.e(
+                "GHALBIT-VIRTUAL-CALL",
+                "FAIL_STAGE stage=${trigger.failStage ?: "UNKNOWN"} reason=${trigger.reason ?: "unknown"}"
+            )
+            return@runBlocking VirtualCallResult(
+                callId = callId,
+                incomingShown = false,
+                accepted = false,
+                connected = false,
+                audioRms = 0.0,
+                audioPeak = 0,
+                speechDetected = false,
+                ringtoneStopped = !CallRingtoneManager.isPlaying(),
+                ended = false,
+                status = "PARTIAL_TRIGGER_FAILED",
+                notes = notes + "Trigger failed stage=${trigger.failStage} reason=${trigger.reason}"
+            )
+        }
         Log.i("GHALBIT-VIRTUAL-CALL", "RINGING callId=$callId")
 
         val incomingShown = waitForState(
@@ -112,4 +135,3 @@ object OneDeviceIncomingCallDiagnostic {
         return false
     }
 }
-
