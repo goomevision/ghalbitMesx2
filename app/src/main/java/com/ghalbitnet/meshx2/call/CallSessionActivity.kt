@@ -184,6 +184,58 @@ class CallSessionActivity : AppCompatActivity() {
                     UiFeedbackManager.showToast(this, reason)
                     Log.w("GHALBIT-CALL-RTC", reason)
                 }
+            },
+            onTruthEvent = { stage, details ->
+                when (stage) {
+                    "capture" -> {
+                        Log.d("GHALBIT-CALL-AUDIO-TRUTH", "stage=capture $details callId=$callId")
+                        RuntimeEvidenceCollector.record(
+                            this,
+                            RuntimeEvidenceTags.CALL_AUDIO_CAPTURE,
+                            source = "FullDuplexCallEngine",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "capture",
+                            details = details
+                        )
+                    }
+                    "tx" -> {
+                        Log.d("GHALBIT-CALL-AUDIO-TRUTH", "stage=tx $details callId=$callId")
+                        RuntimeEvidenceCollector.record(
+                            this,
+                            RuntimeEvidenceTags.CALL_AUDIO_TX,
+                            source = "FullDuplexCallEngine",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "tx",
+                            details = details
+                        )
+                    }
+                    "rx" -> {
+                        Log.d("GHALBIT-CALL-AUDIO-TRUTH", "stage=rx $details callId=$callId")
+                        RuntimeEvidenceCollector.record(
+                            this,
+                            RuntimeEvidenceTags.CALL_AUDIO_RX,
+                            source = "FullDuplexCallEngine",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "rx",
+                            details = details
+                        )
+                    }
+                    "play" -> {
+                        Log.d("GHALBIT-CALL-AUDIO-TRUTH", "stage=play $details callId=$callId")
+                        RuntimeEvidenceCollector.record(
+                            this,
+                            RuntimeEvidenceTags.CALL_AUDIO_PLAY,
+                            source = "FullDuplexCallEngine",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "play",
+                            details = details
+                        )
+                    }
+                }
             }
         )
     private val voiceAudioEngine by lazy { VoiceAudioEngine(this, audioManager, fullDuplexEngine) }
@@ -1037,7 +1089,7 @@ class CallSessionActivity : AppCompatActivity() {
                     val audioMetrics = fullDuplexEngine.audioMetricsSnapshot()
                     Log.d(
                         "GHALBIT-CALL-AUDIO",
-                        "rx=${audioMetrics.rxFrames} queued=${audioMetrics.queuedFrames} played=${audioMetrics.playedFrames} dropped=${audioMetrics.droppedFrames} safeMode=$safePlaybackModeActive"
+                        "capture=${audioMetrics.capturedFrames} tx=${audioMetrics.txFrames} txFail=${audioMetrics.txFailedFrames} rx=${audioMetrics.rxFrames} queued=${audioMetrics.queuedFrames} played=${audioMetrics.playedFrames} dropped=${audioMetrics.droppedFrames} safeMode=$safePlaybackModeActive"
                     )
                     if (
                         !safePlaybackModeActive &&
@@ -1048,6 +1100,19 @@ class CallSessionActivity : AppCompatActivity() {
                         safePlaybackModeActive = true
                         safePlaybackTriggeredAt = System.currentTimeMillis()
                         fullDuplexEngine.enableSafePlaybackMode(true)
+                        Log.w(
+                            "GHALBIT-CALL-AUDIO-SAFE-MODE",
+                            "enabled callId=$callId reason=rx_without_play rx=${audioMetrics.rxFrames} played=${audioMetrics.playedFrames} ageMs=${audioMetrics.rxActiveForMs}"
+                        )
+                        RuntimeEvidenceCollector.record(
+                            this@CallSessionActivity,
+                            RuntimeEvidenceTags.CALL_AUDIO_SAFE_MODE,
+                            source = "CallSessionActivity",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "enabled",
+                            details = "rx=${audioMetrics.rxFrames} played=${audioMetrics.playedFrames} ageMs=${audioMetrics.rxActiveForMs}"
+                        )
                         runtimeSoftBanner.showMessage(
                             key = "call:safe-mode:$callId",
                             title = "Mode audio aman",

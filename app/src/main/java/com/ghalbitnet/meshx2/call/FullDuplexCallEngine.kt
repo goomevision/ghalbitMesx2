@@ -7,9 +7,13 @@ import java.util.concurrent.atomic.AtomicInteger
 class FullDuplexCallEngine(
     private val sessionProvider: () -> CallSession?,
     private val endpointProvider: () -> CallPeerEndpoint?,
-    private val onRealtimeFailure: (String) -> Unit
+    private val onRealtimeFailure: (String) -> Unit,
+    private val onTruthEvent: ((stage: String, details: String) -> Unit)? = null
 ) {
     data class AudioRuntimeMetrics(
+        val capturedFrames: Long,
+        val txFrames: Long,
+        val txFailedFrames: Long,
         val rxFrames: Long,
         val queuedFrames: Int,
         val playedFrames: Long,
@@ -22,11 +26,19 @@ class FullDuplexCallEngine(
     private val sequence = AtomicInteger(0)
     private val missingSessionFrames = AtomicInteger(0)
     private val missingEndpointFrames = AtomicInteger(0)
+    private val capturedFrames = AtomicInteger(0)
     private val sentFrames = AtomicInteger(0)
     private val failedFrames = AtomicInteger(0)
     private val retransmitManager = VoiceRetransmitManager()
     private val captureWorker =
         AudioCaptureWorker { frame ->
+            val captured = capturedFrames.incrementAndGet()
+            if (captured == 1 || captured % 50 == 0) {
+                Log.d("GHALBIT-CALL-AUDIO-CAPTURE", "frames=$captured bytes=${frame.size}")
+            }
+            if (captured == 1) {
+                onTruthEvent?.invoke("capture", "frames=$captured bytes=${frame.size}")
+            }
             if (muted.get()) return@AudioCaptureWorker
             val session = sessionProvider()
             if (session == null) {
@@ -72,6 +84,9 @@ class FullDuplexCallEngine(
                 if (total == 1 || total % 50 == 0) {
                     Log.d("GHALBIT-CALL-RTC", "capture sent seq=${voicePacket.sequence} total=$total")
                 }
+                if (total == 1) {
+                    onTruthEvent?.invoke("tx", "seq=${voicePacket.sequence} bytes=${voicePacket.payload.size} total=$total")
+                }
             } else {
                 val failed = failedFrames.incrementAndGet()
                 Log.w("GHALBIT-CALL-RTC", "capture send failed seq=${voicePacket.sequence} failed=$failed")
@@ -84,7 +99,12 @@ class FullDuplexCallEngine(
     private val playbackWorker =
         AudioPlaybackWorker(
             jitterBuffer = jitterBuffer,
-            frameBytes = captureWorker.frameBytes
+            frameBytes = captureWorker.frameBytes,
+            onPlaybackFrame = { sequence, written, realFrame, _, safeMode ->
+                if (realFrame && written > 0 && sequence != null && (sequence == 1 || sequence % 25 == 0)) {
+                    onTruthEvent?.invoke("play", "seq=$sequence written=$written safeMode=$safeMode")
+                }
+            }
         )
 
     fun start() {
@@ -94,6 +114,7 @@ class FullDuplexCallEngine(
         }
         missingSessionFrames.set(0)
         missingEndpointFrames.set(0)
+        capturedFrames.set(0)
         sentFrames.set(0)
         failedFrames.set(0)
         Log.d("GHALBIT-CALL-RTC", "start realtime engine")
@@ -128,11 +149,17 @@ class FullDuplexCallEngine(
         CallManager.recordAudioFrameReceived()
         jitterBuffer.offer(voicePacket.sequence, voicePacket.payload)
         Log.d("GHALBIT-CALL-AUDIO-RX", "seq=${voicePacket.sequence} bytes=${voicePacket.payload.size}")
+        if (voicePacket.sequence == 1 || voicePacket.sequence % 25 == 0) {
+            onTruthEvent?.invoke("rx", "seq=${voicePacket.sequence} bytes=${voicePacket.payload.size}")
+        }
     }
 
     fun audioMetricsSnapshot(): AudioRuntimeMetrics {
         val m = jitterBuffer.metricsSnapshot()
         return AudioRuntimeMetrics(
+            capturedFrames = capturedFrames.get().toLong(),
+            txFrames = sentFrames.get().toLong(),
+            txFailedFrames = failedFrames.get().toLong(),
             rxFrames = m.rxFrames,
             queuedFrames = m.queuedFrames,
             playedFrames = m.playedFrames,

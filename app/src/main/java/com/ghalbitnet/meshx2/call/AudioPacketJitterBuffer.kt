@@ -7,6 +7,13 @@ class AudioPacketJitterBuffer(
     private val frameBytes: Int,
     private val targetFrames: Int = 2
 ) {
+    data class PollResult(
+        val frame: ByteArray,
+        val sequence: Int?,
+        val realFrame: Boolean,
+        val concealed: Boolean
+    )
+
     private val packets = TreeMap<Int, ByteArray>()
     private var nextSequence = 0
     private var started = false
@@ -61,13 +68,16 @@ class AudioPacketJitterBuffer(
     }
 
     @Synchronized
-    fun pollFrame(): ByteArray {
+    fun pollFrame(): ByteArray = pollResult().frame
+
+    @Synchronized
+    fun pollResult(): PollResult {
         if (!started) {
             silenceFramesBeforeStart++
             if (silenceFramesBeforeStart == 1 || silenceFramesBeforeStart % 50 == 0) {
                 Log.d("GHALBIT-CALL-AUDIO-RX", "waitingForFirstAudio buffered=${packets.size} target=$targetFrames")
             }
-            return ByteArray(frameBytes)
+            return PollResult(ByteArray(frameBytes), sequence = null, realFrame = false, concealed = true)
         }
 
         val expected = nextSequence++
@@ -76,13 +86,13 @@ class AudioPacketJitterBuffer(
             playedFrames++
             Log.d("GHALBIT-CALL-AUDIO-RX", "playFrame seq=$expected bytes=${frame.size}")
             maybeLogMetrics()
-            return frame
+            return PollResult(frame, sequence = expected, realFrame = true, concealed = false)
         }
 
         droppedFrames++
         concealFrames++
         maybeLogMetrics()
-        return ByteArray(frameBytes)
+        return PollResult(ByteArray(frameBytes), sequence = expected, realFrame = false, concealed = true)
     }
 
     @Synchronized

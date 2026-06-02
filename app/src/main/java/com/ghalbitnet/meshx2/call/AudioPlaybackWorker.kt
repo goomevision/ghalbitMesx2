@@ -18,7 +18,8 @@ class AudioPlaybackWorker(
     private val jitterBuffer: AudioPacketJitterBuffer,
     private val sampleRate: Int = 8000,
     private val frameMs: Int = 20,
-    private val frameBytes: Int
+    private val frameBytes: Int,
+    private val onPlaybackFrame: ((sequence: Int?, wroteBytes: Int, realFrame: Boolean, concealed: Boolean, safeMode: Boolean) -> Unit)? = null
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var audioTrack: AudioTrack? = null
@@ -91,15 +92,26 @@ class AudioPlaybackWorker(
                 var writeCount = 0
                 var zeroOrShortWrites = 0
                 while (isActive) {
-                    val frame = jitterBuffer.pollFrame()
-                    val written = track.write(frame, 0, frame.size)
+                    val result = jitterBuffer.pollResult()
+                    val written = track.write(result.frame, 0, result.frame.size)
                     writeCount++
-                    if (written != frame.size) {
+                    if (written != result.frame.size) {
                         zeroOrShortWrites++
-                        Log.w("GHALBIT-AUDIO-PLAYBACK", "shortWrite written=$written expected=${frame.size} count=$zeroOrShortWrites")
+                        Log.w("GHALBIT-AUDIO-PLAYBACK", "shortWrite written=$written expected=${result.frame.size} count=$zeroOrShortWrites")
+                        Log.w(
+                            "GHALBIT-CALL-AUDIO-DROP",
+                            "sequence=${result.sequence ?: -1} written=$written expected=${result.frame.size} concealed=${result.concealed} safeMode=$safeMode"
+                        )
                     } else if (writeCount == 1 || writeCount % 50 == 0) {
                         Log.d("GHALBIT-AUDIO-PLAYBACK", "frame written=$written count=$writeCount")
                     }
+                    if (result.realFrame && written > 0 && (writeCount == 1 || writeCount % 25 == 0)) {
+                        Log.d(
+                            "GHALBIT-CALL-AUDIO-PLAY",
+                            "seq=${result.sequence ?: -1} written=$written safeMode=$safeMode count=$writeCount"
+                        )
+                    }
+                    onPlaybackFrame?.invoke(result.sequence, written, result.realFrame, result.concealed, safeMode)
                     delay(if (safeMode) 10L else frameMs.toLong())
                 }
             }
