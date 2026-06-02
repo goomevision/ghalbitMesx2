@@ -30,6 +30,9 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
         const val ACTION_RUN_VIRTUAL_CHAT_SERVER_SEND = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CHAT_SERVER_SEND"
         const val ACTION_RUN_VIRTUAL_CHAT_READ = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CHAT_READ"
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_START = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_START"
+        const val ACTION_RUN_VIRTUAL_CALL_SERVER_RINGING = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_RINGING"
+        const val ACTION_RUN_VIRTUAL_CALL_SERVER_ACCEPT = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_ACCEPT"
+        const val ACTION_RUN_VIRTUAL_CALL_SERVER_REJECT = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_REJECT"
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_END = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_END"
         const val ACTION_RUN_VIRTUAL_PEER_INBOX_CHECK = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_PEER_INBOX_CHECK"
 
@@ -114,6 +117,30 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
                     ACTION_RUN_VIRTUAL_CALL_SERVER_START -> {
                         Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=virtual_call_server_start")
                         val result = VirtualPeerCallSignalProbe.start(context.applicationContext)
+                        Log.i(
+                            "GHALBIT-DEBUG-TRIGGER",
+                            "RESULT status=${result.status} callId=${result.callId} code=${result.httpCode} inboxMessages=${result.syncMessages} inboxReceipts=${result.syncReceipts}"
+                        )
+                    }
+                    ACTION_RUN_VIRTUAL_CALL_SERVER_RINGING -> {
+                        Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=virtual_call_server_ringing")
+                        val result = VirtualPeerCallSignalProbe.ringing(context.applicationContext)
+                        Log.i(
+                            "GHALBIT-DEBUG-TRIGGER",
+                            "RESULT status=${result.status} callId=${result.callId} code=${result.httpCode} inboxMessages=${result.syncMessages} inboxReceipts=${result.syncReceipts}"
+                        )
+                    }
+                    ACTION_RUN_VIRTUAL_CALL_SERVER_ACCEPT -> {
+                        Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=virtual_call_server_accept")
+                        val result = VirtualPeerCallSignalProbe.accept(context.applicationContext)
+                        Log.i(
+                            "GHALBIT-DEBUG-TRIGGER",
+                            "RESULT status=${result.status} callId=${result.callId} code=${result.httpCode} inboxMessages=${result.syncMessages} inboxReceipts=${result.syncReceipts}"
+                        )
+                    }
+                    ACTION_RUN_VIRTUAL_CALL_SERVER_REJECT -> {
+                        Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=virtual_call_server_reject")
+                        val result = VirtualPeerCallSignalProbe.reject(context.applicationContext)
                         Log.i(
                             "GHALBIT-DEBUG-TRIGGER",
                             "RESULT status=${result.status} callId=${result.callId} code=${result.httpCode} inboxMessages=${result.syncMessages} inboxReceipts=${result.syncReceipts}"

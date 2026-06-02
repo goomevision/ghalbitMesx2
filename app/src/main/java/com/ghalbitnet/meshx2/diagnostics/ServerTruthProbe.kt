@@ -25,11 +25,13 @@ object ServerTruthProbe {
     )
 
     fun endpointCatalog(): List<ServerEndpointReadiness> = listOf(
-        ServerEndpointReadiness("/health", "GET", "PING", "CODE_ONLY"),
-        ServerEndpointReadiness("/ping", "GET", "PING", "CODE_ONLY"),
+        ServerEndpointReadiness("/health", "GET", "PING", "READY_IN_APP"),
+        ServerEndpointReadiness("/ping", "GET", "PING", "READY_IN_APP"),
         ServerEndpointReadiness("/identity/register", "POST", "IDENTITY", "READY_IN_APP"),
         ServerEndpointReadiness("/identity/sync", "POST", "IDENTITY", "READY_IN_APP"),
         ServerEndpointReadiness("/identity/lookup/{callId}", "GET", "IDENTITY", "READY_IN_APP"),
+        ServerEndpointReadiness("/presence/heartbeat", "POST", "PRESENCE", "READY_IN_APP"),
+        ServerEndpointReadiness("/presence/{globalId}", "GET", "PRESENCE", "READY_IN_APP"),
         ServerEndpointReadiness("/relay/send", "POST", "RELAY", "READY_IN_APP"),
         ServerEndpointReadiness("/relay/inbox/{globalId}", "GET", "RELAY", "READY_IN_APP"),
         ServerEndpointReadiness("/receipt/delivered", "POST", "RELAY", "READY_IN_APP"),
@@ -37,9 +39,11 @@ object ServerTruthProbe {
         ServerEndpointReadiness("/session/prepare-route", "POST", "SESSION", "READY_IN_APP"),
         ServerEndpointReadiness("/session/validate-route", "POST", "SESSION", "READY_IN_APP"),
         ServerEndpointReadiness("/session/heartbeat", "POST", "SESSION", "READY_IN_APP"),
-        ServerEndpointReadiness("/session/start", "POST", "SESSION", "CODE_ONLY"),
-        ServerEndpointReadiness("/session/accept", "POST", "SESSION", "CODE_ONLY"),
-        ServerEndpointReadiness("/session/end", "POST", "SESSION", "CODE_ONLY")
+        ServerEndpointReadiness("/session/start", "POST", "SESSION", "READY_IN_APP"),
+        ServerEndpointReadiness("/session/ringing", "POST", "SESSION", "READY_IN_APP"),
+        ServerEndpointReadiness("/session/accept", "POST", "SESSION", "READY_IN_APP"),
+        ServerEndpointReadiness("/session/reject", "POST", "SESSION", "READY_IN_APP"),
+        ServerEndpointReadiness("/session/end", "POST", "SESSION", "READY_IN_APP")
     )
 
     fun logSnapshot(context: Context) {

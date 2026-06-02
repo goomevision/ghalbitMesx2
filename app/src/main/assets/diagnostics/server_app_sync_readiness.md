@@ -1,93 +1,103 @@
-# Server App Sync Readiness (PHASE 300B)
+# Server App Sync Readiness
 
-Status ringkas: **APP_READY_PARTIAL_SERVER_UNPROVEN**
+Status ringkas: **APP_READY_SERVER_PARTIAL_PROVEN**
 
-Jika source backend tidak ditemukan di repo:
-**BACKEND_SOURCE_NOT_FOUND_IN_REPO**
+Dasar penilaian ini memakai bukti runtime dan laporan yang sudah ada, bukan asumsi baru:
 
-## 1) Base URL ditemukan
+- `virtual_peer_server_presence_check.md`
+- `virtual_peer_sos_server_proof.md`
+- `virtual_peer_chat_server_proof.md`
+- `virtual_peer_call_server_proof.md`
+- `virtual_peer_chat_popup_flow.md`
 
-- `BuildConfig.BASE_RELAY_URL` (dari `GHALBIT_RELAY_URL`)
-- `BuildConfig.BASE_PRESENCE_URL` (dari `GHALBIT_PRESENCE_URL`, fallback relay)
+## 1) Base URL yang dipakai app
+
+- `BuildConfig.BASE_RELAY_URL`
+- `BuildConfig.BASE_PRESENCE_URL`
 - `BuildConfig.INTERNET_RELAY_CONFIGURED`
 
 Sumber:
+
 - `app/build.gradle`
 - `online/OnlineFallbackTransport.kt`
 - `online/OnlinePresenceManager.kt`
-- `identity/IdentityServerClient.kt`
+- `diagnostics/ServerTruthProbe.kt`
 
-## 2) File yang memakai server
+## 2) File inti yang memakai server
 
 - `online/OnlineFallbackTransport.kt`
 - `online/OnlinePresenceManager.kt`
-- `identity/IdentityServerClient.kt`
-- `routing/CallRouteDiscoveryManager.kt`
 - `chat/ChatDeliveryManager.kt`
-- `call/InternetRelaySignalingChannel.kt`
+- `diagnostics/VirtualPeerPresenceProbe.kt`
+- `diagnostics/VirtualPeerChatProbe.kt`
+- `diagnostics/VirtualPeerCallSignalProbe.kt`
+- `diagnostics/InternetServerOperatorReadinessProbe.kt`
 
-## 3) Endpoint yang dipakai app
+## 3) Endpoint app-side dan status terbaru
 
-- `/identity/register`
-- `/identity/sync`
-- `/identity/lookup/{callId}`
-- `/identity/copy-reached-internet`
-- `/identity/route-hint`
-- `/presence/heartbeat`
-- `/presence/{targetGlobalId}`
-- `/relay/send`
-- `/relay/inbox/{globalId}`
-- `/relay/ack`
-- `/relay/read`
-- `/relay/edits/{globalId}`
-- `/relay/deletes/{globalId}`
-- `/session/prepare-route`
-- `/session/validate-route`
-- `/session/heartbeat`
-- `/relay/media/*` (URL generate untuk fetch media)
+| Endpoint Group | Status terbaru | Catatan |
+|---|---|---|
+| `GET /health` | READY_IN_APP | Dipakai probe readiness/operator |
+| `POST /presence/heartbeat` | PROVEN_RUNTIME | `REGISTER_OK`, `HEARTBEAT_OK`, `VISIBLE_ON_SERVER` sudah terbukti |
+| `GET /presence/{globalId}` | PROVEN_RUNTIME | lookup presence runtime terbukti |
+| `POST /relay/send` | PROVEN_RUNTIME | terbukti untuk SOS, chat, call signaling |
+| `GET /relay/inbox/{globalId}` | PROVEN_RUNTIME | inbox HP A terbukti menerima SOS/chat/call signal |
+| `POST /receipt/delivered` | PROVEN_RUNTIME | delivered receipt balik ke virtual peer terbukti |
+| `POST /receipt/read` | PROVEN_RUNTIME | read receipt balik ke virtual peer terbukti |
+| `POST /session/start` | PROVEN_RUNTIME | virtual call start ke HP A terbukti |
+| `POST /session/end` | PROVEN_RUNTIME | virtual call end ke HP A terbukti |
+| `POST /session/ringing` | READY_IN_APP | endpoint tersedia, belum ada proof terpisah terbaru |
+| `POST /session/accept` | READY_IN_APP | endpoint tersedia, proof runtime khusus belum dipisah |
+| `POST /session/reject` | READY_IN_APP | endpoint tersedia, proof runtime khusus belum dipisah |
+| `POST /session/prepare-route` | READY_IN_APP | dipakai koordinasi route internet |
+| `POST /session/validate-route` | READY_IN_APP | dipakai koordinasi route internet |
+| `POST /session/heartbeat` | READY_IN_APP | dipakai route/session health |
+| media relay fetch URL | READY_IN_APP | fetch URL ada; upload/media relay penuh belum terbukti runtime |
 
-## 4) Status endpoint
+## 4) Kecocokan request/response model
 
-| Endpoint Group | Status |
-|---|---|
-| identity register/sync/lookup | READY_IN_APP |
-| relay send/inbox/ack/read | READY_IN_APP |
-| session prepare/validate/heartbeat | READY_IN_APP |
-| health/ping server | CODE_ONLY (tidak ada caller aktif bawaan) |
-| session start/accept/end (REST) | CODE_ONLY (call signaling pakai relay/send payload event) |
-| media upload endpoint eksplisit | SERVER_NOT_PROVEN (client fetch URL ada, upload path eksplisit tidak terlihat di file audit ini) |
+- App dan operator server sekarang sinkron untuk:
+  - presence
+  - relay send/inbox
+  - receipt delivered/read
+  - call start/end signaling
+- Endpoint receipt lama `relay/ack` dan `relay/read` sudah tidak lagi menjadi kontrak utama. Jalur aktif sekarang adalah:
+  - `/receipt/delivered`
+  - `/receipt/read`
 
-## 5) Kecocokan request/response model
+## 5) Auth / token / signature
 
-- Secara client-side sudah konsisten JSON.
-- Banyak parser memakai `opt*` (toleran field hilang).
-- Kontrak penuh server belum bisa diverifikasi tanpa source backend.
+- App memakai payload JSON dengan signature/hash di beberapa jalur.
+- Belum ada bukti mekanisme bearer-token global wajib.
+- Untuk readiness saat ini, kontrak signature cukup untuk jalur operator yang sudah dibuktikan.
 
-## 6) Auth/token
+## 6) Timeout / retry / fallback
 
-- Signature payload ada pada beberapa endpoint (identity/relay/presence) via `NodeSigningIdentityManager`.
-- Auth bearer token umum belum terlihat sebagai mekanisme utama di endpoint audit ini.
+- `HttpURLConnection` timeout sudah ada di jalur transport online.
+- `ChatDeliveryManager` + `PendingMessageStore` menangani retry aman.
+- Fallback lokal -> server tidak merusak flow dasar yang sudah terbukti:
+  - chat tetap delivered/read
+  - SOS tetap masuk ke `SosAlertManager`
+  - call signaling tetap masuk ke inbox peer
 
-## 7) Timeout/retry
+## 7) Pending queue server
 
-- `HttpURLConnection` timeout terlihat (`connectTimeout/readTimeout` sekitar 4–5 detik).
-- Retry/backoff ada di layer `ChatDeliveryManager` + `PendingMessageStore`.
-- Retry server-side tidak terlihat (karena backend source tidak ada).
+- Sudah terbukti secara praktis melalui:
+  - virtual chat
+  - virtual SOS
+  - inbox consume-once
+- Replay berulang sudah dibenahi di server operator inbox fetch.
 
-## 8) Error handling 401/404/500
+## 8) Delivery / read receipt server
 
-- Secara umum ditangani sebagai gagal + fallback (`responseCode` non-2xx -> error stream / false/null).
-- Penanganan spesifik per-kode (401/404/500) masih minimal (belum granular).
+- **PROVEN_RUNTIME**
+- HP A sudah terbukti mengirim:
+  - delivered
+  - read
+- dan virtual peer/server sudah menerima bukti itu.
 
-## 9) Pending queue server
+## 9) Gap yang masih tersisa
 
-- Ada jalur fetch inbox (`/relay/inbox/{globalId}`) + local pending store.
-- Queue semantics server (ordering, TTL server, dedup server) **belum terbukti** dari repo ini.
-
-## 10) Delivery/read receipt server
-
-- Ada client call:
-  - `/relay/ack` (delivered)
-  - `/relay/read` (read)
-- Bukti enforcement server authoritative end-to-end: **SERVER_NOT_PROVEN**.
-
+- call signaling `ringing/accept/reject` belum dipisahkan proof runtime setegas `start/end`
+- media relay internet penuh untuk audio/call belum proven end-to-end via server operator
+- auto status “server down vs server ready” sudah ada di probe/recovery, tetapi belum dijadikan satu indikator UI operator tunggal
