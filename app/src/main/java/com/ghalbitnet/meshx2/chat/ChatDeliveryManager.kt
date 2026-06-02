@@ -30,6 +30,7 @@ import com.ghalbitnet.meshx2.online.RelayRealtimeChannel
 import com.ghalbitnet.meshx2.online.RemoteMediaRelayManager
 import com.ghalbitnet.meshx2.security.CryptoEngine
 import com.ghalbitnet.meshx2.security.KeyStoreManager
+import com.ghalbitnet.meshx2.sos.SosAlertManager
 import com.ghalbitnet.meshx2.ui.RuntimeUiState
 import com.ghalbitnet.meshx2.ui.RuntimeUiStateManager
 import kotlinx.coroutines.CompletableDeferred
@@ -948,6 +949,13 @@ object ChatDeliveryManager {
                     "ENCRYPTED_TEXT" -> decryptRemotePayload(context, message)
                     else -> message.payload
                 }
+            if (message.contentType.equals("SOS", ignoreCase = true)) {
+                routeRelaySosToAlertManager(
+                    context = context,
+                    message = message,
+                    payload = resolvedContent
+                )
+            }
             val internalEvent =
                 InternalEventRouter.toChatMessage(
                     context = context,
@@ -990,6 +998,31 @@ object ChatDeliveryManager {
         val localGlobalId = com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId()
         OnlineFallbackTransport.sendAck(context, localGlobalId, message.senderGlobalId, message.messageId)
         Log.d("GHALBIT-CHAT-ACK", "id=${message.messageId} delivered=true remote=true")
+    }
+
+    private fun routeRelaySosToAlertManager(
+        context: Context,
+        message: RelayInboxMessage,
+        payload: String
+    ) {
+        val sourceNode = message.senderNodeId.ifBlank { message.senderGlobalId }
+        Log.d(
+            "GHALBIT-SOS-INBOX",
+            "received packetId=${message.packetId} source=$sourceNode globalId=${message.senderGlobalId}"
+        )
+        SosAlertManager.handleIncomingSos(
+            context = context,
+            packet = MeshPacket(
+                packetId = message.packetId.ifBlank { message.messageId },
+                source = sourceNode,
+                destination = com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localNodeId(),
+                type = "SOS",
+                payload = payload,
+                encrypted = false
+            ),
+            payload = payload,
+            routeHint = "relay:${message.senderGlobalId}"
+        )
     }
 
     private fun resolveRelayCallSignalType(message: RelayInboxMessage): String? {

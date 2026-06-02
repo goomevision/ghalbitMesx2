@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.ghalbitnet.meshx2.BuildConfig
+import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
 import com.ghalbitnet.meshx2.diagnostics.VirtualPeerPresenceProbe
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.autodiag.AutoDiagnosticOrchestrator
@@ -22,6 +23,7 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
         const val ACTION_RUN_FULL_DIAGNOSTIC = "com.ghalbitnet.meshx2.debug.RUN_FULL_DIAGNOSTIC"
         const val ACTION_RUN_AUDIO_TRUTH = "com.ghalbitnet.meshx2.debug.RUN_AUDIO_TRUTH"
         const val ACTION_RUN_SERVER_PRESENCE_CHECK = "com.ghalbitnet.meshx2.debug.RUN_SERVER_PRESENCE_CHECK"
+        const val ACTION_RUN_RELAY_INBOX_SYNC = "com.ghalbitnet.meshx2.debug.RUN_RELAY_INBOX_SYNC"
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
@@ -71,6 +73,14 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
                         Log.i(
                             "GHALBIT-DEBUG-TRIGGER",
                             "RESULT status=${result.status} register=${result.registerOk} heartbeat=${result.heartbeatOk} lookup=${result.lookupOk} lastSeen=${result.lastSeen}"
+                        )
+                    }
+                    ACTION_RUN_RELAY_INBOX_SYNC -> {
+                        Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=relay_inbox_sync")
+                        val result = ChatDeliveryManager.syncNow(context.applicationContext, reason = "debug-relay-inbox-sync")
+                        Log.i(
+                            "GHALBIT-DEBUG-TRIGGER",
+                            "RESULT status=relay_inbox_sync inboxMessages=${result.inboxMessages} inboxReceipts=${result.inboxReceipts} pendingMessagesRetried=${result.pendingMessagesRetried} pendingMediaRetried=${result.pendingMediaRetried}"
                         )
                     }
                     else -> {

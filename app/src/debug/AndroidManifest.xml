@@ -11,6 +11,7 @@
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_FULL_DIAGNOSTIC" />
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_AUDIO_TRUTH" />
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_SERVER_PRESENCE_CHECK" />
+                <action android:name="com.ghalbitnet.meshx2.debug.RUN_RELAY_INBOX_SYNC" />
             </intent-filter>
         </receiver>
     </application>
