@@ -28,6 +28,8 @@ object RelayRealtimeChannel {
 
     fun isConnected(): Boolean = connected
 
+    fun currentBoundGlobalId(): String? = currentGlobalId
+
     fun addListener(listener: (RelayRealtimeEvent) -> Unit) {
         listeners += listener
     }

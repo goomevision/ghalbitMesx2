@@ -332,9 +332,11 @@ object OnlineFallbackTransport : MessageRelayApi {
     suspend fun sendAck(context: Context, globalId: String, targetGlobalId: String, messageId: String): Boolean {
         val now = System.currentTimeMillis()
         val signingIdentity = NodeSigningIdentityManager.getOrCreate(context)
+        val senderGlobalId = globalId.ifBlank { com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId().ifBlank { signingIdentity.globalId } }
+        val senderNodeId = com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localNodeId().ifBlank { signingIdentity.nodeId }
         val proof =
             RelaySecurityProof.Payload(
-                senderGlobalId = signingIdentity.globalId,
+                senderGlobalId = senderGlobalId,
                 targetGlobalId = targetGlobalId,
                 messageId = messageId,
                 packetId = messageId,
@@ -347,8 +349,10 @@ object OnlineFallbackTransport : MessageRelayApi {
             )
         val payload =
             JSONObject()
-                .put("senderGlobalId", signingIdentity.globalId)
-                .put("senderNodeId", signingIdentity.nodeId)
+                .put("senderGlobalId", senderGlobalId)
+                .put("sourceGlobalId", senderGlobalId)
+                .put("globalId", senderGlobalId)
+                .put("senderNodeId", senderNodeId)
                 .put("targetGlobalId", targetGlobalId)
                 .put("messageId", messageId)
                 .put("packetId", messageId)
@@ -361,7 +365,7 @@ object OnlineFallbackTransport : MessageRelayApi {
                 .put("publicKeyHash", signingIdentity.publicKeyHash)
                 .put("algorithm", proof.algorithm)
                 .put("signature", NodeSigningIdentityManager.sign(context, RelaySecurityProof.canonical(proof), proof.messageId))
-        val ok = postJson("${relayBaseUrl()}/relay/ack", payload.toString(), "GHALBIT-INTERNET-TX").successful
+        val ok = postJson("${relayBaseUrl()}/receipt/delivered", payload.toString(), "GHALBIT-INTERNET-TX").successful
         if (ok) Log.d("GHALBIT-ANDROID-RELAY", "ack sent messageId=$messageId")
         return ok
     }
@@ -369,9 +373,11 @@ object OnlineFallbackTransport : MessageRelayApi {
     suspend fun sendRead(context: Context, globalId: String, targetGlobalId: String, messageId: String): Boolean {
         val now = System.currentTimeMillis()
         val signingIdentity = NodeSigningIdentityManager.getOrCreate(context)
+        val senderGlobalId = globalId.ifBlank { com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId().ifBlank { signingIdentity.globalId } }
+        val senderNodeId = com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localNodeId().ifBlank { signingIdentity.nodeId }
         val proof =
             RelaySecurityProof.Payload(
-                senderGlobalId = signingIdentity.globalId,
+                senderGlobalId = senderGlobalId,
                 targetGlobalId = targetGlobalId,
                 messageId = messageId,
                 packetId = messageId,
@@ -384,8 +390,10 @@ object OnlineFallbackTransport : MessageRelayApi {
             )
         val payload =
             JSONObject()
-                .put("senderGlobalId", signingIdentity.globalId)
-                .put("senderNodeId", signingIdentity.nodeId)
+                .put("senderGlobalId", senderGlobalId)
+                .put("sourceGlobalId", senderGlobalId)
+                .put("globalId", senderGlobalId)
+                .put("senderNodeId", senderNodeId)
                 .put("targetGlobalId", targetGlobalId)
                 .put("messageId", messageId)
                 .put("packetId", messageId)
@@ -398,7 +406,7 @@ object OnlineFallbackTransport : MessageRelayApi {
                 .put("publicKeyHash", signingIdentity.publicKeyHash)
                 .put("algorithm", proof.algorithm)
                 .put("signature", NodeSigningIdentityManager.sign(context, RelaySecurityProof.canonical(proof), proof.messageId))
-        val ok = postJson("${relayBaseUrl()}/relay/read", payload.toString(), "GHALBIT-INTERNET-TX").successful
+        val ok = postJson("${relayBaseUrl()}/receipt/read", payload.toString(), "GHALBIT-INTERNET-TX").successful
         if (ok) Log.d("GHALBIT-ANDROID-RELAY", "read sent messageId=$messageId")
         return ok
     }
@@ -535,7 +543,17 @@ object OnlineFallbackTransport : MessageRelayApi {
                         ?.bufferedReader()
                         ?.use { it.readText() }
                         .orEmpty()
-                val json = if (responseBody.isBlank()) JSONObject() else JSONObject(responseBody)
+                val json = if (responseBody.isBlank()) {
+                    JSONObject()
+                } else {
+                    runCatching { JSONObject(responseBody) }
+                        .getOrElse {
+                            JSONObject()
+                                .put("ok", connection.responseCode in 200..299)
+                                .put("status", if (connection.responseCode in 200..299) "ACCEPTED" else "FAILED")
+                                .put("error", "non_json_response")
+                        }
+                }
                 val ok = connection.responseCode in 200..299 && json.optBoolean("ok", true)
                 val status = json.optString("status", if (ok) "ACCEPTED" else "FAILED")
                 val result =

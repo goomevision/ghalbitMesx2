@@ -3,11 +3,12 @@ package com.ghalbitnet.meshx2.diagnostics
 import android.content.Context
 import android.util.Log
 import com.ghalbitnet.meshx2.BuildConfig
+import com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager
 import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceCollector
 import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceTags
 import com.ghalbitnet.meshx2.online.OnlineFallbackTransport
 import com.ghalbitnet.meshx2.online.OnlinePresenceManager
-import com.ghalbitnet.meshx2.security.NodeSigningIdentityManager
+import com.ghalbitnet.meshx2.online.RelayRealtimeChannel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -25,11 +26,13 @@ object VirtualPeerPresenceProbe {
         val appContext = context.applicationContext
         val relayBase = OnlineFallbackTransport.relayBaseUrl()
         val presenceBase = OnlineFallbackTransport.presenceBaseUrl()
-        val identity = NodeSigningIdentityManager.getOrCreate(appContext)
+        val runtimeNodeId = MeshRuntimeManager.localNodeId().ifBlank { com.ghalbitnet.meshx2.MainActivity.myGlobalPeerId }
+        val runtimeGlobalId = RelayRealtimeChannel.currentBoundGlobalId().orEmpty().ifBlank { MeshRuntimeManager.localGlobalId() }
+        val runtimePublicKeyHash = MeshRuntimeManager.localPublicKeyHash()
 
         Log.i(
             "GHALBIT-VIRTUAL-PEER",
-            "PRESENCE_CHECK_START globalId=${identity.globalId} nodeId=${identity.nodeId} relay=$relayBase presence=$presenceBase"
+            "PRESENCE_CHECK_START globalId=$runtimeGlobalId nodeId=$runtimeNodeId relay=$relayBase presence=$presenceBase"
         )
 
         if (!BuildConfig.INTERNET_RELAY_CONFIGURED || relayBase.isBlank() || presenceBase.isBlank()) {
@@ -40,12 +43,12 @@ object VirtualPeerPresenceProbe {
                 appContext,
                 RuntimeEvidenceTags.SERVER_NOT_CONFIGURED,
                 source = "VirtualPeerPresenceProbe",
-                peerId = identity.globalId,
+                peerId = runtimeGlobalId,
                 status = "SERVER_NOT_CONFIGURED",
                 details = "relay=$relayBase presence=$presenceBase"
             )
             return@withContext VirtualPeerPresenceProbeResult(
-                globalId = identity.globalId,
+                globalId = runtimeGlobalId,
                 registerOk = false,
                 heartbeatOk = false,
                 lookupOk = false,
@@ -56,30 +59,30 @@ object VirtualPeerPresenceProbe {
 
         val registerOk = OnlinePresenceManager.registerOnline(
             appContext,
-            identity.nodeId,
-            identity.globalId,
-            identity.publicKeyHash
+            runtimeNodeId,
+            runtimeGlobalId,
+            runtimePublicKeyHash
         )
         if (registerOk) {
-            Log.i("GHALBIT-VIRTUAL-PEER", "REGISTER_OK globalId=${identity.globalId}")
+            Log.i("GHALBIT-VIRTUAL-PEER", "REGISTER_OK globalId=$runtimeGlobalId")
             RuntimeEvidenceCollector.record(
                 appContext,
                 RuntimeEvidenceTags.SERVER_REGISTER_OK,
                 source = "VirtualPeerPresenceProbe",
-                peerId = identity.globalId,
+                peerId = runtimeGlobalId,
                 status = "REGISTER_OK"
             )
         } else {
-            Log.w("GHALBIT-VIRTUAL-PEER", "REGISTER_FAIL globalId=${identity.globalId}")
+            Log.w("GHALBIT-VIRTUAL-PEER", "REGISTER_FAIL globalId=$runtimeGlobalId")
         }
 
         val heartbeat = OnlinePresenceManager.heartbeat(
             com.ghalbitnet.meshx2.online.OnlinePresence(
-                nodeId = identity.nodeId,
-                globalId = identity.globalId,
-                publicKeyHash = identity.publicKeyHash,
+                nodeId = runtimeNodeId,
+                globalId = runtimeGlobalId,
+                publicKeyHash = runtimePublicKeyHash,
                 online = true,
-                route = com.ghalbitnet.meshx2.online.InternetRoute(identity.globalId, relayBase),
+                route = com.ghalbitnet.meshx2.online.InternetRoute(runtimeGlobalId, relayBase),
                 lastSeen = System.currentTimeMillis()
             )
         )
@@ -87,45 +90,45 @@ object VirtualPeerPresenceProbe {
         if (heartbeatOk) {
             Log.i(
                 "GHALBIT-VIRTUAL-PEER",
-                "HEARTBEAT_OK globalId=${identity.globalId} status=${heartbeat.status}"
+                "HEARTBEAT_OK globalId=$runtimeGlobalId status=${heartbeat.status}"
             )
             RuntimeEvidenceCollector.record(
                 appContext,
                 RuntimeEvidenceTags.SERVER_HEARTBEAT_OK,
                 source = "VirtualPeerPresenceProbe",
-                peerId = identity.globalId,
+                peerId = runtimeGlobalId,
                 status = heartbeat.status
             )
         } else {
             Log.w(
                 "GHALBIT-VIRTUAL-PEER",
-                "HEARTBEAT_FAIL globalId=${identity.globalId} status=${heartbeat.status} error=${heartbeat.error}"
+                "HEARTBEAT_FAIL globalId=$runtimeGlobalId status=${heartbeat.status} error=${heartbeat.error}"
             )
         }
 
-        val selfPresence = OnlinePresenceManager.checkPeerOnline(appContext, identity.globalId)
+        val selfPresence = OnlinePresenceManager.checkPeerOnline(appContext, runtimeGlobalId)
         val lookupOk = selfPresence != null
         val status = if (lookupOk) "VISIBLE_ON_SERVER" else "NOT_VISIBLE_ON_SERVER"
         if (lookupOk) {
             Log.i(
                 "GHALBIT-VIRTUAL-PEER",
-                "LOOKUP_OK globalId=${identity.globalId} lastSeen=${selfPresence?.lastSeen ?: -1L} online=${selfPresence?.online == true}"
+                "LOOKUP_OK globalId=$runtimeGlobalId lastSeen=${selfPresence?.lastSeen ?: -1L} online=${selfPresence?.online == true}"
             )
         } else {
-            Log.w("GHALBIT-VIRTUAL-PEER", "LOOKUP_FAIL globalId=${identity.globalId}")
+            Log.w("GHALBIT-VIRTUAL-PEER", "LOOKUP_FAIL globalId=$runtimeGlobalId")
         }
 
         RuntimeEvidenceCollector.record(
             appContext,
             if (lookupOk) RuntimeEvidenceTags.SERVER_HEARTBEAT_OK else RuntimeEvidenceTags.SERVER_HEALTH_FAIL,
             source = "VirtualPeerPresenceProbe",
-            peerId = identity.globalId,
+            peerId = runtimeGlobalId,
             status = status,
             details = "register=$registerOk heartbeat=$heartbeatOk lastSeen=${selfPresence?.lastSeen ?: -1L}"
         )
 
         VirtualPeerPresenceProbeResult(
-            globalId = identity.globalId,
+            globalId = runtimeGlobalId,
             registerOk = registerOk,
             heartbeatOk = heartbeatOk,
             lookupOk = lookupOk,
