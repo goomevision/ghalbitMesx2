@@ -197,9 +197,12 @@ object ChatDeliveryManager {
                 }
             }
         }
-        val localGlobalId = com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId()
-        if (localGlobalId.isNotBlank()) {
-            RelayRealtimeChannel.bind(context, localGlobalId)
+        val relayGlobalId =
+            RelayRealtimeChannel.currentBoundGlobalId()
+                .orEmpty()
+                .ifBlank { com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId() }
+        if (relayGlobalId.isNotBlank()) {
+            RelayRealtimeChannel.bind(context, relayGlobalId)
         }
     }
 
@@ -892,7 +895,10 @@ object ChatDeliveryManager {
             Log.w("GHALBIT-RESILIENCE", "no internet")
             return RelayInboxResult(emptyList(), emptyList(), emptyList(), emptyList(), "no_internet")
         }
-        val resolvedGlobalId = com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId()
+        val resolvedGlobalId =
+            RelayRealtimeChannel.currentBoundGlobalId()
+                .orEmpty()
+                .ifBlank { com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId() }
         if (resolvedGlobalId.isBlank()) {
             return RelayInboxResult(emptyList(), emptyList(), emptyList(), emptyList(), "missing_global_id")
         }
@@ -1000,7 +1006,10 @@ object ChatDeliveryManager {
             }
             Log.d("GHALBIT-BG", "message received id=${message.messageId}")
         }
-        val localGlobalId = com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId()
+        val localGlobalId =
+            RelayRealtimeChannel.currentBoundGlobalId()
+                .orEmpty()
+                .ifBlank { com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId() }
         OnlineFallbackTransport.sendAck(context, localGlobalId, message.senderGlobalId, message.messageId)
         Log.d("GHALBIT-CHAT-ACK", "id=${message.messageId} delivered=true remote=true")
     }
@@ -1125,7 +1134,10 @@ object ChatDeliveryManager {
         scope.launch {
             val unread = ChatDatabase.getInstance(context).chatDao().getUnreadIncoming(chatId)
             if (unread.isEmpty()) return@launch
-            val localGlobalId = com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId()
+            val localGlobalId =
+                RelayRealtimeChannel.currentBoundGlobalId()
+                    .orEmpty()
+                    .ifBlank { com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId() }
             unread.forEach { message ->
                 OnlineFallbackTransport.sendRead(context, localGlobalId, targetGlobalId, message.packetId)
                 updateState(context, message.packetId, ChatDeliveryState.READ_REMOTE)
@@ -1145,7 +1157,10 @@ object ChatDeliveryManager {
                 .flatMap { dao.getUnreadIncoming(it) }
                 .distinctBy { it.packetId }
             if (unread.isEmpty()) return@launch
-            val localGlobalId = com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId()
+            val localGlobalId =
+                RelayRealtimeChannel.currentBoundGlobalId()
+                    .orEmpty()
+                    .ifBlank { com.ghalbitnet.meshx2.core.runtime.MeshRuntimeManager.localGlobalId() }
             unread.forEach { message ->
                 OnlineFallbackTransport.sendRead(context, localGlobalId, targetGlobalId, message.packetId)
                 updateState(context, message.packetId, ChatDeliveryState.READ_REMOTE)
