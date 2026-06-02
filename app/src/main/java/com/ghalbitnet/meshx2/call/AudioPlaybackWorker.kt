@@ -91,11 +91,13 @@ class AudioPlaybackWorker(
             scope.launch {
                 var writeCount = 0
                 var zeroOrShortWrites = 0
+                var stableBurst = 0
                 while (isActive) {
                     val result = jitterBuffer.pollResult()
                     val written = track.write(result.frame, 0, result.frame.size)
                     writeCount++
                     if (written != result.frame.size) {
+                        stableBurst = 0
                         zeroOrShortWrites++
                         Log.w("GHALBIT-AUDIO-PLAYBACK", "shortWrite written=$written expected=${result.frame.size} count=$zeroOrShortWrites")
                         Log.w(
@@ -110,6 +112,17 @@ class AudioPlaybackWorker(
                             "GHALBIT-CALL-AUDIO-PLAY",
                             "seq=${result.sequence ?: -1} written=$written safeMode=$safeMode count=$writeCount"
                         )
+                    }
+                    if (result.realFrame && written > 0) {
+                        stableBurst++
+                        if (stableBurst == 1 || stableBurst % 10 == 0) {
+                            Log.d(
+                                "GHALBIT-CALL-AUDIO-PLAYBACK-STABLE",
+                                "playBurst=$stableBurst queue=${jitterBuffer.metricsSnapshot().queuedFrames} safeMode=$safeMode"
+                            )
+                        }
+                    } else if (!result.realFrame || written <= 0) {
+                        stableBurst = 0
                     }
                     onPlaybackFrame?.invoke(result.sequence, written, result.realFrame, result.concealed, safeMode)
                     delay(if (safeMode) 10L else frameMs.toLong())
