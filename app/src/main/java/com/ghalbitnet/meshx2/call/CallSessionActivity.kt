@@ -1029,6 +1029,7 @@ class CallSessionActivity : AppCompatActivity() {
                 Log.d("GHALBIT-CALL-AUDIO-ENGINE", "ACTIVATION_START callId=$callId reason=$reason")
                 stopStateTimeout()
                 val peer = peerEndpoint ?: return@launch
+                val virtualDiagnosticRoute = isVirtualDiagnosticRoute(peer)
                 val relayValidation = lastRelayValidation ?: RelayConfigValidator.validate(applicationContext, force = false)
                 val routeScore = GhalbitCallManager.evaluateNearbyRouteScore(applicationContext, peer)
                 if (
@@ -1058,7 +1059,11 @@ class CallSessionActivity : AppCompatActivity() {
                         setCallStatus("Perangkat dekat terdeteksi")
                     }
                 }
-                if (routeScore.nearbyDetected) {
+                if (virtualDiagnosticRoute) {
+                    Log.w("GHALBIT-VOICE-PROBE", "bypass reason=virtual_route route=${peer.routeHint ?: peer.transportIp ?: "-"}")
+                    Log.w("GHALBIT-VOICE-HANDSHAKE", "bypass reason=virtual_route route=${peer.routeHint ?: peer.transportIp ?: "-"}")
+                    postUi { updateState(CallState.ROUTE_READY, "Mode virtual diagnostik aktif") }
+                } else if (routeScore.nearbyDetected) {
                     Log.d("GHALBIT-VOICE-FALLBACK", "delayed nearby=true")
                     val probeOk = voiceProbeManager.probeNearbyVoice()
                     if (!probeOk) {
@@ -1107,7 +1112,7 @@ class CallSessionActivity : AppCompatActivity() {
                     return@launch
                 }
                 postUi { updateState(CallState.VOICE_HANDSHAKING, "Menguji jalur suara") }
-                val handshakeOk = voiceProbeManager.handshakeVoiceTransport()
+                val handshakeOk = if (virtualDiagnosticRoute) true else voiceProbeManager.handshakeVoiceTransport()
                 if (!handshakeOk) {
                     Log.w("GHALBIT-VOICE-HANDSHAKE", "fallback ptt")
                     Log.w("GHALBIT-CALL-AUDIO-ENGINE", "FAIL callId=$callId stage=handshake reason=voice_transport_failed")
@@ -1147,6 +1152,11 @@ class CallSessionActivity : AppCompatActivity() {
                 Log.d("GHALBIT-CALL-PERF", "accept background launched")
                 Log.d("GHALBIT-VOICE-AUDIT", "connected set source=$reason")
             }
+    }
+
+    private fun isVirtualDiagnosticRoute(peer: CallPeerEndpoint): Boolean {
+        val route = peer.routeHint ?: peer.transportIp ?: return false
+        return route.startsWith("virtual://", ignoreCase = true)
     }
 
     private fun startStateTimeout(timeoutMs: Long) {

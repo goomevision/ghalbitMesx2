@@ -9,8 +9,8 @@ class VoiceProbeManager(
 ) {
     suspend fun probeNearbyVoice(): Boolean {
         repeat(3) { attempt ->
-            Log.d("GHALBIT-VOICE-PROBE", "sent attempt=${attempt + 1}")
-            sendProbe(CallManager.SIGNAL_VOICE_PROBE, CallManager.SIGNAL_VOICE_PROBE_ACK)
+            val sent = sendProbe(CallManager.SIGNAL_VOICE_PROBE, CallManager.SIGNAL_VOICE_PROBE_ACK)
+            Log.d("GHALBIT-VOICE-PROBE", "sent attempt=${attempt + 1} dispatched=$sent")
             if (awaitAck(CallManager.SIGNAL_VOICE_PROBE_ACK)) {
                 Log.d("GHALBIT-VOICE-PROBE", "ack")
                 Log.d("GHALBIT-VOICE-PROBE", "ready")
@@ -27,14 +27,16 @@ class VoiceProbeManager(
 
     suspend fun handshakeVoiceTransport(): Boolean {
         Log.d("GHALBIT-VOICE-HANDSHAKE", "hello sent")
-        sendProbe(CallManager.SIGNAL_VOICE_HELLO, CallManager.SIGNAL_VOICE_HELLO_ACK)
+        val helloSent = sendProbe(CallManager.SIGNAL_VOICE_HELLO, CallManager.SIGNAL_VOICE_HELLO_ACK)
+        Log.d("GHALBIT-VOICE-HANDSHAKE", "hello dispatched=$helloSent")
         if (!awaitAck(CallManager.SIGNAL_VOICE_HELLO_ACK)) {
             Log.w("GHALBIT-VOICE-HANDSHAKE", "timeout stage=VOICE_HELLO")
             return false
         }
         Log.d("GHALBIT-VOICE-HANDSHAKE", "hello ack")
         Log.d("GHALBIT-VOICE-HANDSHAKE", "transport probe")
-        sendProbe(CallManager.SIGNAL_VOICE_TRANSPORT_PROBE, CallManager.SIGNAL_VOICE_TRANSPORT_ACK)
+        val transportSent = sendProbe(CallManager.SIGNAL_VOICE_TRANSPORT_PROBE, CallManager.SIGNAL_VOICE_TRANSPORT_ACK)
+        Log.d("GHALBIT-VOICE-HANDSHAKE", "transport dispatched=$transportSent")
         if (!awaitAck(CallManager.SIGNAL_VOICE_TRANSPORT_ACK)) {
             Log.w("GHALBIT-VOICE-HANDSHAKE", "timeout stage=VOICE_TRANSPORT")
             return false
