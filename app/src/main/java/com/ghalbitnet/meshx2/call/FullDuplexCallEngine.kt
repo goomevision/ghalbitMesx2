@@ -33,6 +33,7 @@ class FullDuplexCallEngine(
     private val virtualLoopbackFrames = AtomicInteger(0)
     private val retransmitManager = VoiceRetransmitManager()
     @Volatile private var captureStartedAt = 0L
+    @Volatile private var toneDiagnosticLab: CallToneDiagnosticLab? = null
     private val captureWorker =
         AudioCaptureWorker { frame ->
             val captured = capturedFrames.incrementAndGet()
@@ -71,17 +72,32 @@ class FullDuplexCallEngine(
                 }
                 return@AudioCaptureWorker
             }
+            val toneLab = toneDiagnosticLab
+            val outgoingFrame =
+                toneLab?.processOutgoing(frame)?.also { lab ->
+                    if (lab.toneInjected && (captured == 1 || captured % 25 == 0)) {
+                        Log.d(
+                            "GHALBIT-CALL-LAB",
+                            "TX slot=${lab.slotLabel} freq=${lab.frequencyHz} callId=${session.callId} peer=${endpoint.nodeId}"
+                        )
+                        onTruthEvent?.invoke(
+                            "tone_lab_tx",
+                            "slot=${lab.slotLabel} freq=${lab.frequencyHz} peer=${endpoint.nodeId}"
+                        )
+                    }
+                } ?: CallToneDiagnosticLab.OutgoingFrame(frame, false, null, "tone_lab_off")
+            val payloadFrame = outgoingFrame.frame
             val targetRoute = endpoint.routeHint ?: endpoint.transportIp ?: "unknown"
-            val encodedAudio = Base64.encodeToString(frame, Base64.NO_WRAP)
+            val encodedAudio = Base64.encodeToString(payloadFrame, Base64.NO_WRAP)
             if (captured == 1 || captured % 50 == 0) {
                 Log.d("GHALBIT-CALL-AUDIO-BRIDGE", "ENCODE_START route=$targetRoute frames=$captured")
                 Log.d("GHALBIT-CALL-AUDIO-BRIDGE", "ENCODE_OK bytes=${encodedAudio.length} route=$targetRoute")
-                Log.d("GHALBIT-CALL-AUDIO-BRIDGE", "PACKET_READY bytes=${frame.size} encoded=${encodedAudio.length} route=$targetRoute")
+                Log.d("GHALBIT-CALL-AUDIO-BRIDGE", "PACKET_READY bytes=${payloadFrame.size} encoded=${encodedAudio.length} route=$targetRoute")
                 Log.d("GHALBIT-CALL-AUDIO-BRIDGE", "TX_ATTEMPT route=$targetRoute")
             }
             if (captured == 1) {
                 onTruthEvent?.invoke("encode_ok", "encodedBytes=${encodedAudio.length} route=$targetRoute")
-                onTruthEvent?.invoke("tx_attempt", "route=$targetRoute bytes=${frame.size}")
+                onTruthEvent?.invoke("tx_attempt", "route=$targetRoute bytes=${payloadFrame.size}")
             }
             val voicePacket =
                 VoicePacket(
@@ -90,7 +106,7 @@ class FullDuplexCallEngine(
                     sequence = sequence.incrementAndGet(),
                     timestamp = System.currentTimeMillis(),
                     mode = AdaptiveVoiceMode.LIVE_VOICE,
-                    payload = frame,
+                    payload = payloadFrame,
                     priority = VoicePacketPriority.HIGH
                 )
             retransmitManager.remember(voicePacket)
@@ -174,6 +190,12 @@ class FullDuplexCallEngine(
         )
         captureWorker.stop()
         playbackWorker.stop()
+        toneDiagnosticLab?.summary()?.let { summary ->
+            Log.d(
+                "GHALBIT-CALL-LAB",
+                "SUMMARY callId=${sessionProvider()?.callId ?: "-"} txBursts=${summary.txBursts} rxDetects=${summary.rxDetections} rxMisses=${summary.rxMisses}"
+            )
+        }
         jitterBuffer.clear()
         retransmitManager.clearSession()
         sequence.set(0)
@@ -196,6 +218,18 @@ class FullDuplexCallEngine(
         CallManager.recordAudioFrameReceived()
         jitterBuffer.offer(voicePacket.sequence, voicePacket.payload)
         Log.d("GHALBIT-CALL-AUDIO-RX", "seq=${voicePacket.sequence} bytes=${voicePacket.payload.size}")
+        toneDiagnosticLab?.analyzeIncoming(voicePacket.payload)?.let { detection ->
+            if (detection.expectedFrequencyHz != null && (detection.detected || voicePacket.sequence == 1 || voicePacket.sequence % 25 == 0)) {
+                Log.d(
+                    "GHALBIT-CALL-LAB",
+                    "RX slot=${detection.slotLabel} expected=${detection.expectedFrequencyHz} dominant=${detection.dominantFrequencyHz} detected=${detection.detected} rms=${detection.rms}"
+                )
+                onTruthEvent?.invoke(
+                    "tone_lab_rx",
+                    "slot=${detection.slotLabel} expected=${detection.expectedFrequencyHz} dominant=${detection.dominantFrequencyHz} detected=${detection.detected} rms=${detection.rms}"
+                )
+            }
+        }
         if (voicePacket.sequence == 1 || voicePacket.sequence % 25 == 0) {
             onTruthEvent?.invoke("rx", "seq=${voicePacket.sequence} bytes=${voicePacket.payload.size}")
         }
@@ -218,6 +252,15 @@ class FullDuplexCallEngine(
 
     fun enableSafePlaybackMode(enabled: Boolean) {
         playbackWorker.setSafeMode(enabled)
+    }
+
+    fun setToneDiagnosticLab(enabled: Boolean, role: CallToneDiagnosticLab.Role?, callId: String?, peerId: String?) {
+        toneDiagnosticLab =
+            if (enabled && role != null && callId != null && peerId != null) {
+                CallToneDiagnosticLab(role = role, callId = callId, peerId = peerId)
+            } else {
+                null
+            }
     }
 
     private fun isVirtualDiagnosticEndpoint(endpoint: CallPeerEndpoint): Boolean {

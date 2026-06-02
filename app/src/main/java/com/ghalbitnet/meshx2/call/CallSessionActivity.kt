@@ -178,6 +178,7 @@ class CallSessionActivity : AppCompatActivity() {
     private var voiceActivationStartedAt = 0L
     private var voiceActivationVirtualRoute = false
     private var consecutiveLostQualitySamples = 0
+    private var toneDiagnosticLabEnabled = false
     private var preparedRouteStatusLabel: String = ""
     private lateinit var callSearchingToneManager: CallSearchingToneManager
     private lateinit var routeSearchingAnimator: RouteSearchingAnimator
@@ -270,6 +271,30 @@ class CallSessionActivity : AppCompatActivity() {
                             callId = callId,
                             peerId = peerName,
                             status = "tx_fail",
+                            details = details
+                        )
+                    }
+                    "tone_lab_tx" -> {
+                        Log.d("GHALBIT-CALL-LAB", "TX $details callId=$callId")
+                        RuntimeEvidenceCollector.record(
+                            this,
+                            RuntimeEvidenceTags.CALL_TONE_LAB_TX,
+                            source = "FullDuplexCallEngine",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "tx",
+                            details = details
+                        )
+                    }
+                    "tone_lab_rx" -> {
+                        Log.d("GHALBIT-CALL-LAB", "RX $details callId=$callId")
+                        RuntimeEvidenceCollector.record(
+                            this,
+                            RuntimeEvidenceTags.CALL_TONE_LAB_RX,
+                            source = "FullDuplexCallEngine",
+                            callId = callId,
+                            peerId = peerName,
+                            status = "rx",
                             details = details
                         )
                     }
@@ -589,6 +614,14 @@ class CallSessionActivity : AppCompatActivity() {
         btnSpeaker.setOnClickListener {
             if (!ActionDebounceManager.allow("call:speaker:$callId", runtimeBusy = false, cooldownMs = 400L)) return@setOnClickListener
             toggleSpeaker()
+        }
+        btnSpeaker.setOnLongClickListener {
+            if (!isVoiceRealtimeState(callState) && callState != CallState.ROUTE_READY && callState != CallState.VOICE_TRANSPORT_READY) {
+                UiFeedbackManager.showToast(this, "Aktifkan setelah jalur suara siap.")
+                return@setOnLongClickListener true
+            }
+            toggleToneDiagnosticLab()
+            true
         }
         btnVideo.setOnClickListener {
             if (!ActionDebounceManager.allow("call:video:$callId", runtimeBusy = false, cooldownMs = 900L)) return@setOnClickListener
@@ -1861,6 +1894,35 @@ class CallSessionActivity : AppCompatActivity() {
             txtCallStatus.text = body
             Log.d("GHALBIT-UX", "call state=$callState status=${baseStatus.trim()}")
         }
+    }
+
+    private fun toggleToneDiagnosticLab() {
+        toneDiagnosticLabEnabled = !toneDiagnosticLabEnabled
+        val role = if (incoming) CallToneDiagnosticLab.Role.CALLEE else CallToneDiagnosticLab.Role.CALLER
+        fullDuplexEngine.setToneDiagnosticLab(
+            enabled = toneDiagnosticLabEnabled,
+            role = if (toneDiagnosticLabEnabled) role else null,
+            callId = if (toneDiagnosticLabEnabled) callId else null,
+            peerId = if (toneDiagnosticLabEnabled) peerName else null
+        )
+        val message =
+            if (toneDiagnosticLabEnabled) {
+                "Mode uji panggilan aktif. Tone ping-pong otomatis sedang berjalan."
+            } else {
+                "Mode uji panggilan dimatikan."
+            }
+        setCallStatus(message)
+        UiFeedbackManager.showToast(this, message)
+        Log.d("GHALBIT-CALL-LAB", "MODE enabled=$toneDiagnosticLabEnabled role=$role callId=$callId peer=$peerName")
+        RuntimeEvidenceCollector.record(
+            this,
+            if (toneDiagnosticLabEnabled) RuntimeEvidenceTags.CALL_TONE_LAB_ENABLED else RuntimeEvidenceTags.CALL_TONE_LAB_DISABLED,
+            source = "CallSessionActivity",
+            callId = callId,
+            peerId = peerName,
+            status = if (toneDiagnosticLabEnabled) "enabled" else "disabled",
+            details = "role=$role incoming=$incoming"
+        )
     }
 
     private fun applyVoiceMode(mode: AdaptiveVoiceMode, reason: String) {
