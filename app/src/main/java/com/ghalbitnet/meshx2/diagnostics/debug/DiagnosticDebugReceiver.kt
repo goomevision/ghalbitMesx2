@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.ghalbitnet.meshx2.BuildConfig
+import com.ghalbitnet.meshx2.diagnostics.VirtualPeerPresenceProbe
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.autodiag.AutoDiagnosticOrchestrator
 import com.ghalbitnet.meshx2.diagnostics.virtualcall.OneDeviceIncomingCallDiagnostic
@@ -20,6 +21,7 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
         const val ACTION_RUN_VIRTUAL_CALL_CHECK = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_CHECK"
         const val ACTION_RUN_FULL_DIAGNOSTIC = "com.ghalbitnet.meshx2.debug.RUN_FULL_DIAGNOSTIC"
         const val ACTION_RUN_AUDIO_TRUTH = "com.ghalbitnet.meshx2.debug.RUN_AUDIO_TRUTH"
+        const val ACTION_RUN_SERVER_PRESENCE_CHECK = "com.ghalbitnet.meshx2.debug.RUN_SERVER_PRESENCE_CHECK"
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     }
@@ -62,6 +64,14 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
                         Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=audio_truth")
                         val result = AudioTruthProbe.run(context.applicationContext)
                         Log.i("GHALBIT-DEBUG-TRIGGER", "RESULT status=audio_${result.healthScore}")
+                    }
+                    ACTION_RUN_SERVER_PRESENCE_CHECK -> {
+                        Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=server_presence")
+                        val result = VirtualPeerPresenceProbe.run(context.applicationContext)
+                        Log.i(
+                            "GHALBIT-DEBUG-TRIGGER",
+                            "RESULT status=${result.status} register=${result.registerOk} heartbeat=${result.heartbeatOk} lookup=${result.lookupOk} lastSeen=${result.lastSeen}"
+                        )
                     }
                     else -> {
                         Log.w("GHALBIT-DEBUG-TRIGGER", "DENIED reason=unknown_action")
