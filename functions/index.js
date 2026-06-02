@@ -173,10 +173,12 @@ app.get("/relay/inbox/:globalId", async (req, res) => {
   const snapshot = await ref.get();
   const items = snapshot.exists ? snapshot.data().items || [] : [];
   const alive = items.filter((item) => Number(item.expiresAt || nowMs() + 1) > nowMs());
-  if (snapshot.exists && alive.length !== items.length) {
-    await ref.set({ items: alive, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-  }
   const split = splitInbox(alive);
+  if (snapshot.exists) {
+    // Consume fetched inbox items so the client does not keep replaying
+    // the same relay message on every polling cycle.
+    await ref.set({ items: [], updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  }
   logger.info("GHALBIT-CALL-INBOX fetch", { globalId, count: alive.length });
   res.json({
     ok: true,
