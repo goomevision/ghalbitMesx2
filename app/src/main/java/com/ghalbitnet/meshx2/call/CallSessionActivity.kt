@@ -699,6 +699,7 @@ class CallSessionActivity : AppCompatActivity() {
                 state = CallState.INCOMING
             )
             Log.d("GHALBIT-CALL", "incoming received callId=$callId")
+            maybeAutoAcceptVirtualIncomingCall()
             RuntimeEvidenceCollector.record(
                 this,
                 RuntimeEvidenceTags.INCOMING_CALL_SCREEN_OPENED,
@@ -1961,6 +1962,21 @@ class CallSessionActivity : AppCompatActivity() {
 
     private fun shouldAutoStartToneDiagnosticLab(): Boolean =
         BuildConfig.DEBUG && DeveloperModeManager.isEnabled(this)
+
+    private fun maybeAutoAcceptVirtualIncomingCall() {
+        if (!BuildConfig.DEBUG || !DeveloperModeManager.isEnabled(this)) return
+        val isVirtualPeer =
+            peerGlobalId.equals("GX-VIRTUAL-HP-B", ignoreCase = true) ||
+                peerName.equals("Virtual HP B", ignoreCase = true)
+        if (!incoming || !isVirtualPeer) return
+        lifecycleScope.launch {
+            delay(900L)
+            if (incoming && isIncomingState(callState) && !callActionInFlight) {
+                Log.i("GHALBIT-VIRTUAL-PEER", "AUTO_ACCEPT incoming virtual peer callId=$callId")
+                acceptCall()
+            }
+        }
+    }
 
     private fun toggleToneDiagnosticLab(source: String = "manual") {
         if (toneDiagnosticLabEnabled) {

@@ -64,3 +64,12 @@ Current readiness conclusion:
 - Full-flow triggers now exist so the sequence can be exercised as one coherent operator-session proof:
   - `start -> ringing -> accept -> end`
   - `start -> ringing -> reject`
+
+Inbound server-call readiness improvement:
+- In debug builds with Developer Mode enabled, `CallSessionActivity` now auto-accepts incoming calls from:
+  - `GX-VIRTUAL-HP-B`
+  - `Virtual HP B`
+- This keeps the path server-first while removing the need for a manual accept tap during diagnostics.
+- The goal is to let:
+  - `Virtual HP B -> server -> HP A`
+  - move directly into voice-path preparation and tone-lab analysis when the incoming session is virtual and intentionally diagnostic.
