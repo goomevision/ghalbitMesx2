@@ -9,6 +9,7 @@ import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
 import com.ghalbitnet.meshx2.diagnostics.VirtualPeerCallSignalProbe
 import com.ghalbitnet.meshx2.diagnostics.VirtualPeerChatProbe
 import com.ghalbitnet.meshx2.diagnostics.VirtualPeerInboxProbe
+import com.ghalbitnet.meshx2.diagnostics.VirtualPeerOutboundCallProbe
 import com.ghalbitnet.meshx2.diagnostics.VirtualPeerPresenceProbe
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.autodiag.AutoDiagnosticOrchestrator
@@ -36,6 +37,7 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_END = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_END"
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_FULL_ACCEPT = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_FULL_ACCEPT"
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_FULL_REJECT = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_FULL_REJECT"
+        const val ACTION_RUN_OUTBOUND_CALL_TO_VIRTUAL_PEER = "com.ghalbitnet.meshx2.debug.RUN_OUTBOUND_CALL_TO_VIRTUAL_PEER"
         const val ACTION_RUN_VIRTUAL_PEER_INBOX_CHECK = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_PEER_INBOX_CHECK"
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -170,6 +172,14 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
                         Log.i(
                             "GHALBIT-DEBUG-TRIGGER",
                             "RESULT status=${result.status} callId=${result.callId} steps=${result.steps.joinToString("|") { it.status }}"
+                        )
+                    }
+                    ACTION_RUN_OUTBOUND_CALL_TO_VIRTUAL_PEER -> {
+                        Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=outbound_call_virtual_peer")
+                        val result = VirtualPeerOutboundCallProbe.launchServerFirstOutgoingCall(context.applicationContext)
+                        Log.i(
+                            "GHALBIT-DEBUG-TRIGGER",
+                            "RESULT status=${result.status} callId=${result.callId} route=${result.routeLabel} target=${result.targetGlobalId}"
                         )
                     }
                     ACTION_RUN_VIRTUAL_PEER_INBOX_CHECK -> {
