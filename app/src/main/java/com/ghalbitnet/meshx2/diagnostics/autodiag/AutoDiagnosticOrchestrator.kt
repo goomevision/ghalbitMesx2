@@ -7,6 +7,8 @@ import android.util.Log
 import com.ghalbitnet.meshx2.call.VoipReadinessChecker
 import com.ghalbitnet.meshx2.chat.ChatDeliveryManager
 import com.ghalbitnet.meshx2.diagnostics.InternetServerOperatorReadinessProbe
+import com.ghalbitnet.meshx2.diagnostics.OperatorMediaContractProbe
+import com.ghalbitnet.meshx2.diagnostics.OperatorMediaLoopbackProbe
 import com.ghalbitnet.meshx2.diagnostics.ServerTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.audio.AudioTruthProbe
 import com.ghalbitnet.meshx2.diagnostics.recovery.RecoveryReportGenerator
@@ -32,6 +34,8 @@ object AutoDiagnosticOrchestrator {
         steps += runLoopStep(context)
         steps += runSmartRecoveryStep(context)
         steps += runServerOperatorFullCheckStep(context)
+        steps += runOperatorMediaContractStep(context)
+        steps += runOperatorMediaLoopbackStep(context)
         steps += runVirtualIncomingCallCheckStep(context)
 
         val total = steps.map { it.score }.average().toInt().coerceIn(0, 100)
@@ -44,7 +48,7 @@ object AutoDiagnosticOrchestrator {
         val scoreMap = steps.associateBy { it.name }
         Log.i(
             "GHALBIT-AUTO-DIAG",
-            "SCORE server=${scoreMap["server"]?.score ?: 0} network=${scoreMap["network"]?.score ?: 0} simulation=${scoreMap["simulation"]?.score ?: 0} audio=${scoreMap["audio"]?.score ?: 0} media=${scoreMap["pending"]?.score ?: 0} call=${scoreMap["call_signaling"]?.score ?: 0} loop=${scoreMap["loop_guard"]?.score ?: 0} recovery=${scoreMap["smart_recovery"]?.score ?: 0} serverOperator=${scoreMap["server_operator_full_check"]?.score ?: 0} virtualCall=${scoreMap["virtual_incoming_call_check"]?.score ?: 0}"
+            "SCORE server=${scoreMap["server"]?.score ?: 0} network=${scoreMap["network"]?.score ?: 0} simulation=${scoreMap["simulation"]?.score ?: 0} audio=${scoreMap["audio"]?.score ?: 0} media=${scoreMap["pending"]?.score ?: 0} call=${scoreMap["call_signaling"]?.score ?: 0} loop=${scoreMap["loop_guard"]?.score ?: 0} recovery=${scoreMap["smart_recovery"]?.score ?: 0} serverOperator=${scoreMap["server_operator_full_check"]?.score ?: 0} operatorMedia=${scoreMap["operator_media_contract"]?.score ?: 0} operatorLoopback=${scoreMap["operator_media_loopback"]?.score ?: 0} virtualCall=${scoreMap["virtual_incoming_call_check"]?.score ?: 0}"
         )
         Log.i("GHALBIT-AUTO-DIAG", "RESULT status=$finalStatus total=$total")
         return AutoDiagnosticResult(steps = steps, totalScore = total, status = finalStatus)
@@ -262,6 +266,63 @@ object AutoDiagnosticOrchestrator {
             )
         )
         Log.i("GHALBIT-AUTO-DIAG", "STEP name=VIRTUAL_INCOMING_CALL_CHECK status=${step.status}")
+        return step
+    }
+
+    private fun runOperatorMediaContractStep(context: Context): AutoDiagnosticStep {
+        val result = kotlinx.coroutines.runBlocking { OperatorMediaContractProbe.run(context) }
+        val status = when {
+            !result.configured -> AutoDiagnosticStatus.PARTIAL
+            result.status.equals("ACCEPTED", ignoreCase = true) -> AutoDiagnosticStatus.PASS
+            result.status.contains("ACCEPT", ignoreCase = true) -> AutoDiagnosticStatus.PASS
+            else -> AutoDiagnosticStatus.PARTIAL
+        }
+        val score = when {
+            !result.configured -> 20
+            status == AutoDiagnosticStatus.PASS -> 78
+            else -> 45
+        }
+        val step = AutoDiagnosticStep(
+            name = "operator_media_contract",
+            status = status,
+            score = score,
+            notes = listOf(
+                "status=${result.status}",
+                "route=${result.routeLabel}",
+                "messageId=${result.messageId.ifBlank { "-" }}",
+                "error=${result.error ?: "-"}"
+            )
+        )
+        Log.i("GHALBIT-AUTO-DIAG", "STEP name=OPERATOR_MEDIA_CONTRACT status=${step.status}")
+        return step
+    }
+
+    private fun runOperatorMediaLoopbackStep(context: Context): AutoDiagnosticStep {
+        val result = kotlinx.coroutines.runBlocking { OperatorMediaLoopbackProbe.run(context) }
+        val status = when {
+            !result.configured -> AutoDiagnosticStatus.PARTIAL
+            result.status == "LOOPBACK_OK" -> AutoDiagnosticStatus.PASS
+            else -> AutoDiagnosticStatus.PARTIAL
+        }
+        val score = when {
+            !result.configured -> 20
+            result.status == "LOOPBACK_OK" -> 82
+            else -> 50
+        }
+        val step = AutoDiagnosticStep(
+            name = "operator_media_loopback",
+            status = status,
+            score = score,
+            notes = listOf(
+                "status=${result.status}",
+                "messageId=${result.sentMessageId.ifBlank { "-" }}",
+                "inbox=${result.inboxMessages}",
+                "seq=${result.parsedSequence}",
+                "bytes=${result.parsedBytes}",
+                "error=${result.error ?: "-"}"
+            )
+        )
+        Log.i("GHALBIT-AUTO-DIAG", "STEP name=OPERATOR_MEDIA_LOOPBACK status=${step.status}")
         return step
     }
 }

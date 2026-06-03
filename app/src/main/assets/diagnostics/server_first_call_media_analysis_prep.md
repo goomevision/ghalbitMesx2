@@ -53,6 +53,53 @@ These logs now appear from:
 
 - `FullDuplexCallEngine` when capture starts using a specific endpoint
 - `CallManager.sendVoicePacket(...)` when a real voice frame is sent
+- `OnlineFallbackTransport.sendVoiceFrameViaOperator(...)` as the prepared operator-media contract hook
+
+## Operator media contract preparation
+
+Android now has a non-invasive preparation helper:
+
+- `OnlineFallbackTransport.sendVoiceFrameViaOperator(...)`
+- `OperatorMediaContractProbe`
+- `OperatorMediaLoopbackProbe`
+
+What it does:
+
+- accepts a real `VoicePacket`
+- wraps it into a relay envelope with:
+  - `contentType=CALL_AUDIO_FRAME`
+  - `payload={callId, sourceNodeId, targetNodeId, sequenceNumber, mode, priority, audioData}`
+- sends it through the existing operator relay path
+- returns a structured `OperatorMediaSendResult`
+
+What it does **not** do yet:
+
+- it does not replace `CallManager.sendVoicePacket(...)`
+- it does not yet switch live calls to server media transport
+- it does not yet provide dedicated server-side media playback/forwarding semantics
+
+This is intentional, so current working calls are not destabilized while we prepare the operator-media layer.
+
+## Loopback proof
+
+The app now also has a diagnostic loopback proof:
+
+- `OperatorMediaLoopbackProbe.run(...)`
+
+What it proves:
+
+1. app can send one voice frame through the operator relay contract
+2. the same frame can return through `/relay/inbox/{globalId}`
+3. the returned payload can be parsed again as a real `VoicePacket`
+
+Expected diagnostic statuses:
+
+- `LOOPBACK_OK`
+- `LOOPBACK_NOT_RETURNED`
+- `LOOPBACK_PARSE_FAIL`
+- `SERVER_NOT_CONFIGURED`
+
+This still does **not** mean live voice playback is fully operator-relayed, but it is a much stronger proof that the server can already carry voice-frame envelopes end-to-end in diagnostic mode.
 
 ## Meaning of each path
 

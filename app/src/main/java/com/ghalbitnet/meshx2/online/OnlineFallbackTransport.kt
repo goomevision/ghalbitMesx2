@@ -2,7 +2,9 @@ package com.ghalbitnet.meshx2.online
 
 import android.content.Context
 import android.util.Log
+import android.util.Base64
 import com.ghalbitnet.meshx2.BuildConfig
+import com.ghalbitnet.meshx2.call.VoicePacket
 import com.ghalbitnet.meshx2.security.NodeSigningIdentityManager
 import com.ghalbitnet.meshx2.util.LogThrottle
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +22,14 @@ data class PreparedRouteResponse(
     val recommendedMode: String = "AUTO_HYBRID",
     val ready: Boolean = false,
     val healthScore: Int = 0
+)
+
+data class OperatorMediaSendResult(
+    val successful: Boolean,
+    val status: String,
+    val mediaPath: String,
+    val messageId: String,
+    val error: String? = null
 )
 
 object OnlineFallbackTransport : MessageRelayApi {
@@ -161,6 +171,70 @@ object OnlineFallbackTransport : MessageRelayApi {
         payload: String
     ): Boolean {
         return sendSignal(route, JSONObject().put("type", type).put("payload", payload).toString()).successful
+    }
+
+    suspend fun sendVoiceFrameViaOperator(
+        context: Context,
+        route: InternetRoute,
+        packet: VoicePacket,
+        targetNodeId: String,
+        targetGlobalId: String?
+    ): OperatorMediaSendResult {
+        if (!isConfigured()) {
+            return OperatorMediaSendResult(
+                successful = false,
+                status = "INTERNET_RELAY_NOT_CONFIGURED",
+                mediaPath = "server_operator_unavailable",
+                messageId = "",
+                error = "missing_config"
+            )
+        }
+        val signingIdentity = NodeSigningIdentityManager.getOrCreate(context)
+        val messageId = "VOICE-${packet.sessionId}-${packet.sequence}"
+        val encodedAudio = Base64.encodeToString(packet.payload, Base64.NO_WRAP)
+        val mediaPayload =
+            JSONObject()
+                .put("callId", packet.sessionId)
+                .put("sourceNodeId", signingIdentity.nodeId)
+                .put("sourceGlobalId", signingIdentity.globalId)
+                .put("targetNodeId", targetNodeId)
+                .put("targetGlobalId", targetGlobalId)
+                .put("sequenceNumber", packet.sequence)
+                .put("timestamp", packet.timestamp)
+                .put("mode", packet.mode.name)
+                .put("priority", packet.priority.name)
+                .put("checksum", packet.checksum)
+                .put("audioData", encodedAudio)
+                .toString()
+        val envelope =
+            JSONObject()
+                .put("messageId", messageId)
+                .put("packetId", messageId)
+                .put("type", "CALL")
+                .put("contentType", "CALL_AUDIO_FRAME")
+                .put("senderNodeId", signingIdentity.nodeId)
+                .put("senderGlobalId", signingIdentity.globalId)
+                .put("senderPublicKey", signingIdentity.publicKeyBase64)
+                .put("publicKeyHash", signingIdentity.publicKeyHash)
+                .put("targetNodeId", targetNodeId)
+                .put("targetGlobalId", targetGlobalId)
+                .put("payload", mediaPayload)
+                .put("createdAt", packet.timestamp)
+                .put("expiresAt", packet.timestamp + 60 * 60 * 1000L)
+        val result = postJsonCandidates(listOf(route.relayUrl.ifBlank { relayBaseUrl() }.trimEnd('/')), envelope.toString(), "GHALBIT-INTERNET-VOICE")
+        val mediaPath =
+            if (result.successful) "server_operator_media_contract_ready" else "server_operator_media_contract_failed"
+        Log.d(
+            "GHALBIT-CALL-MEDIA-PATH",
+            "path=$mediaPath serverOperator=true detail=${route.relayUrl.ifBlank { relayBaseUrl() }}"
+        )
+        return OperatorMediaSendResult(
+            successful = result.successful,
+            status = result.status,
+            mediaPath = mediaPath,
+            messageId = if (result.messageId.isNotBlank()) result.messageId else messageId,
+            error = result.error
+        )
     }
 
     suspend fun prepareRouteSession(
