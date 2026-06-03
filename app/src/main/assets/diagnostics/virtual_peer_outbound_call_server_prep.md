@@ -6,11 +6,14 @@ Purpose:
 
 What is prepared:
 - `VirtualPeerOutboundCallProbe.launchServerFirstOutgoingCall(...)`
+- `VirtualPeerOutboundCallProbe.launchServerFirstOutgoingCallWithAutoAccept(...)`
 - marks `GX-VIRTUAL-HP-B` as online through `OnlinePresenceManager.applyRealtimePresence(...)`
 - opens `CallSessionActivity` as an outgoing call targeting:
   - peer name: `Virtual HP B`
   - peer globalId: `GX-VIRTUAL-HP-B`
   - route source: operator relay
+- stores the same `callId` for the virtual signaling probe
+- can trigger virtual `ringing -> accept` after the outgoing call starts
 
 Expected route behavior:
 - `GhalbitCallManager.resolveRoute(...)` can choose `INTERNET_RELAY`
@@ -18,7 +21,6 @@ Expected route behavior:
 
 What this does not claim yet:
 - full two-way voice media through the server
-- automatic accept from Virtual HP B
 - server-mediated playback proof
 
 Why this step matters:

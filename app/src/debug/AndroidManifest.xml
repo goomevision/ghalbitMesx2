@@ -22,6 +22,7 @@
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_FULL_ACCEPT" />
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_FULL_REJECT" />
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_OUTBOUND_CALL_TO_VIRTUAL_PEER" />
+                <action android:name="com.ghalbitnet.meshx2.debug.RUN_OUTBOUND_CALL_TO_VIRTUAL_PEER_AUTO_ACCEPT" />
                 <action android:name="com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_PEER_INBOX_CHECK" />
             </intent-filter>
         </receiver>

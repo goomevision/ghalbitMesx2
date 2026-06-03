@@ -38,6 +38,7 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_FULL_ACCEPT = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_FULL_ACCEPT"
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_FULL_REJECT = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_FULL_REJECT"
         const val ACTION_RUN_OUTBOUND_CALL_TO_VIRTUAL_PEER = "com.ghalbitnet.meshx2.debug.RUN_OUTBOUND_CALL_TO_VIRTUAL_PEER"
+        const val ACTION_RUN_OUTBOUND_CALL_TO_VIRTUAL_PEER_AUTO_ACCEPT = "com.ghalbitnet.meshx2.debug.RUN_OUTBOUND_CALL_TO_VIRTUAL_PEER_AUTO_ACCEPT"
         const val ACTION_RUN_VIRTUAL_PEER_INBOX_CHECK = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_PEER_INBOX_CHECK"
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -177,6 +178,14 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
                     ACTION_RUN_OUTBOUND_CALL_TO_VIRTUAL_PEER -> {
                         Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=outbound_call_virtual_peer")
                         val result = VirtualPeerOutboundCallProbe.launchServerFirstOutgoingCall(context.applicationContext)
+                        Log.i(
+                            "GHALBIT-DEBUG-TRIGGER",
+                            "RESULT status=${result.status} callId=${result.callId} route=${result.routeLabel} target=${result.targetGlobalId}"
+                        )
+                    }
+                    ACTION_RUN_OUTBOUND_CALL_TO_VIRTUAL_PEER_AUTO_ACCEPT -> {
+                        Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=outbound_call_virtual_peer_auto_accept")
+                        val result = VirtualPeerOutboundCallProbe.launchServerFirstOutgoingCallWithAutoAccept(context.applicationContext)
                         Log.i(
                             "GHALBIT-DEBUG-TRIGGER",
                             "RESULT status=${result.status} callId=${result.callId} route=${result.routeLabel} target=${result.targetGlobalId}"
