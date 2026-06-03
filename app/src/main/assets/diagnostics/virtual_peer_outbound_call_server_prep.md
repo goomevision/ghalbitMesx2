@@ -13,6 +13,7 @@ What is prepared:
   - peer name: `Virtual HP B`
   - peer globalId: `GX-VIRTUAL-HP-B`
   - route source: operator relay
+- arms tone diagnostic lab automatically through `EXTRA_AUTO_TONE_LAB`
 - stores the same `callId` for the virtual signaling probe
 - can trigger virtual `ringing -> accept` after the outgoing call starts
 - can optionally finish the same diagnostic call with virtual `end`
@@ -29,3 +30,4 @@ Why this step matters:
 - HP A can now begin a server-first outgoing call attempt to the virtual peer
 - this is the cleanest first step before strengthening accept/media analysis
 - the full-flow variant gives a bounded diagnostic session: `start -> ringing -> accept -> end`
+- the same session can auto-arm tone/media diagnostics as soon as the voice path becomes ready

@@ -64,7 +64,8 @@ object VirtualPeerOutboundCallProbe {
                     callId = callId,
                     incoming = false,
                     peerGlobalId = VIRTUAL_TARGET_GLOBAL_ID,
-                    peerDisplayName = VIRTUAL_TARGET_NAME
+                    peerDisplayName = VIRTUAL_TARGET_NAME,
+                    autoToneLab = true
                 ).apply {
                     addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                 }

@@ -89,6 +89,7 @@ class CallSessionActivity : AppCompatActivity() {
         const val EXTRA_PEER_PUBLIC_KEY = "peerPublicKey"
         const val EXTRA_PEER_WALLET_ADDRESS = "peerWalletAddress"
         const val EXTRA_PEER_DISPLAY_NAME = "peerDisplayName"
+        const val EXTRA_AUTO_TONE_LAB = "autoToneLab"
         private const val MIN_VOICE_DURATION_MS = 700L
         private const val OUTGOING_TIMEOUT_MS = 20_000L
         private const val RINGING_TIMEOUT_MS = 30_000L
@@ -108,7 +109,8 @@ class CallSessionActivity : AppCompatActivity() {
             peerGlobalId: String? = null,
             peerPublicKey: String? = null,
             peerWalletAddress: String? = null,
-            peerDisplayName: String? = null
+            peerDisplayName: String? = null,
+            autoToneLab: Boolean = false
         ): Intent {
             return Intent(context, CallSessionActivity::class.java).apply {
                 putExtra(EXTRA_PEER_NAME, peerName)
@@ -119,6 +121,7 @@ class CallSessionActivity : AppCompatActivity() {
                 putExtra(EXTRA_PEER_PUBLIC_KEY, peerPublicKey)
                 putExtra(EXTRA_PEER_WALLET_ADDRESS, peerWalletAddress)
                 putExtra(EXTRA_PEER_DISPLAY_NAME, peerDisplayName)
+                putExtra(EXTRA_AUTO_TONE_LAB, autoToneLab)
                 addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
         }
@@ -549,6 +552,7 @@ class CallSessionActivity : AppCompatActivity() {
         peerWalletAddress = intent.getStringExtra(EXTRA_PEER_WALLET_ADDRESS)
         peerDisplayName = intent.getStringExtra(EXTRA_PEER_DISPLAY_NAME)
         incoming = intent.getBooleanExtra(EXTRA_INCOMING, false)
+        val autoToneLab = intent.getBooleanExtra(EXTRA_AUTO_TONE_LAB, false)
 
         txtCallTitle = findViewById(R.id.txtCallTitle)
         txtCallStatus = findViewById(R.id.txtCallStatus)
@@ -584,6 +588,9 @@ class CallSessionActivity : AppCompatActivity() {
         GhalbitCallManager.initialize(applicationContext)
 
         refreshPeerState()
+        if (autoToneLab) {
+            requestToneDiagnosticLabEnable("intent_auto_tone_lab")
+        }
         lifecycleScope.launch {
             peerGlobalId?.takeIf { it.isNotBlank() }?.let { globalId ->
                 val candidate = PreparedRouteManager.requestSecondaryRoute(this@CallSessionActivity, callId, globalId, "LOCAL_MESH_DIRECT")
