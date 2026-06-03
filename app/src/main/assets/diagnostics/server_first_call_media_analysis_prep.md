@@ -85,6 +85,7 @@ This is intentional, so current working calls are not destabilized while we prep
 The app now also has a diagnostic loopback proof:
 
 - `OperatorMediaLoopbackProbe.run(...)`
+- `CallSessionActivity` tone diagnostic lab now triggers one debug-only operator loopback sample after voice path becomes active
 
 What it proves:
 

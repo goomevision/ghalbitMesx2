@@ -37,6 +37,7 @@ import com.ghalbitnet.meshx2.core.log.MeshLogger
 import com.ghalbitnet.meshx2.core.utils.AppNotificationManager
 import com.ghalbitnet.meshx2.core.utils.GhalbitDeepLinkRouter
 import com.ghalbitnet.meshx2.core.utils.UiFeedbackManager
+import com.ghalbitnet.meshx2.diagnostics.OperatorMediaLoopbackProbe
 import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceCollector
 import com.ghalbitnet.meshx2.diagnostics.evidence.RuntimeEvidenceTags
 import com.ghalbitnet.meshx2.file.FileTransferManager
@@ -182,6 +183,7 @@ class CallSessionActivity : AppCompatActivity() {
     private var toneDiagnosticLabEnabled = false
     private var pendingToneDiagnosticLabEnable = false
     private var toneDiagnosticLabAutoTriggered = false
+    private var operatorMediaLoopbackTriggered = false
     private var preparedRouteStatusLabel: String = ""
     private var lastRenderedCallStatusBody: String? = null
     private var cachedStatusHintRouteKey: String? = null
@@ -1836,6 +1838,7 @@ class CallSessionActivity : AppCompatActivity() {
         if (isTerminalCallState(state) || state == CallState.IDLE) {
             pendingToneDiagnosticLabEnable = false
             toneDiagnosticLabAutoTriggered = false
+            operatorMediaLoopbackTriggered = false
             cachedStatusHintRouteKey = null
             cachedStatusHint = null
             lastRenderedCallStatusBody = null
@@ -1982,6 +1985,7 @@ class CallSessionActivity : AppCompatActivity() {
                 status = "enabled",
                 details = "role=$role incoming=$incoming source=$source"
             )
+            maybeRunOperatorMediaLoopbackProbe(source)
         } catch (t: Throwable) {
             toneDiagnosticLabEnabled = false
             Log.e("GHALBIT-CALL-LAB", "FAIL_STAGE stage=start source=$source reason=${t.message}", t)
@@ -1991,6 +1995,7 @@ class CallSessionActivity : AppCompatActivity() {
     private fun disableToneDiagnosticLab(source: String) {
         pendingToneDiagnosticLabEnable = false
         toneDiagnosticLabEnabled = false
+        operatorMediaLoopbackTriggered = false
         val role = if (incoming) CallToneDiagnosticLab.Role.CALLEE else CallToneDiagnosticLab.Role.CALLER
         fullDuplexEngine.setToneDiagnosticLab(
             enabled = false,
@@ -2011,6 +2016,29 @@ class CallSessionActivity : AppCompatActivity() {
             status = "disabled",
             details = "role=$role incoming=$incoming source=$source"
         )
+    }
+
+    private fun maybeRunOperatorMediaLoopbackProbe(source: String) {
+        if (operatorMediaLoopbackTriggered || !BuildConfig.DEBUG || !DeveloperModeManager.isEnabled(this)) {
+            return
+        }
+        operatorMediaLoopbackTriggered = true
+        lifecycleScope.launch {
+            try {
+                val result = OperatorMediaLoopbackProbe.run(this@CallSessionActivity)
+                Log.d(
+                    "GHALBIT-CALL-LAB",
+                    "OPERATOR_LOOPBACK status=${result.status} configured=${result.configured} messageId=${result.sentMessageId} inbox=${result.inboxMessages} seq=${result.parsedSequence} bytes=${result.parsedBytes} error=${result.error ?: "-"} source=$source"
+                )
+            } catch (t: Throwable) {
+                operatorMediaLoopbackTriggered = false
+                Log.e(
+                    "GHALBIT-CALL-LAB",
+                    "FAIL_STAGE stage=operator_loopback source=$source reason=${t.message}",
+                    t
+                )
+            }
+        }
     }
 
     private fun applyVoiceMode(mode: AdaptiveVoiceMode, reason: String) {
