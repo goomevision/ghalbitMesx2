@@ -23,6 +23,12 @@ data class VirtualPeerCallSignalProbeResult(
     val syncReceipts: Int
 )
 
+data class VirtualPeerCallSignalFlowResult(
+    val callId: String,
+    val status: String,
+    val steps: List<VirtualPeerCallSignalProbeResult>
+)
+
 object VirtualPeerCallSignalProbe {
     private const val PREFS = "virtual_peer_call_signal_probe"
     private const val KEY_LAST_CALL_ID = "last_call_id"
@@ -90,6 +96,40 @@ object VirtualPeerCallSignalProbe {
     suspend fun accept(context: Context): VirtualPeerCallSignalProbeResult = continueSignal(context, "accept")
 
     suspend fun reject(context: Context): VirtualPeerCallSignalProbeResult = continueSignal(context, "reject")
+
+    suspend fun fullAcceptFlow(context: Context): VirtualPeerCallSignalFlowResult = withContext(Dispatchers.IO) {
+        val start = start(context)
+        if (!start.status.endsWith("_OK")) {
+            return@withContext VirtualPeerCallSignalFlowResult(start.callId, start.status, listOf(start))
+        }
+        val ringing = ringing(context)
+        if (!ringing.status.endsWith("_OK")) {
+            return@withContext VirtualPeerCallSignalFlowResult(start.callId, ringing.status, listOf(start, ringing))
+        }
+        val accept = accept(context)
+        if (!accept.status.endsWith("_OK")) {
+            return@withContext VirtualPeerCallSignalFlowResult(start.callId, accept.status, listOf(start, ringing, accept))
+        }
+        val end = end(context)
+        val status = if (end.status.endsWith("_OK")) "CALL_FULL_FLOW_OK" else end.status
+        VirtualPeerCallSignalFlowResult(start.callId, status, listOf(start, ringing, accept, end))
+    }
+
+    suspend fun fullRejectFlow(context: Context): VirtualPeerCallSignalFlowResult = withContext(Dispatchers.IO) {
+        val start = start(context)
+        if (!start.status.endsWith("_OK")) {
+            return@withContext VirtualPeerCallSignalFlowResult(start.callId, start.status, listOf(start))
+        }
+        val ringing = ringing(context)
+        if (!ringing.status.endsWith("_OK")) {
+            return@withContext VirtualPeerCallSignalFlowResult(start.callId, ringing.status, listOf(start, ringing))
+        }
+        val reject = reject(context)
+        if (!reject.status.endsWith("_OK")) {
+            return@withContext VirtualPeerCallSignalFlowResult(start.callId, reject.status, listOf(start, ringing, reject))
+        }
+        VirtualPeerCallSignalFlowResult(start.callId, "CALL_REJECT_FLOW_OK", listOf(start, ringing, reject))
+    }
 
     private suspend fun continueSignal(context: Context, path: String): VirtualPeerCallSignalProbeResult = withContext(Dispatchers.IO) {
         val appContext = context.applicationContext

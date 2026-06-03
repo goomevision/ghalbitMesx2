@@ -10,6 +10,8 @@ Debug actions:
 - `com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_ACCEPT`
 - `com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_REJECT`
 - `com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_END`
+- `com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_FULL_ACCEPT`
+- `com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_FULL_REJECT`
 
 Proof flow:
 1. `RUN_VIRTUAL_CALL_SERVER_START` posts `/session/start` with:
@@ -59,3 +61,6 @@ Important client fix:
 Current readiness conclusion:
 - Server-first call signaling is already proven for `start/end`.
 - Server-first `ringing/accept/reject` is now wired for the same virtual-peer proof path and ready to be exercised without changing the call architecture.
+- Full-flow triggers now exist so the sequence can be exercised as one coherent operator-session proof:
+  - `start -> ringing -> accept -> end`
+  - `start -> ringing -> reject`

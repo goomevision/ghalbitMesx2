@@ -34,6 +34,8 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_ACCEPT = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_ACCEPT"
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_REJECT = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_REJECT"
         const val ACTION_RUN_VIRTUAL_CALL_SERVER_END = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_END"
+        const val ACTION_RUN_VIRTUAL_CALL_SERVER_FULL_ACCEPT = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_FULL_ACCEPT"
+        const val ACTION_RUN_VIRTUAL_CALL_SERVER_FULL_REJECT = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_CALL_SERVER_FULL_REJECT"
         const val ACTION_RUN_VIRTUAL_PEER_INBOX_CHECK = "com.ghalbitnet.meshx2.debug.RUN_VIRTUAL_PEER_INBOX_CHECK"
 
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -152,6 +154,22 @@ class DiagnosticDebugReceiver : BroadcastReceiver() {
                         Log.i(
                             "GHALBIT-DEBUG-TRIGGER",
                             "RESULT status=${result.status} callId=${result.callId} code=${result.httpCode} inboxMessages=${result.syncMessages} inboxReceipts=${result.syncReceipts}"
+                        )
+                    }
+                    ACTION_RUN_VIRTUAL_CALL_SERVER_FULL_ACCEPT -> {
+                        Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=virtual_call_server_full_accept")
+                        val result = VirtualPeerCallSignalProbe.fullAcceptFlow(context.applicationContext)
+                        Log.i(
+                            "GHALBIT-DEBUG-TRIGGER",
+                            "RESULT status=${result.status} callId=${result.callId} steps=${result.steps.joinToString("|") { it.status }}"
+                        )
+                    }
+                    ACTION_RUN_VIRTUAL_CALL_SERVER_FULL_REJECT -> {
+                        Log.i("GHALBIT-DEBUG-TRIGGER", "DISPATCH target=virtual_call_server_full_reject")
+                        val result = VirtualPeerCallSignalProbe.fullRejectFlow(context.applicationContext)
+                        Log.i(
+                            "GHALBIT-DEBUG-TRIGGER",
+                            "RESULT status=${result.status} callId=${result.callId} steps=${result.steps.joinToString("|") { it.status }}"
                         )
                     }
                     ACTION_RUN_VIRTUAL_PEER_INBOX_CHECK -> {
