@@ -184,7 +184,9 @@ class CallSessionActivity : AppCompatActivity() {
     private var pendingToneDiagnosticLabEnable = false
     private var toneDiagnosticLabAutoTriggered = false
     private var operatorMediaLoopbackTriggered = false
+    private var operatorMediaLoopbackStatusLine: String? = null
     private var preparedRouteStatusLabel: String = ""
+    private var lastBaseCallStatus: String? = null
     private var lastRenderedCallStatusBody: String? = null
     private var cachedStatusHintRouteKey: String? = null
     private var cachedStatusHint: String? = null
@@ -1839,6 +1841,7 @@ class CallSessionActivity : AppCompatActivity() {
             pendingToneDiagnosticLabEnable = false
             toneDiagnosticLabAutoTriggered = false
             operatorMediaLoopbackTriggered = false
+            operatorMediaLoopbackStatusLine = null
             cachedStatusHintRouteKey = null
             cachedStatusHint = null
             lastRenderedCallStatusBody = null
@@ -1871,14 +1874,16 @@ class CallSessionActivity : AppCompatActivity() {
     }
 
     private fun setCallStatus(baseStatus: String) {
+        lastBaseCallStatus = baseStatus.trim()
         postUi {
             val hint = currentCallStatusHint()
             val routeLine = preparedRouteStatusLabel.takeIf { it.isNotBlank() }
             val voiceModeLine = humanVoiceModeLabel()
             val technicalLine = technicalVoiceDetailLine()
+            val operatorMediaLine = operatorMediaLoopbackStatusLine?.takeIf { toneDiagnosticLabEnabled && it.isNotBlank() }
             val body =
                 buildString {
-                    append(baseStatus.trim())
+                    append(lastBaseCallStatus)
                     voiceModeLine?.let {
                         append("\n")
                         append(it)
@@ -1892,6 +1897,10 @@ class CallSessionActivity : AppCompatActivity() {
                         append(it)
                     }
                     technicalLine?.let {
+                        append("\n")
+                        append(it)
+                    }
+                    operatorMediaLine?.let {
                         append("\n")
                         append(it)
                     }
@@ -1996,6 +2005,7 @@ class CallSessionActivity : AppCompatActivity() {
         pendingToneDiagnosticLabEnable = false
         toneDiagnosticLabEnabled = false
         operatorMediaLoopbackTriggered = false
+        operatorMediaLoopbackStatusLine = null
         val role = if (incoming) CallToneDiagnosticLab.Role.CALLEE else CallToneDiagnosticLab.Role.CALLER
         fullDuplexEngine.setToneDiagnosticLab(
             enabled = false,
@@ -2023,22 +2033,40 @@ class CallSessionActivity : AppCompatActivity() {
             return
         }
         operatorMediaLoopbackTriggered = true
+        operatorMediaLoopbackStatusLine = "Operator media: memeriksa loopback server"
+        refreshCallStatusDetails()
         lifecycleScope.launch {
             try {
                 val result = OperatorMediaLoopbackProbe.run(this@CallSessionActivity)
+                operatorMediaLoopbackStatusLine =
+                    when (result.status) {
+                        "LOOPBACK_OK" -> "Operator media: loopback OK (${result.parsedBytes}B)"
+                        "LOOPBACK_NOT_RETURNED" -> "Operator media: frame belum kembali dari server"
+                        "LOOPBACK_PARSE_FAIL" -> "Operator media: frame kembali tapi tidak terbaca"
+                        "SERVER_NOT_CONFIGURED" -> "Operator media: server belum dikonfigurasi"
+                        else -> "Operator media: ${result.status}"
+                    }
                 Log.d(
                     "GHALBIT-CALL-LAB",
                     "OPERATOR_LOOPBACK status=${result.status} configured=${result.configured} messageId=${result.sentMessageId} inbox=${result.inboxMessages} seq=${result.parsedSequence} bytes=${result.parsedBytes} error=${result.error ?: "-"} source=$source"
                 )
+                refreshCallStatusDetails()
             } catch (t: Throwable) {
                 operatorMediaLoopbackTriggered = false
+                operatorMediaLoopbackStatusLine = "Operator media: loopback gagal"
                 Log.e(
                     "GHALBIT-CALL-LAB",
                     "FAIL_STAGE stage=operator_loopback source=$source reason=${t.message}",
                     t
                 )
+                refreshCallStatusDetails()
             }
         }
+    }
+
+    private fun refreshCallStatusDetails() {
+        val base = lastBaseCallStatus ?: return
+        setCallStatus(base)
     }
 
     private fun applyVoiceMode(mode: AdaptiveVoiceMode, reason: String) {
