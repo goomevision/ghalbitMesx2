@@ -185,6 +185,7 @@ class CallSessionActivity : AppCompatActivity() {
     private var toneDiagnosticLabAutoTriggered = false
     private var operatorMediaLoopbackTriggered = false
     private var operatorMediaLoopbackStatusLine: String? = null
+    private var mediaPathStatusLine: String? = null
     private var preparedRouteStatusLabel: String = ""
     private var lastBaseCallStatus: String? = null
     private var lastRenderedCallStatusBody: String? = null
@@ -235,6 +236,10 @@ class CallSessionActivity : AppCompatActivity() {
                             status = "capture_ready",
                             details = details
                         )
+                    }
+                    "media_path" -> {
+                        mediaPathStatusLine = humanMediaPathStatus(details)
+                        refreshCallStatusDetails()
                     }
                     "encode_ok" -> {
                         Log.d("GHALBIT-CALL-AUDIO-BRIDGE", "ENCODE_OK $details callId=$callId")
@@ -1842,6 +1847,7 @@ class CallSessionActivity : AppCompatActivity() {
             toneDiagnosticLabAutoTriggered = false
             operatorMediaLoopbackTriggered = false
             operatorMediaLoopbackStatusLine = null
+            mediaPathStatusLine = null
             cachedStatusHintRouteKey = null
             cachedStatusHint = null
             lastRenderedCallStatusBody = null
@@ -1880,6 +1886,7 @@ class CallSessionActivity : AppCompatActivity() {
             val routeLine = preparedRouteStatusLabel.takeIf { it.isNotBlank() }
             val voiceModeLine = humanVoiceModeLabel()
             val technicalLine = technicalVoiceDetailLine()
+            val mediaPathLine = mediaPathStatusLine?.takeIf { it.isNotBlank() }
             val operatorMediaLine = operatorMediaLoopbackStatusLine?.takeIf { toneDiagnosticLabEnabled && it.isNotBlank() }
             val body =
                 buildString {
@@ -1897,6 +1904,10 @@ class CallSessionActivity : AppCompatActivity() {
                         append(it)
                     }
                     technicalLine?.let {
+                        append("\n")
+                        append(it)
+                    }
+                    mediaPathLine?.let {
                         append("\n")
                         append(it)
                     }
@@ -2067,6 +2078,24 @@ class CallSessionActivity : AppCompatActivity() {
     private fun refreshCallStatusDetails() {
         val base = lastBaseCallStatus ?: return
         setCallStatus(base)
+    }
+
+    private fun humanMediaPathStatus(details: String): String {
+        val path = Regex("""path=([^\s]+)""").find(details)?.groupValues?.getOrNull(1).orEmpty()
+        val serverOperator = Regex("""serverOperator=([^\s]+)""").find(details)?.groupValues?.getOrNull(1).orEmpty()
+        return when (path) {
+            "virtual_diagnostic" -> "Jalur media: virtual diagnostic"
+            "direct_mesh_socket" -> "Jalur media: langsung antar perangkat"
+            "internet_route_hint_without_media_relay" -> "Jalur media: rute internet tanpa relay suara"
+            "server_operator_route_hint" ->
+                if (serverOperator.equals("true", ignoreCase = true)) {
+                    "Jalur media: hint operator server"
+                } else {
+                    "Jalur media: hint server tanpa relay suara"
+                }
+            "no_media_path" -> "Jalur media: belum siap"
+            else -> "Jalur media: $path"
+        }
     }
 
     private fun applyVoiceMode(mode: AdaptiveVoiceMode, reason: String) {
