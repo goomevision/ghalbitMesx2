@@ -7,6 +7,7 @@ Purpose:
 What is prepared:
 - `VirtualPeerOutboundCallProbe.launchServerFirstOutgoingCall(...)`
 - `VirtualPeerOutboundCallProbe.launchServerFirstOutgoingCallWithAutoAccept(...)`
+- `VirtualPeerOutboundCallProbe.launchServerFirstOutgoingCallFullFlow(...)`
 - marks `GX-VIRTUAL-HP-B` as online through `OnlinePresenceManager.applyRealtimePresence(...)`
 - opens `CallSessionActivity` as an outgoing call targeting:
   - peer name: `Virtual HP B`
@@ -14,6 +15,7 @@ What is prepared:
   - route source: operator relay
 - stores the same `callId` for the virtual signaling probe
 - can trigger virtual `ringing -> accept` after the outgoing call starts
+- can optionally finish the same diagnostic call with virtual `end`
 
 Expected route behavior:
 - `GhalbitCallManager.resolveRoute(...)` can choose `INTERNET_RELAY`
@@ -26,3 +28,4 @@ What this does not claim yet:
 Why this step matters:
 - HP A can now begin a server-first outgoing call attempt to the virtual peer
 - this is the cleanest first step before strengthening accept/media analysis
+- the full-flow variant gives a bounded diagnostic session: `start -> ringing -> accept -> end`

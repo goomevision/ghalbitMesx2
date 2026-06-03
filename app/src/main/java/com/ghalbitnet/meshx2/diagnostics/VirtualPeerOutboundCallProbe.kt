@@ -103,4 +103,25 @@ object VirtualPeerOutboundCallProbe {
             )
             start.copy(status = status)
         }
+
+    suspend fun launchServerFirstOutgoingCallFullFlow(context: Context): VirtualPeerOutboundCallProbeResult =
+        withContext(Dispatchers.IO) {
+            val accepted = launchServerFirstOutgoingCallWithAutoAccept(context)
+            if (accepted.status != "OUTBOUND_CALL_AUTO_ACCEPT_OK") {
+                return@withContext accepted
+            }
+            delay(2000L)
+            val end = VirtualPeerCallSignalProbe.end(context.applicationContext)
+            val status =
+                if (end.status.endsWith("_OK")) {
+                    "OUTBOUND_CALL_FULL_FLOW_OK"
+                } else {
+                    "OUTBOUND_CALL_END_FAILED"
+                }
+            Log.i(
+                "GHALBIT-VIRTUAL-PEER",
+                "OUTBOUND_CALL_FULL_FLOW status=$status callId=${accepted.callId} end=${end.status}"
+            )
+            accepted.copy(status = status)
+        }
 }
