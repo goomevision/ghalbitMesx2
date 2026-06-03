@@ -11,6 +11,11 @@ class FullDuplexCallEngine(
     private val onRealtimeFailure: (String) -> Unit,
     private val onTruthEvent: ((stage: String, details: String) -> Unit)? = null
 ) {
+    data class MediaPathDescriptor(
+        val label: String,
+        val serverOperatorCapable: Boolean,
+        val detail: String
+    )
     data class AudioRuntimeMetrics(
         val capturedFrames: Long,
         val txFrames: Long,
@@ -31,6 +36,7 @@ class FullDuplexCallEngine(
     private val sentFrames = AtomicInteger(0)
     private val failedFrames = AtomicInteger(0)
     private val virtualLoopbackFrames = AtomicInteger(0)
+    private val mediaPathLogged = AtomicBoolean(false)
     private val retransmitManager = VoiceRetransmitManager()
     @Volatile private var captureStartedAt = 0L
     @Volatile private var toneDiagnosticLab: CallToneDiagnosticLab? = null
@@ -71,6 +77,17 @@ class FullDuplexCallEngine(
                     onRealtimeFailure("Jalur suara belum siap")
                 }
                 return@AudioCaptureWorker
+            }
+            if (mediaPathLogged.compareAndSet(false, true)) {
+                val mediaPath = describeMediaPath(endpoint)
+                Log.d(
+                    "GHALBIT-CALL-MEDIA-PATH",
+                    "path=${mediaPath.label} serverOperator=${mediaPath.serverOperatorCapable} detail=${mediaPath.detail}"
+                )
+                onTruthEvent?.invoke(
+                    "media_path",
+                    "path=${mediaPath.label} serverOperator=${mediaPath.serverOperatorCapable} detail=${mediaPath.detail}"
+                )
             }
             val toneLab = toneDiagnosticLab
             val outgoingFrame =
@@ -172,6 +189,7 @@ class FullDuplexCallEngine(
         sentFrames.set(0)
         failedFrames.set(0)
         virtualLoopbackFrames.set(0)
+        mediaPathLogged.set(false)
         captureStartedAt = System.currentTimeMillis()
         Log.d("GHALBIT-CALL-RTC", "start realtime engine")
         Log.d("GHALBIT-CALL-RTC", "sessionReady=${sessionProvider() != null} endpointReady=${endpointProvider() != null}")
@@ -266,6 +284,43 @@ class FullDuplexCallEngine(
     private fun isVirtualDiagnosticEndpoint(endpoint: CallPeerEndpoint): Boolean {
         val route = endpoint.routeHint ?: endpoint.transportIp ?: ""
         return route.startsWith("virtual://", ignoreCase = true) || endpoint.nodeId == "VIRTUAL_CALLER_PC"
+    }
+
+    private fun describeMediaPath(endpoint: CallPeerEndpoint): MediaPathDescriptor {
+        val route = endpoint.routeHint.orEmpty()
+        val transport = endpoint.transportIp.orEmpty()
+        return when {
+            isVirtualDiagnosticEndpoint(endpoint) ->
+                MediaPathDescriptor(
+                    label = "virtual_diagnostic",
+                    serverOperatorCapable = false,
+                    detail = route.ifBlank { endpoint.nodeId }
+                )
+            route.startsWith("http://", ignoreCase = true) || route.startsWith("https://", ignoreCase = true) ->
+                MediaPathDescriptor(
+                    label = "server_operator_route_hint",
+                    serverOperatorCapable = true,
+                    detail = route
+                )
+            route.startsWith("internet:", ignoreCase = true) ->
+                MediaPathDescriptor(
+                    label = "internet_route_hint_without_media_relay",
+                    serverOperatorCapable = false,
+                    detail = route
+                )
+            transport.isNotBlank() || route.isNotBlank() ->
+                MediaPathDescriptor(
+                    label = "direct_mesh_socket",
+                    serverOperatorCapable = false,
+                    detail = transport.ifBlank { route }
+                )
+            else ->
+                MediaPathDescriptor(
+                    label = "no_media_path",
+                    serverOperatorCapable = false,
+                    detail = "-"
+                )
+        }
     }
 
     private fun deliverToVirtualSink(packet: VoicePacket): Boolean {

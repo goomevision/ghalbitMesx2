@@ -248,6 +248,14 @@ object CallManager {
             Log.w("GHALBIT-CALL-AUDIO-TX", "drop frame no route peer=${peer.nodeId}")
             return false
         }
+        val mediaPathLabel =
+            when {
+                targetIp.startsWith("http://", ignoreCase = true) || targetIp.startsWith("https://", ignoreCase = true) ->
+                    "server_operator_route_hint"
+                targetIp.startsWith("internet:", ignoreCase = true) ->
+                    "internet_route_hint_without_media_relay"
+                else -> "direct_mesh_socket"
+            }
         if (packet.payload.isEmpty()) {
             Log.w("GHALBIT-CALL-AUDIO-TX", "drop empty frame seq=${packet.sequence} peer=${peer.nodeId}")
             return false
@@ -280,6 +288,10 @@ object CallManager {
 
         val sent = MeshSocketClient.sendBlocking(targetIp, meshPacket)
         Log.d("GHALBIT-CALL-ROUTE", "route=$targetIp locked=${lockedRoute != null}")
+        Log.d(
+            "GHALBIT-CALL-MEDIA-PATH",
+            "path=$mediaPathLabel serverOperator=${mediaPathLabel == "server_operator_route_hint"} detail=$targetIp"
+        )
         val tx = if (sent) audioTxCounter.incrementAndGet() else audioTxCounter.get()
         Log.d("GHALBIT-VOICE-PACKET", "sent seq=${packet.sequence}")
         Log.d(
